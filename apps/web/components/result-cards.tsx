@@ -78,7 +78,7 @@ export function ResultCards({ lang, kpis, charts, tables, loading }: { lang: Lan
           </CardContent>
         </Card>
       )}
-      {charts.map((c) => <BarCard key={c.id} chart={c} />)}
+      {charts.filter((c) => c.data.length > 0).map((c) => <BarCard key={c.id} chart={c} />)}
       {tables.map((tb) => (
         <Card size="sm" key={tb.id}>
           <CardHeader><CardTitle>{tb.title}</CardTitle></CardHeader>

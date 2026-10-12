@@ -103,7 +103,7 @@ class ForecastIn(BaseModel):
 
 
 def sse(event: str, data: dict) -> ServerSentEvent:
-    return ServerSentEvent(event=event, data=json.dumps(data, ensure_ascii=False), raw_data=True)
+    return ServerSentEvent(event=event, raw_data=json.dumps(data, ensure_ascii=False))
 
 
 @app.get("/healthz")
