@@ -1,0 +1,25 @@
+# Static susceptibility S = sum(w_i * f_i), each f_i normalised to 0..1. Weights sum to 1.
+# Screening-level weighted overlay; sanity-check vs NASA GLC + LHASA (see docs/method.md).
+weights:
+  slope: 0.35
+  curvature: 0.05
+  landcover: 0.15
+  forest_loss: 0.10
+  soil_clay: 0.10
+  soil_sand: 0.05
+  stream_proximity: 0.10
+  elevation_relief: 0.10
+normalisation:
+  slope_deg: {min: 0, max: 45}
+  curvature: {min: -0.05, max: 0.05}
+  stream_dist_m: {near: 100, far: 2000}
+landcover_score:   # ESA WorldCover class -> 0..1
+  10: 0.5   # tree
+  20: 0.6   # shrub
+  30: 0.5   # grass
+  40: 0.7   # crop
+  50: 0.3   # built-up
+  60: 0.9   # bare
+  80: 0.0   # water
+  90: 0.1   # wetland
+  95: 0.1   # mangrove

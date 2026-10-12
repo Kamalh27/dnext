@@ -1,0 +1,20 @@
+# Intensity-duration threshold I_thr = alpha * D^beta  (I mm/h, D hours). Swap for a Thai-specific one.
+intensity_duration:
+  name: "Caine (1980) global"
+  alpha: 14.82
+  beta: -0.39
+antecedent:
+  days: 15
+  reference_mm: 300      # 15-day total that counts as fully wet (W=1)
+hazard:
+  k: 1.2                 # steepness of trigger response
+  antecedent_gain: 0.5   # a in (1 + a*W)
+  class_cutoffs: [0.15, 0.35, 0.60]   # Low <0.15<= Moderate <0.35<= High <0.60<= Very High
+  class_names: [Low, Moderate, High, Very High]
+  class_colors: ["#ffffb2", "#fecc5c", "#fd8d3c", "#bd0026"]
+limits:
+  rainfall_mm_max: 1500
+  duration_h_min: 1
+  duration_h_max: 720
+exposure:
+  household_size: 2.5    # 2025 census prelim. (news-reported); estimate only

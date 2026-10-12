@@ -1,0 +1,19 @@
+# Local run with your ADC login: gcloud auth application-default login
+services:
+  api:
+    build: apps/api
+    env_file: .env
+    ports: ["8080:8080"]
+    volumes:
+      - ${HOME}/.config/gcloud:/gcp:ro
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /gcp/application_default_credentials.json
+  web:
+    build:
+      context: apps/web
+      args:
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:8080
+        NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}
+        NEXT_PUBLIC_GOOGLE_MAP_ID: ${NEXT_PUBLIC_GOOGLE_MAP_ID}
+    ports: ["3000:8080"]
+    depends_on: [api]

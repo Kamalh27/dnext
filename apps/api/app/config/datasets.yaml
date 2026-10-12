@@ -1,0 +1,15 @@
+dem: NASA/NASADEM_HGT/001
+landcover: ESA/WorldCover/v200
+forest: UMD/hansen/global_forest_change_2025_v1_13
+soil_clay: OpenLandMap/SOL/SOL_CLAY-WFRACTION_USDA-3A1A1A_M/v02
+soil_sand: OpenLandMap/SOL/SOL_SAND-WFRACTION_USDA-3A1A1A_M/v02
+hydro: MERIT/Hydro/v1_0_1
+imerg: NASA/GPM_L3/IMERG_V07
+gfs: NOAA/GFS0P25
+population: WorldPop/GP/100m/pop
+buildings: GOOGLE/Research/open-buildings/v3/polygons
+ghsl_built: JRC/GHSL/P2023A/GHS_BUILT_S
+# Own assets, created by scripts/ (fill after export):
+susceptibility_asset: ""
+exposure_stack_asset: ""
+tambon_asset: ""
