@@ -62,4 +62,13 @@ setup-gcp:
     make setup
 
 deploy:
-    make deploy
+    bash infra/deploy.sh
+
+deploy-api:
+    bash infra/deploy.sh --api-only
+
+deploy-web:
+    bash infra/deploy.sh --web-only
+
+smoke url:
+    python3 infra/smoke_test.py {{url}}

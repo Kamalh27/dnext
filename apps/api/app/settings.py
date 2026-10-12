@@ -45,7 +45,8 @@ def assets() -> dict:
     return merged
 
 
-REPO_ROOT = Path(__file__).resolve().parents[3]   # '/' inside the container, where /credentials is mounted
+_PARENTS = Path(__file__).resolve().parents
+REPO_ROOT = _PARENTS[min(3, len(_PARENTS) - 1)]   # repo root locally; '/' in the container (/app/app/settings.py)
 
 
 def service_account_key_path() -> Path | None:

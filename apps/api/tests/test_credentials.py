@@ -5,6 +5,14 @@ import pytest
 from app import settings as s
 
 
+@pytest.fixture(autouse=True)
+def _restore_settings_cache():
+    yield
+    s.settings.cache_clear()   # don't leak monkeypatched env into later tests (e.g. integration)
+    from app.geo import ee_init
+    ee_init._initialised = False
+
+
 def _with_key(monkeypatch, value):
     monkeypatch.setenv("EE_SERVICE_ACCOUNT_KEY", value)
     s.settings.cache_clear()
@@ -41,3 +49,10 @@ def test_ee_project_falls_back_to_key_project(monkeypatch, tmp_path):
     monkeypatch.setattr(ee_init.ee, "Initialize", lambda creds, project: seen.update(creds=creds, project=project))
     ee_init.init()
     assert seen == {"creds": "creds", "project": "from-key"}
+
+
+def test_repo_root_resolution_is_safe_for_shallow_paths():
+    # Container layout is /app/app/settings.py (only 3 parents); must not raise IndexError at import.
+    from pathlib import PurePosixPath
+    parents = PurePosixPath("/app/app/settings.py").parents
+    assert parents[min(3, len(parents) - 1)] == PurePosixPath("/")
