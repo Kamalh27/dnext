@@ -36,7 +36,7 @@ Work through in order. Everything runs in **mock mode** (`GEO_BACKEND=mock`) bef
    uv run --group scripts python ../../scripts/validate_susceptibility.py
    ```
    (`infra/bootstrap.sh --run-pipeline` runs these.) Open the Tasks tab in the EE Code Editor to watch exports.
-8. **Optional Geocoding fallback** for places not in the admin index: `export GOOGLE_MAPS_SERVER_KEY=<server key>` locally (or `--update-secrets` / `--set-env-vars` on Cloud Run; note `cloudbuild.yaml` does not wire it yet, add `GOOGLE_MAPS_SERVER_KEY=maps-server-key:latest` to `--set-secrets` if you want it deployed).
+8. **Optional Geocoding fallback** for places not in the admin index: `export GOOGLE_MAPS_SERVER_KEY=<server key>` locally (or `--update-secrets` / `--set-env-vars` on Cloud Run; `infra/cloudbuild-api.yaml` mounts it from the `maps-server-key` secret).
 9. **Deploy.** First run builds the api; set `API_URL` to its URL, then deploy again so the web build points at it:
    ```bash
    gcloud run services describe lw-api --region asia-southeast1 --project $PROJECT_ID --format='value(status.url)'
@@ -82,3 +82,11 @@ Web build args (`apps/web`): `NEXT_PUBLIC_API_BASE_URL`, `NEXT_PUBLIC_GOOGLE_MAP
 **`weights.yaml`**: `weights.*` (sum 1), `normalisation.{slope_deg,curvature,stream_dist_m,channel_upa_km2}`, `landcover_score` by WorldCover class. Rationale in `docs/method.md`.
 
 **`thresholds.yaml`**: `intensity_duration.{name,alpha,beta}` (Caine 14.82, -0.39); `antecedent.{days,reference_mm}` (15, 300); `hazard.{k,antecedent_gain,class_cutoffs,class_names,class_colors}` (1.2, 0.5, [0.15,0.35,0.60]); `limits.{rainfall_mm_max,duration_h_min,duration_h_max}` (1500, 1, 720); `exposure.household_size` (2.5).
+
+## Deploy flow (infra/deploy.sh)
+Order: `infra/config.env` (PROJECT_ID, REGION, EE_PROJECT) → `infra/setup.sh` once (APIs, `landslide-api` service account + roles, Cloud Build roles, Artifact Registry `lw`, Firestore, bucket `$PROJECT_ID-lw`) → `infra/bootstrap.sh` (Secret Manager: `maps-key`, `maps-server-key`) → `just deploy`.
+
+- `just deploy` = `infra/deploy.sh`: builds + deploys `lw-api` (Cloud Run, attached SA, **no key file in the image**, min-instances from `MIN_INSTANCES_API`), reads its URL, builds `lw-web` with that URL baked in (`NEXT_PUBLIC_*` come from `.env`), then locks the api's `ALLOWED_ORIGINS` to the web URL and runs `infra/smoke_test.py`.
+- `just deploy-api` / `just deploy-web` redeploy one service. `just smoke <url>` re-runs the smoke test.
+- After the first web deploy, add the printed web URL (`https://lw-web-….run.app/*`) to the Maps **browser key's HTTP referrer** list.
+- Local-only: `EE_SERVICE_ACCOUNT_KEY=credentials/ee-sa.json` (gitignored). Cloud Run uses its attached service account instead.

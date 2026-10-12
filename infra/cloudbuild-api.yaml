@@ -1,0 +1,34 @@
+# Build + deploy the API. Submitted by infra/deploy.sh (substitutions come from infra/config.env).
+substitutions:
+  _REGION: asia-southeast1
+  _REPO: lw
+  _MIN_INSTANCES: "1"
+  _MAX_INSTANCES: "5"
+  _AGENT_MODEL: gemini-3.5-flash
+  _ALLOWED_ORIGINS: "*"      # tightened to the web URL by deploy.sh after the web service exists
+options:
+  logging: CLOUD_LOGGING_ONLY
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: [build, -t, "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/api:$BUILD_ID", apps/api]
+  - name: gcr.io/cloud-builders/docker
+    args: [push, "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/api:$BUILD_ID"]
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - lw-api
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/api:$BUILD_ID
+      - --region=${_REGION}
+      - --service-account=landslide-api@$PROJECT_ID.iam.gserviceaccount.com
+      - --allow-unauthenticated
+      - --cpu=2
+      - --memory=1Gi
+      - --concurrency=20
+      - --timeout=300
+      - --cpu-boost
+      - --min-instances=${_MIN_INSTANCES}
+      - --max-instances=${_MAX_INSTANCES}
+      - --set-env-vars=^@^GEO_BACKEND=ee@EE_PROJECT=$PROJECT_ID@GOOGLE_GENAI_USE_VERTEXAI=true@GOOGLE_CLOUD_PROJECT=$PROJECT_ID@GOOGLE_CLOUD_LOCATION=global@AGENT_MODEL=${_AGENT_MODEL}@ALLOWED_ORIGINS=${_ALLOWED_ORIGINS}
+      - --set-secrets=GOOGLE_MAPS_SERVER_KEY=maps-server-key:latest

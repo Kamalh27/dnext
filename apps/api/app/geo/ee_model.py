@@ -38,7 +38,8 @@ def factors() -> ee.Image:
 
     h = ee.Image(ds["forest"])
     last_loss_year = 25  # 2025 in v1.13; lossyear is years since 2000
-    recent_loss = h.select("lossyear").gt(last_loss_year - 10).And(h.select("treecover2000").gt(30))
+    # Hansen bands are masked outside forest/land; "no recent loss" must be 0, not nodata, or S loses those pixels.
+    recent_loss = h.select("lossyear").gt(last_loss_year - 10).And(h.select("treecover2000").gt(30)).unmask(0)
 
     clay = ee.Image(ds["soil_clay"]).select("b0")
     sand = ee.Image(ds["soil_sand"]).select("b0")

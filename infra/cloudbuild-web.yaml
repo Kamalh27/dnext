@@ -1,0 +1,25 @@
+# Build + deploy the web app. NEXT_PUBLIC_* values are baked at build time (they are public by design).
+substitutions:
+  _REGION: asia-southeast1
+  _REPO: lw
+  _API_URL: ""
+  _MAPS_KEY: ""
+  _MAP_ID: ""
+options:
+  logging: CLOUD_LOGGING_ONLY
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/web:$BUILD_ID
+      - --build-arg=NEXT_PUBLIC_API_BASE_URL=${_API_URL}
+      - --build-arg=NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${_MAPS_KEY}
+      - --build-arg=NEXT_PUBLIC_GOOGLE_MAP_ID=${_MAP_ID}
+      - apps/web
+  - name: gcr.io/cloud-builders/docker
+    args: [push, "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/web:$BUILD_ID"]
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args: [run, deploy, lw-web, "--image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/web:$BUILD_ID",
+           "--region=${_REGION}", --allow-unauthenticated, --cpu=1, --memory=512Mi, --max-instances=5]

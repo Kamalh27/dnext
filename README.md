@@ -105,4 +105,4 @@ _Placeholders; add after the first deploy._
 
 ## Layout
 
-`apps/web` Next.js UI, `apps/api` FastAPI + ADK + geo (`app/geo`, `app/agent`, `app/config`), `scripts` one-time data pipeline, `infra` setup/bootstrap/smoke test, `docs`, `evals`, `cloudbuild.yaml`, `docker-compose.yml`, `Makefile`.
+`apps/web` Next.js UI, `apps/api` FastAPI + ADK + geo (`app/geo`, `app/agent`, `app/config`), `scripts` one-time data pipeline, `infra` setup/bootstrap/smoke test, `docs`, `evals`, `infra/cloudbuild-*.yaml`, `docker-compose.yml`, `Makefile`.
