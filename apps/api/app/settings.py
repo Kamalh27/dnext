@@ -28,3 +28,14 @@ def settings() -> Settings:
 @lru_cache
 def load_yaml(name: str) -> dict:
     return yaml.safe_load((CONFIG_DIR / name).read_text())
+
+
+@lru_cache
+def assets() -> dict:
+    """datasets.yaml merged with assets.local.yaml (written by scripts/ after each export).
+    This is the single 'plug-in' point: once scripts finish, asset IDs land here and the API uses them."""
+    merged = dict(load_yaml("datasets.yaml"))
+    local = CONFIG_DIR / "assets.local.yaml"
+    if local.exists():
+        merged.update({k: v for k, v in (yaml.safe_load(local.read_text()) or {}).items() if v})
+    return merged
