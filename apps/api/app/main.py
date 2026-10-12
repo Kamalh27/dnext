@@ -1,10 +1,14 @@
+import asyncio
+import contextvars
 import json
 import logging
+import time
 import uuid
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, PlainTextResponse, HTMLResponse
 from fastapi.sse import EventSourceResponse, ServerSentEvent
 from google.adk.agents.run_config import RunConfig, StreamingMode
 from google.adk.runners import Runner
@@ -16,12 +20,27 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from app.agent.agent import build_agent
-from app.agent.events import events_for_tool_result, scenario_events, status_for
-from app.geo import service
+from app import briefing as briefing_mod
+from app.agent.events import events_for_tool_result, forecast_events, scenario_events, status_for
+from app.geo import service, storage
 from app.geo.areas import AreaError, resolve
 from app.settings import settings
 
-logging.basicConfig(level=logging.INFO, format='{"severity":"%(levelname)s","message":"%(message)s"}')
+request_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("request_id", default="-")
+
+
+class JsonFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        d = {"severity": record.levelname, "message": record.getMessage(), "logger": record.name,
+             "request_id": request_id_var.get()}
+        if record.exc_info:
+            d["exception"] = self.formatException(record.exc_info)
+        return json.dumps(d, ensure_ascii=False)
+
+
+_h = logging.StreamHandler()
+_h.setFormatter(JsonFormatter())
+logging.basicConfig(level=logging.INFO, handlers=[_h], force=True)
 log = logging.getLogger("api")
 APP_NAME = "landslidewatch"
 limiter = Limiter(key_func=get_remote_address, default_limits=[settings().rate_limit])
@@ -42,10 +61,28 @@ app.add_middleware(CORSMiddleware, allow_origins=settings().allowed_origins.spli
 
 
 @app.middleware("http")
-async def size_cap(request: Request, call_next):
-    if int(request.headers.get("content-length") or 0) > settings().max_request_bytes:
-        return __import__("fastapi").responses.JSONResponse({"detail": "request too large"}, status_code=413)
-    return await call_next(request)
+async def guard(request: Request, call_next):
+    """Request id, size cap, 60 s timeout (SSE /chat exempt), access log."""
+    rid = request.headers.get("x-request-id") or uuid.uuid4().hex[:16]
+    request_id_var.set(rid)
+    t0 = time.monotonic()
+    try:
+        if int(request.headers.get("content-length") or 0) > settings().max_request_bytes:
+            resp = JSONResponse({"detail": "request too large"}, status_code=413)
+        elif request.url.path == "/chat":
+            resp = await call_next(request)
+        else:
+            try:
+                resp = await asyncio.wait_for(call_next(request), settings().request_timeout_s)
+            except asyncio.TimeoutError:
+                resp = JSONResponse({"detail": "request timed out"}, status_code=504)
+    except Exception:
+        log.exception("unhandled error")
+        resp = JSONResponse({"detail": "internal error"}, status_code=500)
+    resp.headers["X-Request-ID"] = rid
+    log.info("%s %s -> %s %.0fms", request.method, request.url.path, resp.status_code,
+             (time.monotonic() - t0) * 1000)
+    return resp
 
 
 class ChatIn(BaseModel):
@@ -58,6 +95,11 @@ class ScenarioIn(BaseModel):
     area: str
     rainfall_mm: float
     duration_h: float = 72
+
+
+class ForecastIn(BaseModel):
+    area: str
+    horizon_days: int = 5
 
 
 def sse(event: str, data: dict) -> ServerSentEvent:
@@ -100,16 +142,45 @@ async def chat(request: Request, body: ChatIn):
     yield sse("final", {"session_id": sid})
 
 
+def _payload(events) -> dict:
+    d = dict(events)
+    return {k: d[k] for k in ("map_layer", "kpis", "chart", "map_markers", "table") if k in d}
+
+
 @app.post("/scenario")
 async def scenario(body: ScenarioIn):
     try:
-        r = service.run_scenario(resolve(body.area), body.rainfall_mm, body.duration_h)
+        r = await asyncio.to_thread(service.run_scenario, resolve(body.area), body.rainfall_mm, body.duration_h)
     except (AreaError, ValueError) as e:
         raise HTTPException(422, str(e))
-    d = dict(scenario_events(r))
-    return {"map_layer": d["map_layer"], "kpis": d["kpis"], "chart": d["chart"]}
+    return _payload(scenario_events(r))
+
+
+@app.post("/forecast")
+async def forecast(body: ForecastIn):
+    try:
+        r = await asyncio.to_thread(service.run_forecast, resolve(body.area), body.horizon_days)
+    except (AreaError, ValueError) as e:
+        raise HTTPException(422, str(e))
+    return _payload(forecast_events(r))
 
 
 @app.get("/explain")
 async def explain(lat: float, lng: float, scenario_id: str | None = None):
-    return service.explain_point(lat, lng)
+    return await asyncio.to_thread(service.explain_point, lat, lng, scenario_id)
+
+
+@app.get("/briefing/{scenario_id}")
+async def briefing(scenario_id: str, language: str = "en", format: str = "md"):
+    if language not in ("en", "th") or format not in ("md", "html"):
+        raise HTTPException(422, "language must be en|th and format md|html")
+    sc = service.get_cached(scenario_id)
+    if sc is None:
+        raise HTTPException(404, "Unknown or expired scenario_id")
+    md = await asyncio.to_thread(briefing_mod.build_briefing, sc, language)
+    name = f"{scenario_id}-{language}"
+    path = await asyncio.to_thread(storage.upload, f"{name}.md", md)
+    log.info("briefing stored at %s", path)
+    if format == "html":
+        return HTMLResponse(briefing_mod.to_html(md, language))
+    return PlainTextResponse(md, media_type="text/markdown; charset=utf-8")

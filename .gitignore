@@ -8,3 +8,5 @@ node_modules/
 *.pyc
 .DS_Store
 infra/config.env
+.local_storage/
+scripts/out/

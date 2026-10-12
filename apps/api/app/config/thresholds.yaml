@@ -17,4 +17,5 @@ limits:
   duration_h_min: 1
   duration_h_max: 720
 exposure:
+  avg_footprint_m2: 60   # GHSL fallback: buildings = built_surface / this
   household_size: 2.5    # 2025 census prelim. (news-reported); estimate only
