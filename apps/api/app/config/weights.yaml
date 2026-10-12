@@ -13,6 +13,7 @@ normalisation:
   slope_deg: {min: 0, max: 45}
   curvature: {min: -0.05, max: 0.05}
   stream_dist_m: {near: 100, far: 2000}
+  channel_upa_km2: 5      # MERIT upa above this = channel
 landcover_score:   # ESA WorldCover class -> 0..1
   10: 0.5   # tree
   20: 0.6   # shrub
