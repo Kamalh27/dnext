@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     project_id: str = ""
     region: str = "asia-southeast1"
     ee_project: str = ""
+    ee_service_account_key: str = ""   # local dev: path to SA JSON; empty = ADC / attached SA
     geo_backend: str = "mock"
     agent_model: str = "gemini-3.5-flash"
     briefing_model: str = ""   # empty = deterministic template only (no LLM polish)
@@ -42,3 +43,29 @@ def assets() -> dict:
     if local.exists():
         merged.update({k: v for k, v in (yaml.safe_load(local.read_text()) or {}).items() if v})
     return merged
+
+
+REPO_ROOT = Path(__file__).resolve().parents[3]   # '/' inside the container, where /credentials is mounted
+
+
+def service_account_key_path() -> Path | None:
+    """Resolved SA key path from EE_SERVICE_ACCOUNT_KEY, or None. Relative paths resolve against the repo root."""
+    raw = settings().ee_service_account_key.strip()
+    if not raw:
+        return None
+    p = Path(raw).expanduser()
+    p = p if p.is_absolute() else REPO_ROOT / p
+    if not p.is_file():
+        raise FileNotFoundError(f"EE_SERVICE_ACCOUNT_KEY points to {p}, which does not exist")
+    return p
+
+
+def _export_adc_from_key() -> None:
+    """If a key is configured, make Vertex/Firestore/GCS clients use it too (one identity locally)."""
+    import os
+    key = service_account_key_path() if settings().ee_service_account_key.strip() else None
+    if key and not os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(key)
+
+
+_export_adc_from_key()

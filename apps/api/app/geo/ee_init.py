@@ -1,5 +1,5 @@
-"""Earth Engine initialisation (idempotent). Uses Application Default Credentials: works with
-`gcloud auth application-default login` locally and the attached service account on Cloud Run."""
+"""Earth Engine initialisation (idempotent). Credential order: EE_SERVICE_ACCOUNT_KEY file (local dev) ->
+Application Default Credentials (`gcloud auth application-default login` locally, attached service account on Cloud Run)."""
 import logging
 import threading
 import time
@@ -25,12 +25,22 @@ def init() -> None:
     with _lock:
         if _initialised:
             return
+        from app.settings import service_account_key_path
+        key = service_account_key_path()
         project = settings().ee_project
+        if not project and key:
+            import json
+            project = json.loads(key.read_text()).get("project_id", "")  # SA keys carry their project
         if not project:
             raise EEConfigError("EE_PROJECT is not set: Earth Engine backend needs an EE-registered Cloud project "
                                 "(set EE_PROJECT in .env) plus Application Default Credentials.")
-        import google.auth
-        creds, _ = google.auth.default(scopes=_SCOPES)
+        if key:
+            from google.oauth2 import service_account
+            creds = service_account.Credentials.from_service_account_file(str(key), scopes=_SCOPES)
+            log.info("Earth Engine using service-account key %s", key.name)
+        else:
+            import google.auth
+            creds, _ = google.auth.default(scopes=_SCOPES)
         ee.Initialize(creds, project=project)
         _initialised = True
         log.info("Earth Engine initialised (project=%s)", project)

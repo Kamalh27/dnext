@@ -10,3 +10,8 @@ node_modules/
 infra/config.env
 .local_storage/
 scripts/out/
+credentials/*
+!credentials/.gitkeep
+!credentials/README.md
+*-sa.json
+*service-account*.json
