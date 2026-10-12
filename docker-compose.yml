@@ -6,6 +6,7 @@ services:
     ports: ["8080:8080"]
     volumes:
       - ${HOME}/.config/gcloud:/gcp:ro
+      - ./credentials:/credentials:ro   # put the SA key here; set EE_SERVICE_ACCOUNT_KEY=/credentials/<file>.json in .env
     environment:
       GOOGLE_APPLICATION_CREDENTIALS: /gcp/application_default_credentials.json
   web:
