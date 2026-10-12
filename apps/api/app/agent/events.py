@@ -1,11 +1,12 @@
 """Map tool results to typed UI events so the UI never parses prose."""
-from app.geo import mock
-
 STATUS_LABELS = {
     "resolve_area": ("resolving_place", "Resolving place…"),
     "get_hazard_scenario": ("computing_hazard", "Computing hazard and exposure…"),
     "compare_scenarios": ("comparing", "Comparing scenarios…"),
     "explain_cell_or_village": ("explaining", "Explaining factors…"),
+    "get_forecast_hazard": ("forecasting", "Fetching rainfall forecast and computing hazard…"),
+    "get_exposure": ("exposure", "Computing exposure…"),
+    "generate_briefing": ("briefing", "Writing briefing…"),
 }
 
 
@@ -31,6 +32,9 @@ def scenario_events(r: dict) -> list[tuple[str, dict]]:
             "data_sources": sorted(set(h["data_sources"] + x["data_sources"])),
             "resolution_m": h["resolution_m"], "date_of_data": h["date_of_data"],
             "limitations": h["limitations"] + x["limitations"],
+            "shelters": x.get("shelters"), "kind": r.get("kind", "what_if"),
+            **({k: r["forecast"][k] for k in ("forecast_rain_mm", "observed_rain_mm", "horizon_days", "model_run_time")}
+               if r.get("forecast") else {}),
         }),
         ("chart", {
             "id": f"{sid}-top", "title": f"Most exposed units in {a['name']} (people, est.)",
@@ -38,6 +42,28 @@ def scenario_events(r: dict) -> list[tuple[str, dict]]:
             "data": [{"label": u["name"], "value": u["people"]} for u in x["top_admin_units"]],
         }),
     ]
+    if x.get("facilities"):
+        ev.append(("map_markers", {"id": f"{sid}-facilities", "markers": [
+            {"lat": f["lat"], "lng": f["lng"], "name": f["name"], "kind": f["kind"]} for f in x["facilities"][:200]]}))
+    return ev
+
+
+def forecast_events(r: dict) -> list[tuple[str, dict]]:
+    """scenario_events + a forecast table and rainfall chart (observed vs forecast, model run time)."""
+    ev = scenario_events(r)
+    f, sid = r["forecast"], r["scenario_id"]
+    ev.append(("table", {
+        "id": f"{sid}-forecast", "title": f"Observed + forecast rainfall: {r['area']['name']}",
+        "columns": ["Observed rain (mm)", "Forecast rain (mm)", "Horizon (days)", "Model run time"],
+        "rows": [[f["observed_rain_mm"], f["forecast_rain_mm"], f["horizon_days"], f["model_run_time"]]],
+        "scenario_id": sid,
+    }))
+    ev.append(("chart", {
+        "id": f"{sid}-rain", "title": f"Rainfall (mm), model run {f['model_run_time']}", "kind": "bar",
+        "x_label": "Source", "y_label": "mm",
+        "data": [{"label": "Observed", "value": f["observed_rain_mm"]},
+                 {"label": "Forecast", "value": f["forecast_rain_mm"]}],
+    }))
     return ev
 
 
@@ -46,6 +72,12 @@ def events_for_tool_result(tool: str, result: dict) -> list[tuple[str, dict]]:
         return []
     if tool == "get_hazard_scenario":
         return scenario_events(result)
+    if tool == "get_forecast_hazard":
+        return forecast_events(result)
+    if tool == "get_exposure" and result.get("exposure", {}).get("facilities"):
+        x, sid = result["exposure"], result["scenario_id"]
+        return [("map_markers", {"id": f"{sid}-facilities", "markers": [
+            {"lat": f["lat"], "lng": f["lng"], "name": f["name"], "kind": f["kind"]} for f in x["facilities"][:200]]})]
     if tool == "compare_scenarios":
         rows = [[f"{s['rainfall_mm']:.0f} mm", s["exposure"]["people"], s["exposure"]["households_est"],
                  s["exposure"]["buildings"], s["exposure"]["road_km"]] for s in result["scenarios"]]
