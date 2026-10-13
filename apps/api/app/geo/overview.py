@@ -129,8 +129,15 @@ def series(max_days: int = 5) -> dict:
     if hit and time.time() - hit[0] < _TTL_S and hit[2] == id(cur):
         return hit[1]
     days = []
+    forecast_note = None
     for h in range(0, max_days + 1):
-        o = national(h)
+        try:
+            o = national(h)
+        except OverviewUnavailable as e:
+            if h == 0:
+                raise                                   # no usable observed data: nothing honest to show
+            forecast_note = str(e)                       # degrade: keep the observed day, drop the forecast days
+            break
         days.append({
             "h": h, "date": _day_date(cur, h),
             "totals": {k: o[k] for k in ("tambons_total", "triggered", "high_trigger", "provinces_triggered", "provinces_total", "people_elevated")},
@@ -142,7 +149,7 @@ def series(max_days: int = 5) -> dict:
         })
     f = cur.get("forecast", {})
     out = {"date_of_data": cur["date_of_data"], "source": cur["source"], "model_run_time": f.get("model_run_time"), "max_days": max_days,
-           "days": days,
+           "days": days, "forecast_available": forecast_note is None, "forecast_note": forecast_note,
            "limitations": ["Observed rainfall (GSMaP) plus GFS forecast compared with each tambon's DMR thresholds. Forecast skill falls with lead time; "
                            "this is not an official warning or forecast."]}
     _memo[key] = (time.time(), out, id(cur))

@@ -84,3 +84,17 @@ def test_overview_series_carries_dashboard_fields(caches):
     d = overview.series(5)["days"][0]
     assert len(d["classes"]) == 5 and len(d["trigger_classes"]) == 6 and sum(d["trigger_classes"]) == d["totals"]["tambons_total"]
     assert "elevated" in d and all("name" in p for p in d["provinces"])
+
+
+def test_series_degrades_to_the_observed_day_when_the_forecast_is_stale(caches):
+    caches["forecast"]["run_ms"] -= 80 * 3_600_000          # a forecast run that is far too old
+    caches["forecast"]["horizons"] = {str(h): 24 * h for h in range(1, 6)}
+    s = overview.series(5)
+    assert [d["h"] for d in s["days"]] == [0] and s["forecast_available"] is False and "forecast" in s["forecast_note"].lower()
+
+
+def test_forecast_up_to_36_hours_old_is_still_used(caches):
+    caches["forecast"]["run_ms"] -= 30 * 3_600_000          # a once-a-day job leaves the run ~30 h old before the next refresh
+    caches["forecast"]["horizons"] = {str(h): 24 * h for h in range(1, 6)}
+    s = overview.series(5)
+    assert len(s["days"]) == 6 and s["forecast_available"] is True

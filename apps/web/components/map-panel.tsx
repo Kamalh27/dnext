@@ -13,7 +13,9 @@ import { AdvancedMarker, APIProvider, InfoWindow, Map, Map3D, MapMode, Marker3D,
 import { ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
-import { explain } from "@/lib/api";
+import { ApiError, explain } from "@/lib/api";
+import { gate, useBurstLeft } from "@/lib/auth";
+import { apiErrorText } from "@/lib/limit-text";
 import { fmt, t } from "@/lib/i18n";
 import { DEFAULT_VIEW, findProvince } from "@/lib/geo";
 import { localLayer, pick } from "@/lib/lang";
@@ -158,10 +160,12 @@ function MapInner({ lang, layer, layers, staticLayers, markers, provinces, selec
   const onMapClick = (e: { detail: { latLng: google.maps.LatLngLiteral | null } }) => {
     const ll = e.detail.latLng;
     if (!ll) return;
-    if (provinces.length === 0) return void (layer && setPoint(ll)); // outlines unavailable: keep the old explain-anywhere behaviour
+    // Explaining a point calls the (signed-in only) API: signed out, the sign-in dialog opens instead.
+    const explainAt = () => { if (gate()) setPoint(ll); };
+    if (provinces.length === 0) return void (layer && explainAt()); // outlines unavailable: keep the old explain-anywhere behaviour
     const hit = findProvince(provinces, ll.lat, ll.lng);
     if (!hit) return;
-    if (layer && hit.pcode === selected?.pcode) return setPoint(ll);
+    if (layer && hit.pcode === selected?.pcode) return explainAt();
     setPoint(null);
     onSelect(hit);
   };
@@ -419,12 +423,13 @@ function ProvinceOutlines({ provinces, selected, showAll, light, fills, hover }:
 
 function ExplainBody({ lang, point, scenarioId }: { lang: Lang; point: { lat: number; lng: number }; scenarioId: string }) {
   const tr = t(lang);
-  const [state, setState] = useState<{ data?: Explain; error?: boolean }>({});
+  const [state, setState] = useState<{ data?: Explain; error?: boolean | ApiError }>({});
+  const burstLeft = useBurstLeft();
   useEffect(() => {
     let live = true;
     explain(point.lat, point.lng, scenarioId)
       .then((data) => live && setState({ data }))
-      .catch(() => live && setState({ error: true }));
+      .catch((e) => live && setState({ error: e instanceof ApiError && !e.isAuthRequired ? e : true }));
     return () => {
       live = false;
     };
@@ -432,7 +437,7 @@ function ExplainBody({ lang, point, scenarioId }: { lang: Lang; point: { lat: nu
 
   return (
     <div className="max-w-60 space-y-2 text-xs text-neutral-900">
-      {state.error && <p role="alert">{tr.explainError}</p>}
+      {state.error && <p role="alert">{state.error instanceof ApiError && (state.error.isBurst || state.error.isDaily) ? apiErrorText(state.error, lang, burstLeft) : tr.explainError}</p>}
       {!state.data && !state.error && (
         <div aria-busy="true" className="space-y-1">
           <p>{tr.explainLoading}</p>

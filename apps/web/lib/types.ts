@@ -185,6 +185,8 @@ export interface OverviewSeries {
   max_days: number;
   limitations: string[];
   days: OverviewDay[];
+  forecast_available?: boolean;      // false = only day 0 (forecast data out of date)
+  forecast_note?: string | null;
 }
 
 /** Shared by POST /scenario and POST /forecast. Every key is optional; marker and chart sets may arrive as one item or a list. */

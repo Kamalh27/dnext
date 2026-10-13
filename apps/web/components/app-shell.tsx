@@ -7,8 +7,10 @@ import { ResizeHandle } from "./resize-handle";
 import { ChatPanel, type Message } from "./chat-panel";
 import { MapPanel } from "./map-panel";
 import { ScenarioBar } from "./scenario-bar";
+import { SignInDialog } from "./sign-in-dialog";
 import type { RunError, RunKind } from "./scenario-card";
-import { fetchOverviewSeries, fetchProvinces, fetchStaticLayers, runForecast as apiForecast, runScenario, streamChat } from "@/lib/api";
+import { ApiError, fetchOverviewSeries, fetchProvinces, fetchStaticLayers, runForecast as apiForecast, runScenario, streamChat } from "@/lib/api";
+import { burstLeftS, gate, loadAuthConfig, loadGis, requestSignIn, useAuth } from "@/lib/auth";
 import { t } from "@/lib/i18n";
 import { hasThai } from "@/lib/lang";
 import type { OverviewMetric } from "@/lib/overview";
@@ -56,6 +58,19 @@ export function AppShell() {
   const lastPrompt = useRef("");
   const tr = t(lang);
   const row = useRef<HTMLElement>(null);
+  // Sign in with Google (only when the API says auth is required; otherwise nothing below does anything).
+  const { status: authStatus } = useAuth();
+  const sendRef = useRef<(text: string) => boolean>(() => false);
+  // Bumped when a chat message that was blocked by sign-in has been re-sent, so the composer can drop the draft it kept.
+  const [resent, setResent] = useState<{ n: number; text: string } | null>(null);
+
+  useEffect(() => { void loadAuthConfig(); }, []);
+  // Signed out with auth required: warm up Google's script (it is only ever loaded in that case) so the dialog's button appears instantly.
+  useEffect(() => {
+    if (authStatus !== "signed_out") return;
+    const id = setTimeout(() => { loadGis().catch(() => {}); }, 1500);
+    return () => clearTimeout(id);
+  }, [authStatus]);
 
   // On-screen keyboard: where the layout viewport does not shrink by itself (iOS Safari), size the app to the visual viewport.
   useEffect(() => {
@@ -242,10 +257,8 @@ export function AppShell() {
     }
   }, [applyPayload]);
 
-  const send = useCallback(
-    async (text: string) => {
-      const message = text.trim();
-      if (!message || busy) return;
+  const doSend = useCallback(
+    async (message: string) => {
       lastPrompt.current = message;
       // A Thai question switches the UI to Thai (once, for this message; the EN/TH toggle can switch back) and asks for a Thai answer.
       const language: Lang = lang === "th" || hasThai(message) ? "th" : lang;
@@ -260,23 +273,44 @@ export function AppShell() {
       try {
         await streamChat({ message, session_id: sessionId.current, language, area: selected?.pcode }, onEvent, abort.current.signal);
       } catch (err) {
-        if ((err as Error).name !== "AbortError") patchAssistant((m) => ({ ...m, error: (err as Error).message }));
+        if ((err as Error).name === "AbortError") return;
+        if (err instanceof ApiError && err.isAuthRequired) {
+          // Session expired or refused: take the unanswered turn back and re-send it once after signing in again.
+          setMessages((ms) => ms.slice(0, -2));
+          requestSignIn(() => { if (sendRef.current(message)) setResent((r) => ({ n: (r?.n ?? 0) + 1, text: message })); });
+        } else if (err instanceof ApiError && (err.isBurst || err.isDaily)) patchAssistant((m) => ({ ...m, limit: err }));
+        else patchAssistant((m) => ({ ...m, error: (err as Error).message }));
       } finally {
         setBusy(false);
         setStatus([]);
       }
     },
-    [busy, lang, selected, onEvent],
+    [lang, selected, onEvent],
   );
+
+  /** Returns false when nothing was sent (empty, busy, waiting out a burst limit, or signed out), so the composer keeps the draft. */
+  const send = useCallback(
+    (text: string): boolean => {
+      const message = text.trim();
+      if (!message || busy || burstLeftS() > 0) return false;
+      // Signed out: open the sign-in dialog instead of calling the API; the message is re-sent once after a successful sign-in.
+      if (!gate(() => { if (sendRef.current(message)) setResent((r) => ({ n: (r?.n ?? 0) + 1, text: message })); })) return false;
+      void doSend(message);
+      return true;
+    },
+    [busy, doSend],
+  );
+  useEffect(() => { sendRef.current = send; }, [send]);
 
   const retry = () => {
     setMessages((ms) => ms.slice(0, -2));
-    void send(lastPrompt.current);
+    send(lastPrompt.current);
   };
 
   const run = useCallback(
     async (kind: RunKind, call: (area: string) => Promise<ScenarioResponse>) => {
-      if (!selected) return;
+      if (!selected || burstLeftS() > 0) return;
+      if (!gate()) return;   // signed out: the dialog opens, nothing is called; after signing in the user runs it again
       const token = ++runToken.current;
       setRunBusy(kind);
       setRunError(null);
@@ -284,7 +318,7 @@ export function AppShell() {
         const r = await call(selected.pcode);
         if (token === runToken.current) applyPayload(r, true);
       } catch (err) {
-        if (token === runToken.current) setRunError({ kind, message: (err as Error).message });
+        if (token === runToken.current && !(err instanceof ApiError && err.isAuthRequired)) setRunError({ kind, message: (err as Error).message, apiError: err instanceof ApiError ? err : undefined });
       } finally {
         if (token === runToken.current) setRunBusy(null);
       }
@@ -298,6 +332,7 @@ export function AppShell() {
 
   return (
     <div className="flex h-[var(--app-h,100dvh)] flex-col">
+      <SignInDialog lang={lang} />
       <Header lang={lang} setLang={setLang} tab={tab} onTab={setTab} />
       {/* Below 1024px the chat and the map are tabs (full-width panels); on short screens the tabs live inside the header instead. */}
       <div className="lg:hidden short:hidden">
@@ -323,6 +358,7 @@ export function AppShell() {
             busy={busy}
             status={status}
             onSend={send}
+            resent={resent}
             onStop={() => abort.current?.abort()}
             onRetry={retry}
             kpis={kpis}

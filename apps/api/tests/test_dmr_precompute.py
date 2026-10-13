@@ -79,8 +79,8 @@ def test_forecast_means_use_cumulative_horizon_and_freshness():
     d = _obs()
     assert obs_cache.forecast_means(d, _Area(), 2) == {"TH550101": 25.0}
     assert obs_cache.forecast_means(d, _Area(), 7) is None            # horizon not precomputed
-    d["forecast"]["run_ms"] -= 24 * 3_600_000
-    assert obs_cache.forecast_means(d, _Area(), 2) is None            # run too old
+    d["forecast"]["run_ms"] -= 40 * 3_600_000
+    assert obs_cache.forecast_means(d, _Area(), 2) is None            # run too old (> 36 h)
 
 
 def test_static_layers_endpoint_in_mock_mode():
