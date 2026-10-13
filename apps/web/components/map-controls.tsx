@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useMap, useMapsLibrary } from "@vis.gl/react-google-maps";
-import { Box, LoaderCircle, LocateFixed, Map as MapIcon, Maximize2, Minimize2, Minus, Plus, Search, X } from "lucide-react";
+import { Box, Globe, LoaderCircle, LocateFixed, Map as MapIcon, Maximize2, Minimize2, Minus, Plus, Search, X } from "lucide-react";
 import { t } from "@/lib/i18n";
 import type { Lang } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -24,7 +24,7 @@ function MapButton({ label, onClick, children, disabled, pressed, className }: {
 }
 
 /** Zoom, my location, 2D/3D and fullscreen. Must render under <APIProvider> (uses the default map instance). */
-export function MapControls({ lang, onLocate, fullscreenTarget }: { lang: Lang; onLocate: (p: Pt) => void; fullscreenTarget: HTMLElement | null }) {
+export function MapControls({ lang, onLocate, onGlobe, fullscreenTarget }: { lang: Lang; onLocate: (p: Pt) => void; onGlobe: () => void; fullscreenTarget: HTMLElement | null }) {
   const tr = t(lang);
   const map = useMap();
   const [is3d, setIs3d] = useState(false);
@@ -101,6 +101,7 @@ export function MapControls({ lang, onLocate, fullscreenTarget }: { lang: Lang; 
         <MapButton label={is3d ? tr.view2d : tr.view3d} onClick={toggle3d} pressed={is3d} className={cn(is3d && "bg-primary text-primary-foreground hover:bg-primary")}>
           {is3d ? <MapIcon /> : <Box />}
         </MapButton>
+        <MapButton label={tr.globeView} onClick={onGlobe}><Globe /></MapButton>
         <MapButton label={full ? tr.exitFullscreen : tr.fullscreen} onClick={toggleFull}>
           {full ? <Minimize2 /> : <Maximize2 />}
         </MapButton>

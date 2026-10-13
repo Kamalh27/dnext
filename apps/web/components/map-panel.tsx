@@ -6,7 +6,8 @@ import { useEffect, useRef, useState } from "react";
 import { BasemapSwitcher } from "./basemap-switcher";
 import { MapControls, MapSearch, type Pt } from "./map-controls";
 import { ScaleBar } from "./scale-bar";
-import { AdvancedMarker, APIProvider, InfoWindow, Map, Pin, useMap } from "@vis.gl/react-google-maps";
+import { AdvancedMarker, APIProvider, InfoWindow, Map, Map3D, MapMode, Marker3D, Pin, useMap } from "@vis.gl/react-google-maps";
+import { ArrowLeft } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Skeleton } from "@/components/ui/skeleton";
 import { explain } from "@/lib/api";
@@ -48,6 +49,7 @@ function MapInner({ lang, layer, markers }: { lang: Lang; layer: MapLayer | null
   const [me, setMe] = useState<Pt | null>(null);
   const [pin, setPin] = useState<(Pt & { label: string }) | null>(null);
   const [wrap, setWrap] = useState<HTMLDivElement | null>(null);
+  const [globe, setGlobe] = useState(false);
 
   const opacity = override && layer && override.id === layer.id ? override.value : (layer?.opacity ?? 0.7);
 
@@ -96,7 +98,33 @@ function MapInner({ lang, layer, markers }: { lang: Lang; layer: MapLayer | null
       <div className="absolute top-3 left-3 flex flex-col items-start gap-2">
         <MapSearch lang={lang} onPin={setPin} />
       </div>
-      <MapControls lang={lang} onLocate={setMe} fullscreenTarget={wrap} />
+      <MapControls lang={lang} onLocate={setMe} onGlobe={() => setGlobe(true)} fullscreenTarget={wrap} />
+
+      {globe && (
+        <div className="absolute inset-0 z-10 bg-black">
+          <Map3D
+            mode={MapMode.HYBRID}
+            defaultCenter={{ lat: 15.5, lng: 101, altitude: 0 }}
+            defaultRange={16_000_000}
+            defaultTilt={0}
+            defaultHeading={0}
+            style={{ position: "absolute", inset: 0 }}
+          >
+            <Marker3D position={{ lat: 15.5, lng: 101, altitude: 0 }} label="Thailand" />
+          </Map3D>
+          <div className="absolute top-3 left-3 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setGlobe(false)}
+              className="flex items-center gap-1.5 rounded-[4px] border bg-card/90 px-3 py-2 text-xs font-medium shadow-lg backdrop-blur-md outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <ArrowLeft className="size-4" aria-hidden />
+              {tr.globeBack}
+            </button>
+            <span className="rounded-[4px] border bg-card/90 px-3 py-2 text-xs shadow-lg backdrop-blur-md">{tr.globeCaption}</span>
+          </div>
+        </div>
+      )}
 
       <div className="absolute bottom-9 left-3 flex flex-col items-start gap-2">
       {layer && (
