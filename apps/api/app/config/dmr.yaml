@@ -6,6 +6,7 @@ assets:
   susceptibility: projects/<project>/assets/<asset>   # band b1, 0-100, 12 m
   vulnerability: projects/<project>/assets/<asset>   # 0-0.50 nationally, 12 m
   exposure: projects/<project>/assets/<asset>                        # 0.07-0.82 nationally, 12 m
+  thailand_adm1: WM/geoLab/geoBoundaries/600/ADM1   # filtered to shapeGroup THA: border mask for layers whose source covers neighbouring countries
 
 susceptibility_threshold: 10      # pixels below this are "not susceptible" (masked)
 
@@ -46,5 +47,5 @@ layers:
   susceptibility: {name: "Susceptibility class (1-5)", palette: ["1a9641", "a6d96a", "ffffbf", "fdae61", "d7191c"], min: 1, max: 5}
   vulnerability: {name: "Vulnerability class (1-5)", palette: ["1a9641", "a6d96a", "ffffbf", "fdae61", "d7191c"], min: 1, max: 5}
   exposure: {name: "Exposure class (1-5)", palette: ["1a9641", "a6d96a", "ffffbf", "fdae61", "d7191c"], min: 1, max: 5}
-  population: {name: "Population (WorldPop 2020, per hectare)", palette: ["ffffff", "fee8c8", "fdbb84", "e34a33", "7f0000"], min: 0, max: 60}
+  population: {name: "Population (WorldPop 2020, per hectare)", palette: ["f1eef6", "bdc9e1", "74a9cf", "2b8cbe", "045a8d"], min: 0, max: 40}
   risk: {name: "Landslide risk (0-5)", palette: ["ffffb2", "fecc5c", "fd8d3c", "f03b20", "bd0026"], min: 0, max: 5}
