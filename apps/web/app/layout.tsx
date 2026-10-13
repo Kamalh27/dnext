@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { IBM_Plex_Mono, IBM_Plex_Sans_Thai } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
+import { LAYOUT_INIT_SCRIPT } from "@/lib/layout";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
 
 // One family for Thai + Latin so mixed-language text sets evenly.
@@ -32,7 +33,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       suppressHydrationWarning
     >
       <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: `${THEME_INIT_SCRIPT};${LAYOUT_INIT_SCRIPT}` }} />
       </head>
       <body className="min-h-full flex flex-col">
         <ThemeProvider>{children}</ThemeProvider>
