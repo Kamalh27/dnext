@@ -69,6 +69,12 @@ export interface ChartData {
 export interface Kpis {
   scenario_id: string;
   area_name: string;
+  area_code?: string; // province pcode, e.g. "TH55"
+  kind?: "what_if" | "forecast";
+  rainfall_mm?: number | null;
+  duration_h?: number | null;
+  horizon_days?: number | null;
+  model_run_time?: string | null;
   // null = that layer is not built yet (API never fabricates a value)
   people: number | null;
   households_est: number | null;
@@ -97,7 +103,26 @@ export interface Explain {
   summary: string;
 }
 
-export interface ScenarioResponse { map_layer: MapLayer; map_layers?: MapLayersEvent; kpis: Kpis; chart: ChartData }
+/** One province from /provinces.json (77 entries). */
+export interface Province {
+  pcode: string; // e.g. "TH55"
+  name: string;
+  name_th: string;
+  bbox: [number, number, number, number]; // [w, s, e, n]
+  geometry: { type: "MultiPolygon"; coordinates: number[][][][] };
+}
+
+/** Shared by POST /scenario and POST /forecast. Every key is optional; marker and chart sets may arrive as one item or a list. */
+export interface ScenarioResponse {
+  map_layer?: MapLayer;
+  map_layers?: MapLayersEvent;
+  kpis?: Kpis;
+  chart?: ChartData | ChartData[];
+  map_markers?: MapMarkers | MapMarkers[];
+  table?: TableData;
+  tables?: TableData[]; // all table events; preferred over `table`
+}
+export type ForecastResponse = ScenarioResponse;
 
 export type SseEvent =
   | { event: "status"; data: { stage: string; label: string } }

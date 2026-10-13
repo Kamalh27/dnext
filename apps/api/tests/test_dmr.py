@@ -88,4 +88,4 @@ def test_events_include_layers_table_and_dmr_extras():
     assert [n for n, _ in scenario_events(r)][:3] == ["map_layer", "map_layers", "kpis"]
     assert ev["map_layers"]["layers"][0]["visible"] is True and len(ev["map_layers"]["layers"]) == 2
     assert ev["kpis"]["extras"]["triggered_tambons"] == 91 and ev["kpis"]["buildings"] is None
-    assert ev["table"]["rows"][0][0] == "T1" and "Tambon" in ev["table"]["columns"][0]
+    assert ev["table"]["rows"][0][0] == "T1 (A)" and "Tambon" in ev["table"]["columns"][0] and len(ev["table"]["columns"]) == 6
