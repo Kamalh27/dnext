@@ -30,7 +30,7 @@ export function ResultCards({ lang, kpis, charts, tables, loading }: { lang: Lan
     ? [
         { label: tr.kpiPeople, value: num(kpis.people, true), Icon: Users, est: true },
         { label: tr.kpiHouseholds, value: num(kpis.households_est, true), Icon: House, est: true },
-        { label: tr.kpiBuildings, value: num(kpis.buildings), Icon: Building2 },
+        { label: tr.kpiBuildings, value: num(kpis.buildings, true), Icon: Building2, est: true },
         { label: tr.kpiRoads, value: num(kpis.road_km), Icon: Route },
         { label: tr.kpiSchools, value: num(kpis.schools), Icon: GraduationCap },
         { label: tr.kpiHospitals, value: num(kpis.hospitals), Icon: Hospital },
