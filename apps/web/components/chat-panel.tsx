@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Markdown } from "./markdown";
 import { LegalModal } from "./legal-modal";
 import { LogoMark } from "./logo";
-import { Skeleton } from "@/components/ui/skeleton";
 import { OverviewCard } from "./overview-card";
 import { ResultCards } from "./result-cards";
 import { ScenarioCard, type RunError, type RunKind } from "./scenario-card";
@@ -89,9 +88,21 @@ export function ChatPanel(p: Props) {
             <div key={i} className="flex gap-2.5">
               <LogoMark className="mt-0.5 size-6" />
               <div className="min-w-0 flex-1 text-sm leading-relaxed">
-                {m.text ? <Markdown text={m.text} /> : (p.busy && i === p.messages.length - 1 && !m.error ? (
-                  <div className="space-y-2 pt-1" aria-busy="true"><Skeleton className="h-3 w-48" /><Skeleton className="h-3 w-32" /></div>
-                ) : null)}
+                {p.busy && i === p.messages.length - 1 && !m.error && (
+                  // progress chips sit on the same row as the icon (no extra rows while the model works)
+                  <ul className="flex min-h-6 flex-wrap items-center gap-1.5" aria-label="Progress" aria-busy="true">
+                    {(p.status.length ? p.status : [tr.thinking]).map((s, j, all) => {
+                      const live = j === all.length - 1;
+                      return (
+                        <li key={s} className={cn("flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs", live ? "border-primary/30 bg-accent text-accent-foreground" : "text-muted-foreground")}>
+                          {live && <span className="size-1.5 animate-pulse rounded-full bg-primary" aria-hidden />}
+                          {s}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+                {m.text && <div className={cn(p.busy && i === p.messages.length - 1 && "mt-1.5")}><Markdown text={m.text} /></div>}
                 {m.error && (
                   <div role="alert" className="mt-1 text-destructive">
                     {tr.error}: {m.error}{" "}
@@ -101,19 +112,6 @@ export function ChatPanel(p: Props) {
               </div>
             </div>
           ),
-        )}
-        {p.busy && p.status.length > 0 && (
-          <ul className="flex flex-wrap gap-1.5 pl-8" aria-label="Progress">
-            {p.status.map((s, i) => {
-              const live = i === p.status.length - 1;
-              return (
-                <li key={s} className={cn("flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs", live ? "border-primary/30 bg-accent text-accent-foreground" : "text-muted-foreground")}>
-                  {live && <span className="size-1.5 animate-pulse rounded-full bg-primary" aria-hidden />}
-                  {s}
-                </li>
-              );
-            })}
-          </ul>
         )}
         <ResultCards lang={p.lang} kpis={p.kpis} charts={p.charts} tables={p.tables} loading={p.busy} />
         {(p.province || p.kpis) && <ScenarioCard lang={p.lang} province={p.province} busy={p.runBusy} error={p.runError} onRun={p.onScenario} onForecast={p.onForecast} />}
