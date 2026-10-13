@@ -58,3 +58,22 @@ def test_overview_endpoint(caches):
         r = c.get("/overview")
         assert r.status_code == 200 and r.json()["triggered"] == 2
         assert c.get("/overview?horizon_days=99").status_code == 422
+
+
+def test_series_gives_one_record_per_day_with_cumulative_risk_and_daily_rain(caches):
+    caches["tambon"]["C1"]["f"] = [100.0, 250.0, 300.0, 300.0, 300.0, 0, 0, 0, 0, 0]    # cumulative forecast: 100 mm on day 1, 150 on day 2
+    caches["forecast"]["horizons"] = {str(h): 24 * h for h in range(1, 6)}
+    s = overview.series(5)
+    assert [d["h"] for d in s["days"]] == [0, 1, 2, 3, 4, 5] and s["days"][0]["date"] == "2026-10-11"
+    dry = lambda h: next(p for p in s["days"][h]["provinces"] if p["pcode"] == "PC")
+    assert dry(0)["rain_mm"] == 1.0 and dry(1)["rain_mm"] == 100.0 and dry(2)["rain_mm"] == 150.0 and dry(3)["rain_mm"] == 50.0
+    trig = [d["totals"]["triggered"] for d in s["days"]]
+    assert trig == sorted(trig)                  # synthetic data has no rain rolling out of the 30-day window, so it only grows
+    assert s["days"][5]["totals"]["triggered"] == 3 and "not an official" in s["limitations"][0]
+
+
+def test_series_endpoint(caches):
+    caches["forecast"]["horizons"] = {str(h): 24 * h for h in range(1, 6)}
+    with TestClient(app) as c:
+        j = c.get("/overview/series?days=5").json()
+        assert len(j["days"]) == 6 and c.get("/overview/series?days=99").status_code == 422
