@@ -119,6 +119,18 @@ async def overview(horizon_days: int = 0):
         raise HTTPException(503, str(e))
 
 
+@app.get("/overview/series")
+async def overview_series(days: int = 5):
+    """Slider data: national current conditions for day 0 (observed) .. +days (forecast), by province. Instant after the first call."""
+    from app.geo import overview as ov
+    if not (1 <= days <= 10):
+        raise HTTPException(422, "days must be between 1 and 10")
+    try:
+        return await asyncio.to_thread(ov.series, days)
+    except ov.OverviewUnavailable as e:
+        raise HTTPException(503, str(e))
+
+
 @app.get("/layers/static")
 async def static_layers():
     """Reference layers (susceptibility, vulnerability, exposure, population) for the Layers panel; no scenario needed."""
