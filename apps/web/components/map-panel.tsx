@@ -56,7 +56,7 @@ function MapInner({ lang, layer, markers }: { lang: Lang; layer: MapLayer | null
       <Map
         mapId={MAP_ID}
         colorScheme={theme === "dark" ? "DARK" : "LIGHT"}
-        mapTypeId={mapType}
+        mapTypeId={mapType === "satellite" ? "hybrid" : "terrain"}
         defaultCenter={{ lat: 15.5, lng: 101 }}
         defaultZoom={6}
         gestureHandling="greedy"

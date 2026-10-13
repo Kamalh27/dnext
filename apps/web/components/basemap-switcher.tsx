@@ -39,8 +39,9 @@ export function BasemapSwitcher({ lang, value, onChange }: { lang: Lang; value: 
       >
         {/* eslint-disable-next-line @next/next/no-img-element -- tiny static SVG */}
         <img src={THUMB[value]} alt="" className="size-full object-cover transition-transform group-hover:scale-105" />
-        <span className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-gradient-to-t from-black/70 to-transparent px-1.5 pt-3 pb-0.5 text-[10px] font-medium text-white">
-          <span className="flex items-center gap-0.5"><Layers className="size-2.5" aria-hidden />{label(value)}</span>
+        <span className="absolute top-1 left-1 grid size-4 place-items-center rounded bg-black/45 text-white"><Layers className="size-2.5" aria-hidden /></span>
+        <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-1 pt-3 pb-0.5 text-center text-[10px] font-medium text-white">
+          {label(value)}
         </span>
       </button>
 
