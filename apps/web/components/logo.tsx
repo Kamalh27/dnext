@@ -2,8 +2,9 @@ import { cn } from "@/lib/utils";
 
 /** DNext mark: a ridge with debris sliding off the slope, on a brand tile. Colours come from CSS tokens, so it adapts to light/dark. */
 export function LogoMark({ className, inverted }: { className?: string; inverted?: boolean }) {
-  const tile = inverted ? "fill-primary-foreground" : "fill-brand";
-  const ink = inverted ? "fill-primary" : "fill-brand-fg";
+  // On the brand-coloured (light) header the mark inverts; on the dark header it returns to the normal brand tile.
+  const tile = inverted ? "fill-primary-foreground dark:fill-brand" : "fill-brand";
+  const ink = inverted ? "fill-primary dark:fill-brand-fg" : "fill-brand-fg";
   return (
     <svg viewBox="0 0 32 32" role="img" aria-label="DNext" className={cn("size-8 shrink-0", className)}>
       <rect width="32" height="32" rx="8" className={tile} />
@@ -22,7 +23,7 @@ export function Wordmark({ className, inverted }: { className?: string; inverted
       <span className="text-[18px] font-semibold tracking-tight">
         D<span className="font-normal">Next</span>
       </span>
-      <span className={cn("mt-1 hidden text-[11px] tracking-wide sm:block", inverted ? "text-primary-foreground/75" : "text-muted-foreground")}>LandslideWatch TH</span>
+      <span className={cn("mt-1 hidden text-[11px] tracking-wide sm:block", inverted ? "text-primary-foreground/75 dark:text-muted-foreground" : "text-muted-foreground")}>LandslideWatch TH</span>
     </span>
   );
 }

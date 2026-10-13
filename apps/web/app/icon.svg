@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <style>
-    .t{fill:#16807a}.f{fill:#f4fbfa}
-    @media (prefers-color-scheme: dark){.t{fill:#5fd6cd}.f{fill:#0c2a2c}}
+    .t{fill:#6b4226}.f{fill:#fbf6ee}
+    @media (prefers-color-scheme: dark){.t{fill:#e0a867}.f{fill:#2a1d12}}
   </style>
   <rect width="32" height="32" rx="8" class="t"/>
   <path d="M4 25.5 12 11.5l5 7.5 4-5.5 7 12Z" class="f"/>
