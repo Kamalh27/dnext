@@ -7,11 +7,17 @@ import { ChatPanel, type Message } from "./chat-panel";
 import { MapPanel } from "./map-panel";
 import { runScenario, streamChat } from "@/lib/api";
 import { t } from "@/lib/i18n";
-import type { ChartData, Kpis, Lang, MapLayer, MapMarkers, SseEvent, TableData } from "@/lib/types";
+import type { ChartData, Kpis, Lang, MapLayer, MapLayersEvent, MapMarkers, SseEvent, TableData } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const upsert = <T extends { id: string }>(list: T[], item: T) =>
   list.some((x) => x.id === item.id) ? list.map((x) => (x.id === item.id ? item : x)) : [...list, item];
+
+/** The primary (risk) layer of a set, in the single-layer shape other code (explain, bbox) expects. */
+function primaryOf(set: MapLayersEvent): MapLayer | null {
+  const p = set.layers.find((l) => l.key === "risk") ?? set.layers[0];
+  return p ? { id: p.id, name: p.name, tile_url: p.tile_url, opacity: p.opacity, bbox: set.bbox, legend: p.legend, scenario_id: set.scenario_id } : null;
+}
 
 export function AppShell() {
   const [lang, setLang] = useState<Lang>("en");
@@ -20,6 +26,7 @@ export function AppShell() {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string[]>([]);
   const [layer, setLayer] = useState<MapLayer | null>(null);
+  const [layers, setLayers] = useState<MapLayersEvent | null>(null);
   const [markers, setMarkers] = useState<MapMarkers[]>([]);
   const [kpis, setKpis] = useState<Kpis | null>(null);
   const [charts, setCharts] = useState<ChartData[]>([]);
@@ -45,6 +52,13 @@ export function AppShell() {
         break;
       case "map_layer":
         setLayer(e.data);
+        // A layer set from another scenario is stale; the matching map_layers event follows.
+        setLayers((prev) => (prev && prev.scenario_id === e.data.scenario_id ? prev : null));
+        break;
+      case "map_layers":
+        setLayers(e.data);
+        // Keep the primary layer in sync (explain popover needs scenario_id) unless map_layer already sent it.
+        setLayer((prev) => (prev && prev.scenario_id === e.data.scenario_id ? prev : primaryOf(e.data) ?? prev));
         break;
       case "map_markers":
         setMarkers((m) => upsert(m, e.data));
@@ -104,6 +118,7 @@ export function AppShell() {
       try {
         const r = await runScenario({ area: kpis.area_name, rainfall_mm, duration_h });
         setLayer(r.map_layer);
+        setLayers(r.map_layers ?? null);
         setKpis(r.kpis);
         setCharts((c) => upsert(c, r.chart));
       } catch (err) {
@@ -158,7 +173,7 @@ export function AppShell() {
           />
         </div>
         <div className={cn("min-h-0", tab === "map" ? "block" : "hidden md:block")}>
-          <MapPanel lang={lang} layer={layer} markers={allMarkers} />
+          <MapPanel lang={lang} layer={layer} layers={layers} markers={allMarkers} />
         </div>
         <ResizeHandle row={row} label={tr.resizeChat} />
       </main>

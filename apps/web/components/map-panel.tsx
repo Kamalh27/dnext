@@ -2,17 +2,17 @@
 
 import { useTheme } from "./theme-provider";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BasemapSwitcher } from "./basemap-switcher";
+import type { LayerPatch } from "./layers-panel";
 import { MapControls, MapSearch, type Pt } from "./map-controls";
 import { ScaleBar } from "./scale-bar";
 import { AdvancedMarker, APIProvider, InfoWindow, Map, Map3D, MapMode, Marker3D, Pin, useMap } from "@vis.gl/react-google-maps";
 import { ArrowLeft } from "lucide-react";
-import { Slider } from "@/components/ui/slider";
 import { Skeleton } from "@/components/ui/skeleton";
 import { explain } from "@/lib/api";
 import { t } from "@/lib/i18n";
-import type { Explain, Lang, MapLayer, MapMarkers } from "@/lib/types";
+import type { Explain, Lang, MapLayer, MapLayerItem, MapLayersEvent, MapMarkers } from "@/lib/types";
 
 const KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 const MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAP_ID || "DEMO_MAP_ID";
@@ -23,7 +23,16 @@ const KIND_STYLE: Record<string, { glyph: string; bg: string }> = {
   bridge: { glyph: "B", bg: "#4d4d4d" },
 };
 
-export function MapPanel({ lang, layer, markers }: { lang: Lang; layer: MapLayer | null; markers: MapMarkers["markers"] }) {
+interface PanelProps { lang: Lang; layer: MapLayer | null; layers: MapLayersEvent | null; markers: MapMarkers["markers"] }
+
+/** Overlay draw order, bottom to top: list order is priority (first = top), and the risk layer is always on top. */
+function stackBottomUp(ls: MapLayerItem[]) {
+  const r = [...ls].reverse();
+  const i = r.findIndex((l) => l.key === "risk");
+  return i < 0 ? r : [...r.slice(0, i), ...r.slice(i + 1), r[i]];
+}
+
+export function MapPanel({ lang, layer, layers, markers }: PanelProps) {
   const tr = t(lang);
   if (!KEY) {
     return (
@@ -35,16 +44,18 @@ export function MapPanel({ lang, layer, markers }: { lang: Lang; layer: MapLayer
   }
   return (
     <APIProvider apiKey={KEY}>
-      <MapInner lang={lang} layer={layer} markers={markers} />
+      <MapInner lang={lang} layer={layer} layers={layers} markers={markers} />
     </APIProvider>
   );
 }
 
-function MapInner({ lang, layer, markers }: { lang: Lang; layer: MapLayer | null; markers: MapMarkers["markers"] }) {
+function MapInner({ lang, layer, layers, markers }: PanelProps) {
   const tr = t(lang);
   const { theme } = useTheme();
   const [mapType, setMapType] = useState<"terrain" | "satellite">("satellite");
-  const [override, setOverride] = useState<{ id: string; value: number } | null>(null);
+  // Per-layer user tweaks (visibility, opacity). Scoped to a scenario so a new result starts from the server defaults.
+  const [tweaks, setTweaks] = useState<{ scope: string; byId: Record<string, LayerPatch> }>({ scope: "", byId: {} });
+  const [overlayInfo, setOverlayInfo] = useState({ count: 0, opacity: "" });
   const [point, setPoint] = useState<{ lat: number; lng: number } | null>(null);
   const [me, setMe] = useState<Pt | null>(null);
   const [pin, setPin] = useState<(Pt & { label: string }) | null>(null);
@@ -57,10 +68,34 @@ function MapInner({ lang, layer, markers }: { lang: Lang; layer: MapLayer | null
     if (layer) setGlobe(false);
   }
 
-  const opacity = override && layer && override.id === layer.id ? override.value : (layer?.opacity ?? 0.7);
+  // One list for both modes: a map_layers set, or the single legacy map_layer as a lone risk layer.
+  const scope = layers?.scenario_id ?? layer?.scenario_id ?? "";
+  const bbox = layers?.bbox ?? layer?.bbox ?? null;
+  const items = useMemo<MapLayerItem[]>(() => {
+    const base: MapLayerItem[] = layers
+      ? layers.layers
+      : layer
+        ? [{ id: layer.id, key: "risk", name: layer.name, tile_url: layer.tile_url, opacity: layer.opacity, visible: true, legend: layer.legend }]
+        : [];
+    const byId = tweaks.scope === scope ? tweaks.byId : {};
+    return base.map((l) => ({ ...l, ...byId[l.id] }));
+  }, [layers, layer, tweaks, scope]);
+  const onLayerChange = useCallback(
+    (id: string, p: LayerPatch) =>
+      setTweaks((prev) => {
+        const byId = prev.scope === scope ? prev.byId : {};
+        return { scope, byId: { ...byId, [id]: { ...byId[id], ...p } } };
+      }),
+    [scope],
+  );
+  // Legend card follows the top visible layer.
+  const top = useMemo(() => {
+    const vis = items.filter((l) => l.visible);
+    return vis.find((l) => l.key === "risk") ?? vis[0] ?? null;
+  }, [items]);
 
   return (
-    <div ref={setWrap} className="relative h-full w-full bg-background">
+    <div ref={setWrap} className="relative h-full w-full bg-background" data-overlay-count={overlayInfo.count} data-overlay-opacity={overlayInfo.opacity}>
       <Map
         mapId={MAP_ID}
         colorScheme={theme === "dark" ? "DARK" : "LIGHT"}
@@ -72,7 +107,7 @@ function MapInner({ lang, layer, markers }: { lang: Lang; layer: MapLayer | null
         mapTypeControl={false}
         onClick={(e) => e.detail.latLng && layer && setPoint(e.detail.latLng)}
       >
-        <HazardOverlay layer={layer} opacity={opacity} />
+        <LayerOverlays items={items} bbox={bbox} scope={scope} onInfo={setOverlayInfo} />
         {me && (
           <AdvancedMarker position={me} title={tr.pinMe}>
             <span className="relative flex size-4" data-testid="my-location-dot">
@@ -104,7 +139,7 @@ function MapInner({ lang, layer, markers }: { lang: Lang; layer: MapLayer | null
       <div className="absolute top-3 left-3 flex flex-col items-start gap-2">
         <MapSearch lang={lang} onPin={setPin} />
       </div>
-      <MapControls lang={lang} onLocate={setMe} onGlobe={() => setGlobe(true)} fullscreenTarget={wrap} />
+      <MapControls lang={lang} onLocate={setMe} onGlobe={() => setGlobe(true)} fullscreenTarget={wrap} layers={items} onLayerChange={onLayerChange} />
 
       {globe && (
         <div className="absolute inset-0 z-10 bg-black">
@@ -132,21 +167,19 @@ function MapInner({ lang, layer, markers }: { lang: Lang; layer: MapLayer | null
       )}
 
       <div className="absolute bottom-9 left-3 flex flex-col items-start gap-2">
-      {layer && (
-        <div className="w-60 space-y-2.5 rounded-[4px] border bg-card/90 p-3.5 text-xs shadow-lg backdrop-blur-md">
-          <p className="text-[13px] font-semibold leading-snug">{layer.name}</p>
-          <ul aria-label={tr.legend} className="space-y-1">
-            {layer.legend.map((l) => (
-              <li key={l.label} className="flex items-center gap-2">
-                <span className="size-3 shrink-0 rounded-[2px] border border-black/20" style={{ background: l.color }} aria-hidden />
-                {l.label}
-              </li>
-            ))}
-          </ul>
-          <div className="space-y-1">
-            <label id="op-l">{tr.opacity}</label>
-            <Slider aria-labelledby="op-l" min={0} max={1} step={0.05} value={[opacity]} onValueChange={(v) => setOverride({ id: layer.id, value: Array.isArray(v) ? v[0] : v })} />
-          </div>
+      {top && (
+        <div className="w-60 space-y-2.5 rounded-[4px] border bg-card/90 p-3.5 text-xs shadow-lg backdrop-blur-md" data-testid="legend-card">
+          <p className="text-[13px] font-semibold leading-snug">{top.name}</p>
+          {top.legend.length > 0 && (
+            <ul aria-label={tr.legend} className="space-y-1">
+              {top.legend.map((l) => (
+                <li key={l.label} className="flex items-center gap-2">
+                  <span className="size-3 shrink-0 rounded-[2px] border border-black/20" style={{ background: l.color }} aria-hidden />
+                  {l.label}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
         <div className="flex items-end gap-2">
@@ -158,37 +191,70 @@ function MapInner({ lang, layer, markers }: { lang: Lang; layer: MapLayer | null
   );
 }
 
-/** Renders the hazard tiles as an ImageMapType in map.overlayMapTypes, replacing any previous one. */
-function HazardOverlay({ layer, opacity }: { layer: MapLayer | null; opacity: number }) {
+/**
+ * Draws every visible layer that has tiles as a stacked ImageMapType in map.overlayMapTypes. Overlay instances are
+ * cached per layer+url and the overlay array is patched in place, so toggling one layer or dragging an opacity
+ * slider never rebuilds the others. Refits the view when the scenario or bbox changes.
+ */
+function LayerOverlays({ items, bbox, scope, onInfo }: {
+  items: MapLayerItem[]; bbox: MapLayersEvent["bbox"] | null; scope: string; onInfo: (i: { count: number; opacity: string }) => void;
+}) {
   const map = useMap();
-  const imt = useRef<google.maps.ImageMapType | null>(null);
+  const cache = useRef<Record<string, google.maps.ImageMapType>>({});
 
   useEffect(() => {
-    if (!map || !layer) return;
-    const overlay = new google.maps.ImageMapType({
-      name: layer.name,
-      tileSize: new google.maps.Size(256, 256),
-      opacity,
-      getTileUrl: (c, z) =>
-        layer.tile_url.replace("{z}", String(z)).replace("{x}", String(c.x)).replace("{y}", String(c.y)),
-    });
-    map.overlayMapTypes.clear();
-    if (layer.tile_url) {
-      map.overlayMapTypes.push(overlay);
-      imt.current = overlay;
-    }
-    const [w, s, e, n] = layer.bbox;
-    map.fitBounds({ west: w, south: s, east: e, north: n }, 48);
+    if (!map) return;
+    const store = cache.current;
+    const arr = map.overlayMapTypes;
     return () => {
-      map.overlayMapTypes.clear();
-      imt.current = null;
+      arr.clear();
+      for (const k of Object.keys(store)) delete store[k];
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- opacity is synced by the effect below
-  }, [map, layer]);
+  }, [map]);
 
   useEffect(() => {
-    imt.current?.setOpacity(opacity);
-  }, [opacity, layer]);
+    if (!map) return;
+    const arr = map.overlayMapTypes;
+    const store = cache.current;
+    const drawn = stackBottomUp(items).filter((l) => l.visible && l.tile_url);
+    const want = drawn.map((l) => {
+      const k = `${l.id}|${l.tile_url}`;
+      let imt: google.maps.ImageMapType | undefined = store[k];
+      if (!imt) {
+        const url = l.tile_url;
+        imt = new google.maps.ImageMapType({
+          name: l.name,
+          tileSize: new google.maps.Size(256, 256),
+          opacity: l.opacity,
+          getTileUrl: (c, z) => url.replace("{z}", String(z)).replace("{x}", String(c.x)).replace("{y}", String(c.y)),
+        });
+        store[k] = imt;
+      }
+      imt.setOpacity(l.opacity);
+      return imt;
+    });
+    const wanted = new Set(want);
+    for (const k of Object.keys(store)) if (!wanted.has(store[k])) delete store[k];
+
+    const indexOf = (o: google.maps.MapType | null | undefined) => {
+      for (let i = 0; i < arr.getLength(); i++) if (arr.getAt(i) === o) return i;
+      return -1;
+    };
+    for (let i = arr.getLength() - 1; i >= 0; i--) if (!wanted.has(arr.getAt(i) as google.maps.ImageMapType)) arr.removeAt(i);
+    want.forEach((imt, i) => {
+      if (arr.getAt(i) === imt) return;
+      const j = indexOf(imt);
+      if (j > i) arr.removeAt(j);
+      arr.insertAt(i, imt);
+    });
+    onInfo({ count: arr.getLength(), opacity: want.map((m) => (m.getOpacity() ?? 1).toFixed(2)).join(",") });
+  }, [map, items, onInfo]);
+
+  const [w, s, e, n] = bbox ?? [NaN, NaN, NaN, NaN];
+  useEffect(() => {
+    if (!map || Number.isNaN(w)) return;
+    map.fitBounds({ west: w, south: s, east: e, north: n }, 48);
+  }, [map, scope, w, s, e, n]);
 
   return null;
 }

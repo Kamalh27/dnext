@@ -15,6 +15,15 @@ def status_for(tool: str) -> dict:
     return {"stage": stage, "label": label}
 
 
+def _extras(h: dict, x: dict) -> dict:
+    """DMR-mode KPIs: only present when the backend supplied them (never a made-up 0)."""
+    if h.get("model") != "dmr":
+        return {}
+    return {"extras": {"triggered_tambons": h.get("triggered_tambons"), "tambons_total": h.get("tambons_total"),
+                       "high_risk_people": x.get("people"), "trigger_source": "DMR tambon percentile thresholds",
+                       "rain_window": f"{h.get('antecedent_days', '?')} d observed + scenario"}}
+
+
 def scenario_events(r: dict) -> list[tuple[str, dict]]:
     """Events for one scenario result (shared by /chat and /scenario)."""
     h, x, a = r["hazard"], r["exposure"], r["area"]
@@ -33,15 +42,26 @@ def scenario_events(r: dict) -> list[tuple[str, dict]]:
             "resolution_m": h["resolution_m"], "date_of_data": h["date_of_data"],
             "limitations": h["limitations"] + x["limitations"],
             "shelters": x.get("shelters"), "kind": r.get("kind", "what_if"),
+            **_extras(h, x),
             **({k: r["forecast"][k] for k in ("forecast_rain_mm", "observed_rain_mm", "horizon_days", "model_run_time")}
                if r.get("forecast") else {}),
         }),
         ("chart", {
             "id": f"{sid}-top", "title": f"Most exposed units in {a['name']} (people, est.)",
             "kind": "bar", "x_label": "Unit", "y_label": "People",
-            "data": [{"label": u["name"], "value": u["people"]} for u in x["top_admin_units"]],
+            "data": [{"label": u["name"], "value": u["people"]} for u in x["top_admin_units"] if u.get("people")],
         }),
     ]
+    if h.get("layers"):
+        ev.insert(1, ("map_layers", {"scenario_id": sid, "bbox": a["bbox"], "layers": h["layers"]}))
+    if x.get("tambon_table"):
+        ev.append(("table", {
+            "id": f"{sid}-tambons", "title": f"Tambon risk and exposure: {a['name']} (top {len(x['tambon_table'])} of {x.get('tambons_ranked', '?')})",
+            "columns": ["Tambon", "Amphoe", "Trigger (0-5)", "30-day rain (mm)", "Risk, peak (0-5)", "Elevated-risk area (%)", "Exposure class (1-5)", "People in elevated risk (est.)"],
+            "rows": [[t["name"], t["amphoe"], t["trigger_class"], t["rain30_mm"], t["risk_max"], t["share_high_pct"], t["exposure_class"], t["people"]]
+                     for t in x["tambon_table"]],
+            "scenario_id": sid,
+        }))
     if x.get("facilities"):
         ev.append(("map_markers", {"id": f"{sid}-facilities", "markers": [
             {"lat": f["lat"], "lng": f["lng"], "name": f["name"], "kind": f["kind"]} for f in x["facilities"][:200]]}))

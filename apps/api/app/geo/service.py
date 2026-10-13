@@ -17,18 +17,27 @@ def _hash(*parts) -> str:
 
 def scenario_id(area: Area, rainfall_mm: float, duration_h: float, min_class: str = "High") -> str:
     parts = [area.admin_code, rainfall_mm, duration_h, date.today().isoformat()]
+    parts += _model_part()
     if min_class != "High":      # keep default ids stable
         parts.append(min_class)
     return _hash(*parts)
 
 
 def forecast_id(area: Area, horizon_days: int) -> str:
-    return _hash("forecast", area.admin_code, horizon_days, date.today().isoformat())
+    return _hash("forecast", area.admin_code, horizon_days, date.today().isoformat(), *_model_part())
+
+
+def _model_part() -> list[str]:
+    """Cache-key part so results from different hazard models never mix (keeps old ids stable for screening)."""
+    return ["dmr"] if settings().geo_backend == "ee" and settings().hazard_model == "dmr" else []
 
 
 def _backend():
     if settings().geo_backend == "ee":
-        from app.geo import ee_backend  # lazy: needs EE auth
+        if settings().hazard_model == "dmr":
+            from app.geo import dmr_backend  # lazy: needs EE auth
+            return dmr_backend
+        from app.geo import ee_backend
         return ee_backend
     return mock
 

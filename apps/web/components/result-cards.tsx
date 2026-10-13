@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, ChevronDown, GraduationCap, Hospital, House, MapPin, Route, Users, type LucideIcon } from "lucide-react";
+import { Building2, ChevronDown, CloudRain, GraduationCap, Hospital, House, MapPin, Route, Users, type LucideIcon } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,6 +36,13 @@ export function ResultCards({ lang, kpis, charts, tables, loading }: { lang: Lan
       ]
     : [];
 
+  // Optional extras: only shown when the API sent them. null/undefined = "—", never 0.
+  const ex = kpis?.extras;
+  const trig = ex && ex.triggered_tambons !== undefined
+    ? { value: ex.triggered_tambons == null ? null : ex.tambons_total == null ? nf.format(ex.triggered_tambons) : `${nf.format(ex.triggered_tambons)} / ${nf.format(ex.tambons_total)}`,
+        note: [ex.rain_window, ex.trigger_source && `${tr.triggerSource}: ${ex.trigger_source}`].filter(Boolean).join(" · ") }
+    : null;
+
   const onExport = async () => {
     if (!kpis) return;
     setExporting(true);
@@ -67,6 +74,18 @@ export function ResultCards({ lang, kpis, charts, tables, loading }: { lang: Lan
                   </dd>
                 </div>
               ))}
+              {trig && (
+                <div className="col-span-2 rounded-xl bg-muted/70 px-3 py-2.5" data-testid="kpi-triggered">
+                  <dt className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <CloudRain className="size-3.5" aria-hidden />
+                    {tr.kpiTriggered}
+                  </dt>
+                  <dd className="mt-1 flex flex-wrap items-baseline gap-x-2 text-[22px] leading-none font-semibold tracking-tight tabular-nums">
+                    {trig.value ?? <span className="text-muted-foreground" title={tr.na} aria-label={tr.na}>—</span>}
+                    {trig.note && <span className="text-[11px] font-normal tracking-normal text-muted-foreground">{trig.note}</span>}
+                  </dd>
+                </div>
+              )}
             </dl>
             <Collapsible>
               <CollapsibleTrigger className="group flex items-center gap-1 rounded text-sm font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
