@@ -87,6 +87,7 @@ async def guard(request: Request, call_next):
 
 class ChatIn(BaseModel):
     message: str = Field(max_length=2000)
+    area: str | None = Field(default=None, max_length=40)      # province the user selected in the UI (name or admin code)
     session_id: str | None = None
     language: str = "en"
 
@@ -156,6 +157,12 @@ async def chat(request: Request, body: ChatIn):
     if not await sessions.get_session(app_name=APP_NAME, user_id=user, session_id=sid):
         await sessions.create_session(app_name=APP_NAME, user_id=user, session_id=sid)
     text = body.message if body.language == "en" else f"[reply in Thai] {body.message}"
+    if body.area:
+        try:       # context from the UI's province selector: used when the user does not name another place
+            sel = resolve(body.area)
+            text = f"[The user has selected {sel.name} ({sel.pcode}) in the app; use it when they do not name another place] {text}"
+        except AreaError:
+            pass
     msg = types.Content(role="user", parts=[types.Part(text=text)])
     yield sse("status", {"stage": "thinking", "label": "Thinking…"})
     try:
@@ -180,7 +187,9 @@ async def chat(request: Request, body: ChatIn):
 
 def _payload(events) -> dict:
     d = dict(events)
-    return {k: d[k] for k in ("map_layer", "map_layers", "kpis", "chart", "map_markers", "table") if k in d}
+    out = {k: d[k] for k in ("map_layer", "map_layers", "kpis", "chart", "map_markers", "table") if k in d}
+    out["tables"] = [data for name, data in events if name == "table"]        # every table (a forecast has two)
+    return out
 
 
 @app.post("/scenario")

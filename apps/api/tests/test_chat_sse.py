@@ -66,3 +66,17 @@ def test_chat_runner_failure_becomes_error_event():
         r = c.post("/chat", json={"message": "hi"})
     names = [e["event"] for e in _parse(r.text)]
     assert "error" in names and names[-1] == "final"
+
+
+def test_chat_passes_selected_province_to_the_agent():
+    seen = {}
+
+    class Spy:
+        async def run_async(self, **kw):
+            seen["text"] = kw["new_message"].parts[0].text
+            yield FakeEvent(text="ok", partial=True)
+
+    with TestClient(app) as c:
+        app.state.runner = Spy()
+        c.post("/chat", json={"message": "what if 200 mm?", "area": "TH55"})
+    assert "selected Nan (TH55)" in seen["text"] and "what if 200 mm?" in seen["text"]

@@ -33,7 +33,7 @@ def test_healthz_and_scenario_endpoint():
     with TestClient(app) as c:
         assert c.get("/healthz").json()["ok"]
         r = c.post("/scenario", json={"area": "Nan", "rainfall_mm": 250, "duration_h": 72})
-        assert r.status_code == 200 and set(r.json()) == {"map_layer", "kpis", "chart", "map_markers"}
+        assert r.status_code == 200 and set(r.json()) == {"map_layer", "kpis", "chart", "map_markers", "tables"}
         assert c.post("/scenario", json={"area": "Nan", "rainfall_mm": 99999}).status_code == 422
 
 
