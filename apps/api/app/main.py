@@ -6,7 +6,7 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse, HTMLResponse
 from fastapi.sse import EventSourceResponse, ServerSentEvent
@@ -24,6 +24,7 @@ from app import briefing as briefing_mod
 from app.agent.events import events_for_tool_result, forecast_events, scenario_events, status_for
 from app.geo import service, storage
 from app.geo.areas import AreaError, resolve
+from app.auth import gate
 from app.settings import settings
 
 request_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("request_id", default="-")
@@ -172,11 +173,51 @@ async def healthz():
     return {"ok": True, "backend": settings().geo_backend}
 
 
+class GoogleLoginIn(BaseModel):
+    credential: str = Field(max_length=4096)
+
+
+@app.get("/auth/config")
+async def auth_config():
+    """Public: lets the web app decide whether to show sign-in, without a rebuild per environment."""
+    from app import usage
+    s = settings()
+    return {"auth_required": s.auth_required, "google_client_id": s.google_oauth_client_id or None, "limits": usage.limits()}
+
+
+@app.post("/auth/google")
+@limiter.limit("20/minute")
+async def auth_google(request: Request, body: GoogleLoginIn):
+    from app import auth, usage
+    try:
+        info = await asyncio.to_thread(auth.verify_google_id_token, body.credential)
+        token, user = auth.issue_session(info)
+    except RuntimeError as e:                       # server not configured
+        raise HTTPException(503, str(e))
+    except Exception as e:  # noqa: BLE001 - bad/expired/foreign token
+        log.info("google sign-in rejected: %s", str(e)[:120])
+        raise HTTPException(401, {"code": "invalid_google_token", "message": "Google sign-in could not be verified. Please try again."})
+    return {"token": token, "expires_in_s": settings().session_ttl_s,
+            "user": {"name": user.name, "email": user.email, "picture": user.picture},
+            "usage": await asyncio.to_thread(usage.snapshot, user.uid), "limits": usage.limits()}
+
+
+@app.get("/me")
+async def me(request: Request):
+    """The signed-in user and today's usage (does not count against the limits)."""
+    from app import auth, usage
+    user = auth.current_user(request)
+    if user is None:
+        raise HTTPException(401, {"code": "auth_required", "message": "Not signed in."}, headers={"WWW-Authenticate": "Bearer"})
+    return {"user": {"name": user.name, "email": user.email, "picture": user.picture},
+            "usage": await asyncio.to_thread(usage.snapshot, user.uid), "limits": usage.limits()}
+
+
 @app.post("/chat", response_class=EventSourceResponse)
 @limiter.limit("20/minute")
-async def chat(request: Request, body: ChatIn):
+async def chat(request: Request, body: ChatIn, account=Depends(gate("chat"))):
     sid = body.session_id or uuid.uuid4().hex
-    user = "web"
+    user = account.uid if not account.anonymous else "web"
     sessions: InMemorySessionService = request.app.state.sessions
     if not await sessions.get_session(app_name=APP_NAME, user_id=user, session_id=sid):
         await sessions.create_session(app_name=APP_NAME, user_id=user, session_id=sid)
@@ -217,7 +258,7 @@ def _payload(events) -> dict:
 
 
 @app.post("/scenario")
-async def scenario(body: ScenarioIn):
+async def scenario(body: ScenarioIn, account=Depends(gate("run"))):
     try:
         r = await asyncio.to_thread(service.run_scenario, resolve(body.area), body.rainfall_mm, body.duration_h)
     except (AreaError, ValueError) as e:
@@ -226,7 +267,7 @@ async def scenario(body: ScenarioIn):
 
 
 @app.post("/forecast")
-async def forecast(body: ForecastIn):
+async def forecast(body: ForecastIn, account=Depends(gate("run"))):
     try:
         r = await asyncio.to_thread(service.run_forecast, resolve(body.area), body.horizon_days)
     except (AreaError, ValueError) as e:
@@ -235,12 +276,12 @@ async def forecast(body: ForecastIn):
 
 
 @app.get("/explain")
-async def explain(lat: float, lng: float, scenario_id: str | None = None):
+async def explain(lat: float, lng: float, scenario_id: str | None = None, account=Depends(gate("light"))):
     return await asyncio.to_thread(service.explain_point, lat, lng, scenario_id)
 
 
 @app.get("/briefing/{scenario_id}")
-async def briefing(scenario_id: str, language: str = "en", format: str = "md"):
+async def briefing(scenario_id: str, language: str = "en", format: str = "md", account=Depends(gate("light"))):
     if language not in ("en", "th") or format not in ("md", "html"):
         raise HTTPException(422, "language must be en|th and format md|html")
     sc = service.get_cached(scenario_id)

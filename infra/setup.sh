@@ -22,6 +22,9 @@ for BUILD_SA in "$PROJECT_NUMBER-compute@developer.gserviceaccount.com" "$PROJEC
 done
 gcloud artifacts repositories create lw --repository-format=docker --location "$REGION" || true
 gcloud firestore databases create --location "$REGION" || true
+# auto-delete expired cache entries and daily usage counters (documents carry an expires_at timestamp)
+gcloud firestore fields ttls update expires_at --collection-group=usage --enable-ttl --async || true
+gcloud firestore fields ttls update expires_at --collection-group=scenarios --enable-ttl --async || true
 gsutil mb -l "$REGION" "gs://$PROJECT_ID-lw" || true
 gsutil iam ch "serviceAccount:$SA_EMAIL:objectAdmin" "gs://$PROJECT_ID-lw"
 echo "Next: store the Maps key:  printf %s \$KEY | gcloud secrets create maps-key --data-file=-"

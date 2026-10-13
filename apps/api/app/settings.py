@@ -22,6 +22,15 @@ class Settings(BaseSettings):
     allowed_origins: str = "http://localhost:3000"
     max_request_bytes: int = 16_384
     rate_limit: str = "30/minute"
+    # --- sign-in + per-account limits (see app/auth.py, app/usage.py) ---
+    auth_required: bool = False                 # True in production: chat/scenario/forecast need a Google sign-in
+    google_oauth_client_id: str = ""            # Web OAuth client id (public); audience of the Google ID token
+    session_secret: str = ""                    # HMAC secret for our session token (Secret Manager in production)
+    session_ttl_s: int = 12 * 3600
+    limit_chat_per_day: int = 30
+    limit_run_per_day: int = 200                # scenario + forecast runs
+    limit_burst_per_min: int = 6                # per account, per instance
+    usage_timezone: str = "Asia/Bangkok"        # daily counters reset at local midnight
     request_timeout_s: float = 60.0
 
 
