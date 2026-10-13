@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Header } from "./header";
+import { ResizeHandle } from "./resize-handle";
 import { ChatPanel, type Message } from "./chat-panel";
 import { MapPanel } from "./map-panel";
 import { runScenario, streamChat } from "@/lib/api";
@@ -29,6 +30,7 @@ export function AppShell() {
   const abort = useRef<AbortController | null>(null);
   const lastPrompt = useRef("");
   const tr = t(lang);
+  const row = useRef<HTMLElement>(null);
 
   const patchAssistant = (fn: (m: Message) => Message) =>
     setMessages((ms) => ms.map((m, i) => (i === ms.length - 1 && m.role === "assistant" ? fn(m) : m)));
@@ -134,7 +136,10 @@ export function AppShell() {
           </button>
         ))}
       </div>
-      <main className="grid min-h-0 flex-1 md:grid-cols-[32%_1fr]">
+      <main
+        ref={row}
+        className="relative grid min-h-0 flex-1 md:grid-cols-[clamp(320px,var(--chat-w,32%),70%)_1fr]"
+      >
         <div className={cn("min-h-0 border-r bg-background", tab === "chat" ? "block" : "hidden md:block")}>
           <ChatPanel
             lang={lang}
@@ -155,6 +160,7 @@ export function AppShell() {
         <div className={cn("min-h-0", tab === "map" ? "block" : "hidden md:block")}>
           <MapPanel lang={lang} layer={layer} markers={allMarkers} />
         </div>
+        <ResizeHandle row={row} label={tr.resizeChat} />
       </main>
     </div>
   );
