@@ -127,7 +127,6 @@ function MapInner({ lang, layer, markers }: { lang: Lang; layer: MapLayer | null
               <ArrowLeft className="size-4" aria-hidden />
               {tr.globeBack}
             </button>
-            <span className="rounded-[4px] border bg-card/90 px-3 py-2 text-xs shadow-lg backdrop-blur-md">{tr.globeCaption}</span>
           </div>
         </div>
       )}
