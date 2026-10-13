@@ -152,3 +152,55 @@ def historical_rain(start: str, end: str, region: ee.Geometry) -> dict:
     ds = "UCSB-CHG/CHIRPS/DAILY"
     total = ee.ImageCollection(ds).filterDate(start, end).select("precipitation").sum()
     return {"rain_mm": region_mean(total, region, 5566), "start": start, "end": end, "dataset": ds}
+
+
+# ---------------- DMR method inputs: spatially varying images (mm) ----------------
+GSMAP = "JAXA/GPM_L3/GSMaP/v6/operational"   # hourlyPrecipRate (mm/h), hourly steps, ~11 km, ~1 day latency
+
+
+def _newest_ms(collection: ee.ImageCollection) -> int:
+    v = get_info(collection.aggregate_max("system:time_start"))
+    if v is None:
+        raise RuntimeError("Rainfall collection returned no images")
+    return int(v)
+
+
+def observed_image(days: int, source: str = "imerg") -> tuple[ee.Image, dict]:
+    """Observed rainfall (mm) over the last `days` days ending at the newest available image.
+    Returns (image, meta{newest_ms, date_of_data, days, source, dataset})."""
+    init()
+    if source == "gsmap":
+        coll = ee.ImageCollection(GSMAP).select("hourlyPrecipRate")
+        step_h, ds = 1.0, GSMAP
+    elif source == "imerg":
+        coll, step_h, ds = _imerg(), IMERG_STEP_H, assets()["imerg"]
+    else:
+        raise ValueError(f"unknown observed rainfall source: {source}")
+    newest = newest_imerg_ms() if source == "imerg" else _newest_ms(coll)
+    if days <= 0:
+        return ee.Image(0).rename("observed_mm"), {"newest_ms": newest, "date_of_data": ms_to_date(newest), "days": 0, "source": source, "dataset": ds}
+    end = newest + int(step_h * 3_600_000)
+    img = coll.filterDate(end - days * DAY_MS, end).sum().multiply(step_h).rename("observed_mm")
+    return img, {"newest_ms": newest, "date_of_data": ms_to_date(newest), "days": days, "source": source, "dataset": ds}
+
+
+def gfs_forecast_image(horizon_days: int) -> tuple[ee.Image, dict]:
+    """Spatially varying GFS accumulated rain (mm) for the next horizon_days, from the latest run."""
+    init()
+    ds = assets()["gfs"]
+    horizon_h = 24 * horizon_days
+    now_ms = int(time.time() * 1000)
+    coll = ee.ImageCollection(ds).filterDate(now_ms - 10 * DAY_MS, now_ms + 20 * DAY_MS)
+    run = coll.aggregate_max("creation_time")
+    run_coll = coll.filter(ee.Filter.eq("creation_time", run))
+    meta = get_info(ee.Dictionary({"run": run, "fh": run_coll.aggregate_array("forecast_hours")}))
+    if not meta.get("run") or not meta.get("fh"):
+        raise RuntimeError("No GFS forecast images found")
+    chosen = gfs_windows(meta["fh"], horizon_h)
+    if not chosen:
+        raise RuntimeError("GFS run has no forecast_hours in the requested horizon")
+    img = (coll.filter(ee.Filter.eq("creation_time", int(meta["run"])))
+           .filter(ee.Filter.inList("forecast_hours", chosen))
+           .select("total_precipitation_surface").sum().rename("forecast_mm"))
+    return img, {"model_run_time": ms_to_iso(int(meta["run"])), "covered_hours": gfs_covered_hours(chosen),
+                 "horizon_h": horizon_h, "dataset": ds}

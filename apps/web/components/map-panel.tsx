@@ -49,8 +49,8 @@ function MapInner({ lang, layer, markers }: { lang: Lang; layer: MapLayer | null
   const [me, setMe] = useState<Pt | null>(null);
   const [pin, setPin] = useState<(Pt & { label: string }) | null>(null);
   const [wrap, setWrap] = useState<HTMLDivElement | null>(null);
-  // Open on the globe; it gives way to the 2D map when the user taps "Explore" or a result (layer) arrives.
-  const [globe, setGlobe] = useState(true);
+  // The globe is opt-in (Globe button). A new result (layer) closes it so the hazard map is never hidden behind it.
+  const [globe, setGlobe] = useState(false);
   const [seenLayer, setSeenLayer] = useState(layer?.id);
   if (layer?.id !== seenLayer) {
     setSeenLayer(layer?.id);
