@@ -17,10 +17,10 @@ export function LogoMark({ className }: { className?: string }) {
 export function Wordmark({ className }: { className?: string }) {
   return (
     <span className={cn("flex flex-col leading-none", className)}>
-      <span className="text-[17px] font-semibold tracking-tight">
+      <span className="text-[18px] font-semibold tracking-tight">
         D<span className="font-normal">Next</span>
       </span>
-      <span className="mt-0.5 hidden text-[10.5px] tracking-wide text-muted-foreground sm:block">LandslideWatch TH</span>
+      <span className="mt-1 hidden text-[11px] tracking-wide text-muted-foreground sm:block">LandslideWatch TH</span>
     </span>
   );
 }

@@ -39,12 +39,13 @@ export interface ChartData {
 export interface Kpis {
   scenario_id: string;
   area_name: string;
-  people: number;
-  households_est: number;
-  buildings: number;
-  road_km: number;
-  schools: number;
-  hospitals: number;
+  // null = that layer is not built yet (API never fabricates a value)
+  people: number | null;
+  households_est: number | null;
+  buildings: number | null;
+  road_km: number | null;
+  schools: number | null;
+  hospitals: number | null;
   data_sources: string[];
   resolution_m: number;
   date_of_data: string;
