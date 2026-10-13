@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowUp, Square, ArrowUpRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Markdown } from "./markdown";
 import { LegalModal } from "./legal-modal";
 import { LogoMark } from "./logo";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -80,8 +81,8 @@ export function ChatPanel(p: Props) {
           ) : (
             <div key={i} className="flex gap-2.5">
               <LogoMark className="mt-0.5 size-6" />
-              <div className="min-w-0 flex-1 whitespace-pre-wrap text-sm leading-relaxed">
-                {m.text || (p.busy && i === p.messages.length - 1 && !m.error ? (
+              <div className="min-w-0 flex-1 text-sm leading-relaxed">
+                {m.text ? <Markdown text={m.text} /> : (p.busy && i === p.messages.length - 1 && !m.error ? (
                   <div className="space-y-2 pt-1" aria-busy="true"><Skeleton className="h-3 w-48" /><Skeleton className="h-3 w-32" /></div>
                 ) : null)}
                 {m.error && (
