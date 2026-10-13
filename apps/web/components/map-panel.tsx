@@ -67,7 +67,10 @@ function MapInner({ lang, layer, markers }: { lang: Lang; layer: MapLayer | null
         <HazardOverlay layer={layer} opacity={opacity} />
         {me && (
           <AdvancedMarker position={me} title={tr.pinMe}>
-            <span className="block size-4 rounded-full border-2 border-white bg-blue-600 shadow-[0_0_0_6px_rgba(37,99,235,0.25)]" aria-label={tr.pinMe} />
+            <span className="relative flex size-4" data-testid="my-location-dot">
+              <span className="absolute inline-flex size-full rounded-full bg-brand opacity-60 motion-safe:animate-ping" aria-hidden />
+              <span className="relative inline-flex size-4 rounded-full border-2 border-white bg-brand shadow-md" />
+            </span>
           </AdvancedMarker>
         )}
         {pin && (
