@@ -28,7 +28,7 @@ export function BasemapSwitcher({ lang, value, onChange }: { lang: Lang; value: 
   const label = (k: BaseMap) => tr[k];
 
   return (
-    <div ref={root} className="relative">
+    <div ref={root} className="relative" data-map-overlay="basemap">
       <button
         type="button"
         aria-haspopup="true"
@@ -40,13 +40,13 @@ export function BasemapSwitcher({ lang, value, onChange }: { lang: Lang; value: 
         {/* eslint-disable-next-line @next/next/no-img-element -- tiny static SVG */}
         <img src={THUMB[value]} alt="" className="size-full object-cover transition-transform group-hover:scale-105" />
         <span className="absolute top-1 left-1 grid size-4 place-items-center rounded-[3px] bg-black/45 text-white"><Layers className="size-2.5" aria-hidden /></span>
-        <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-1 pt-3 pb-0.5 text-center text-[10px] font-medium text-white">
+        <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-1 pt-3 pb-0.5 text-center text-xs font-medium text-white">
           {label(value)}
         </span>
       </button>
 
       {open && (
-        <div role="radiogroup" aria-label={tr.basemap} className={cn("absolute bottom-0 left-[62px] z-10 flex gap-1.5 rounded-[4px] p-1.5", glass)}>
+        <div data-map-overlay="basemap-chooser" role="radiogroup" aria-label={tr.basemap} className={cn("absolute bottom-0 left-[62px] z-10 flex gap-1.5 rounded-[4px] p-1.5", glass)}>
           {(["terrain", "satellite"] as const).map((k) => {
             const sel = value === k;
             return (
@@ -55,7 +55,7 @@ export function BasemapSwitcher({ lang, value, onChange }: { lang: Lang; value: 
                 role="radio"
                 aria-checked={sel}
                 onClick={() => { onChange(k); setOpen(false); }}
-                className={cn("flex w-16 flex-col gap-0.5 rounded-[4px] p-1 text-center text-[10px] outline-none transition focus-visible:ring-2 focus-visible:ring-ring", sel ? "bg-accent" : "hover:bg-accent/60")}
+                className={cn("flex w-16 flex-col gap-0.5 rounded-[4px] p-1 text-center text-xs outline-none transition focus-visible:ring-2 focus-visible:ring-ring", sel ? "bg-accent" : "hover:bg-accent/60")}
               >
                 <span className={cn("relative block h-10 overflow-hidden rounded-[3px] ring-2", sel ? "ring-primary" : "ring-transparent")}>
                   {/* eslint-disable-next-line @next/next/no-img-element -- tiny static SVG */}

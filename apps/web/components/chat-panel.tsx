@@ -12,6 +12,7 @@ import { ScenarioCard, type RunError, type RunKind } from "./scenario-card";
 import { t } from "@/lib/i18n";
 import type { LegalKind } from "@/lib/legal";
 import type { ChartData, Kpis, Lang, OverviewSeries, Province, TableData } from "@/lib/types";
+import { MQ, useMedia } from "@/lib/use-media";
 import { cn } from "@/lib/utils";
 
 export interface Message { role: "user" | "assistant"; text: string; error?: string }
@@ -42,7 +43,13 @@ export function ChatPanel(p: Props) {
   const tr = t(p.lang);
   const [input, setInput] = useState("");
   const [legal, setLegal] = useState<LegalKind | null>(null);
+  // The legal links stay pinned under the composer only on desktop; on phones/tablets and short screens they sit at the end of the scroll area (saves ~44px of pinned chrome).
+  const desktop = useMedia(MQ.desktop);
+  const short = useMedia(MQ.short);
+  const legalInFlow = !desktop || short;
   const endRef = useRef<HTMLDivElement>(null);
+  const promptsRef = useRef<HTMLUListElement>(null);
+  const jumpToPrompts = () => promptsRef.current?.scrollIntoView({ block: "start", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: "end" });
@@ -54,25 +61,36 @@ export function ChatPanel(p: Props) {
     setInput("");
   };
 
+  const legalNav = (
+      <nav data-testid="chat-legal" aria-label="Legal" className="flex shrink-0 flex-wrap items-center justify-center gap-x-1 gap-y-0 bg-background px-3 pt-1 pb-2 text-xs text-muted-foreground">
+        {(["privacy", "cookies", "terms", "disclaimer"] as const).map((k) => (
+          <button key={k} onClick={() => setLegal(k)} className="min-h-8 rounded px-1.5 py-1 underline-offset-2 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring coarse:min-h-11 coarse:min-w-11 coarse:px-2">
+            {{ privacy: tr.legalPrivacy, cookies: tr.legalCookies, terms: tr.legalTerms, disclaimer: tr.legalDisclaimer }[k]}
+          </button>
+        ))}
+        <span aria-hidden className="px-1.5">© {new Date().getFullYear()} DNext</span>
+      </nav>
+  );
+
   return (
-    <section aria-label={tr.chat} className="flex h-full flex-col">
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-5" aria-live="polite">
+    <section aria-label={tr.chat} className="flex h-full flex-col short:h-auto">
+      <div data-chat-scroll className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-5 short:flex-none short:overflow-visible" aria-live="polite">
         {p.messages.length === 0 && (
           <div className={cn("flex flex-col items-center gap-5 px-2 text-center", p.overview ? "pt-1" : "pt-6")}>
-            {p.overview && <OverviewCard lang={p.lang} series={p.overview.series} day={p.overview.day} onDay={p.onOverviewDay} onSelect={p.onPickProvince} />}
+            {p.overview && <OverviewCard lang={p.lang} series={p.overview.series} day={p.overview.day} onDay={p.onOverviewDay} onSelect={p.onPickProvince} onAsk={jumpToPrompts} />}
             <div className="flex flex-col items-center">
             <span className="mb-4 grid size-16 place-items-center rounded-2xl bg-accent"><LogoMark className="size-11" /></span>
             <h2 className="text-lg font-semibold tracking-tight">{tr.emptyTitle}</h2>
             <p className="mt-1.5 max-w-xs text-sm leading-relaxed text-muted-foreground">{tr.empty}</p>
             </div>
-            <ul className="w-full space-y-2 text-left">
+            <ul id="chat-prompts" ref={promptsRef} className="w-full scroll-mt-3 space-y-2 text-left">
               {tr.prompts.map((s) => (
                 <li key={s}>
                   <button
                     onClick={() => p.onSend(s)}
-                    className="group flex w-full items-center justify-between gap-3 rounded-xl border bg-card px-3.5 py-3 text-sm shadow-xs outline-none transition hover:border-primary/40 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
+                    className="group flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border bg-card px-3.5 py-3 text-sm shadow-xs outline-none transition hover:border-primary/40 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    <span>{s}</span>
+                    <span className="min-w-0 break-words">{s}</span>
                     <ArrowUpRight className="size-4 shrink-0 text-muted-foreground transition group-hover:text-primary" aria-hidden />
                   </button>
                 </li>
@@ -116,17 +134,20 @@ export function ChatPanel(p: Props) {
         )}
         <ResultCards lang={p.lang} kpis={p.kpis} charts={p.charts} tables={p.tables} loading={p.busy} />
         {(p.province || p.kpis) && <ScenarioCard lang={p.lang} province={p.province} busy={p.runBusy} error={p.runError} onRun={p.onScenario} onForecast={p.onForecast} />}
+        {legalInFlow && legalNav}
         <div ref={endRef} />
       </div>
 
-      <div className="border-t bg-background px-3 pt-3 pb-2">
+      <div data-testid="chat-composer" className="border-t bg-background px-3 pt-3 pb-1 short:sticky short:bottom-0 short:z-10">
         <form onSubmit={submit} className="flex items-center gap-2 rounded-2xl border bg-card py-1.5 pr-1.5 pl-4 shadow-xs transition focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-ring/30">
           <input
+            data-chat-input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={tr.placeholder}
             aria-label={tr.placeholder}
-            className="h-8 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            enterKeyHint="send"
+            className="h-8 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground coarse:h-11 coarse:text-base"
           />
           {p.busy ? (
             <Button type="button" variant="secondary" size="icon" className="rounded-full" onClick={p.onStop} aria-label={tr.stop} title={tr.stop}><Square className="fill-current" /></Button>
@@ -134,16 +155,9 @@ export function ChatPanel(p: Props) {
             <Button type="submit" size="icon" className="rounded-full" disabled={!input.trim()} aria-label={tr.send} title={tr.send}><ArrowUp /></Button>
           )}
         </form>
-        <nav aria-label="Legal" className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
-          {(["privacy", "cookies", "terms", "disclaimer"] as const).map((k) => (
-            <button key={k} onClick={() => setLegal(k)} className="rounded underline-offset-2 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring">
-              {{ privacy: tr.legalPrivacy, cookies: tr.legalCookies, terms: tr.legalTerms, disclaimer: tr.legalDisclaimer }[k]}
-            </button>
-          ))}
-          <span aria-hidden>© {new Date().getFullYear()} DNext</span>
-        </nav>
-        <LegalModal lang={p.lang} kind={legal} onClose={() => setLegal(null)} />
       </div>
+      {!legalInFlow && legalNav}
+      <LegalModal lang={p.lang} kind={legal} onClose={() => setLegal(null)} />
     </section>
   );
 }

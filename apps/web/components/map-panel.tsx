@@ -7,15 +7,18 @@ import { BasemapSwitcher } from "./basemap-switcher";
 import type { LayerPatch } from "./layers-panel";
 import { OverviewSlider } from "./overview-slider";
 import { MapControls, MapSearch, type Pt } from "./map-controls";
+import { MapLegend } from "./map-legend";
 import { ScaleBar } from "./scale-bar";
 import { AdvancedMarker, APIProvider, InfoWindow, Map, Map3D, MapMode, Marker3D, Pin, useMap } from "@vis.gl/react-google-maps";
 import { ArrowLeft } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { explain } from "@/lib/api";
 import { fmt, t } from "@/lib/i18n";
 import { DEFAULT_VIEW, findProvince } from "@/lib/geo";
 import { localLayer, pick } from "@/lib/lang";
 import { countsOf, fillsFor, legendFor, numFmt, riskName, type Fill, type OverviewMetric } from "@/lib/overview";
+import { MQ, useMedia } from "@/lib/use-media";
 import type { Explain, Lang, MapLayer, MapLayerItem, MapLayersEvent, MapMarkers, OverviewProvinceDay, OverviewSeries, Province, StaticLayerItem } from "@/lib/types";
 
 const KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
@@ -68,6 +71,7 @@ export function MapPanel(props: PanelProps) {
 function MapInner({ lang, layer, layers, staticLayers, markers, provinces, selected, onSelect, overview, onOverviewDay, onOverviewMetric, onOverviewPlay }: PanelProps) {
   const tr = t(lang);
   const { theme } = useTheme();
+  const short = useMedia(MQ.short);
   const [mapType, setMapType] = useState<"terrain" | "satellite">("satellite");
   // Per-layer user tweaks (visibility, opacity). Scoped to a scenario so a new result starts from the server defaults.
   const [tweaks, setTweaks] = useState<{ scope: string; byId: Record<string, LayerPatch> }>({ scope: "", byId: {} });
@@ -225,7 +229,7 @@ function MapInner({ lang, layer, layers, staticLayers, markers, provinces, selec
         <OverviewTip lang={lang} hover={hover} wrap={wrap} province={provinces.find((p) => p.pcode === hover.pcode)} data={byPcode[hover.pcode]} metric={metric} />
       )}
       {overview && !globe && (
-        <div className="pointer-events-none absolute top-14 right-[3.75rem] left-3 flex justify-center @2xl:top-auto @2xl:right-3 @2xl:bottom-9 @2xl:left-[16.5rem]">
+        <div className={cn("pointer-events-none absolute flex justify-center", short ? "top-3 right-16 w-80 max-w-[calc(100cqw-25.25rem)]" : "top-[4.25rem] right-16 left-3 @2xl:top-auto @2xl:right-3 @2xl:bottom-9 @2xl:left-[16.5rem]")}>
           <OverviewSlider lang={lang} series={overview.series} day={overview.day} metric={metric} playing={overview.playing} onDay={onOverviewDay} onMetric={onOverviewMetric} onPlay={onOverviewPlay} />
         </div>
       )}
@@ -246,7 +250,7 @@ function MapInner({ lang, layer, layers, staticLayers, markers, provinces, selec
             <button
               type="button"
               onClick={() => setGlobe(false)}
-              className="flex items-center gap-1.5 rounded-[4px] border bg-card/90 px-3 py-2 text-xs font-medium shadow-lg backdrop-blur-md outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex min-h-9 items-center gap-1.5 rounded-[4px] border bg-card/90 px-3 py-2 text-xs font-medium shadow-lg backdrop-blur-md outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring coarse:min-h-11 coarse:text-sm"
             >
               <ArrowLeft className="size-4" aria-hidden />
               {tr.globeBack}
@@ -255,35 +259,9 @@ function MapInner({ lang, layer, layers, staticLayers, markers, provinces, selec
         </div>
       )}
 
-      <div className="absolute bottom-9 left-3 flex flex-col items-start gap-2">
-      {overviewLegend && (
-        <div className="w-60 space-y-2.5 rounded-[4px] border bg-card/90 p-3.5 text-xs shadow-lg backdrop-blur-md" data-testid="legend-card" data-legend="overview">
-          <p className="text-[13px] font-semibold leading-snug">{overviewLegend.title}</p>
-          <ul aria-label={tr.legend} className="space-y-1">
-            {overviewLegend.items.map((l) => (
-              <li key={l.label} className="flex items-center gap-2">
-                <span className="size-3 shrink-0 rounded-[2px] border border-black/20" style={{ background: l.color }} aria-hidden />
-                {l.label}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {top && (
-        <div className="w-60 space-y-2.5 rounded-[4px] border bg-card/90 p-3.5 text-xs shadow-lg backdrop-blur-md" data-testid="legend-card">
-          <p className="text-[13px] font-semibold leading-snug">{top.name}</p>
-          {top.legend.length > 0 && (
-            <ul aria-label={tr.legend} className="space-y-1">
-              {top.legend.map((l) => (
-                <li key={l.label} className="flex items-center gap-2">
-                  <span className="size-3 shrink-0 rounded-[2px] border border-black/20" style={{ background: l.color }} aria-hidden />
-                  {l.label}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
+      <div className="absolute bottom-9 left-3 flex flex-col items-start gap-2 short:flex-row short:items-end">
+        {overviewLegend && <MapLegend lang={lang} title={overviewLegend.title} items={overviewLegend.items} overview />}
+        {top && <MapLegend lang={lang} title={top.name} items={top.legend} />}
         <div className="flex items-end gap-2">
           <BasemapSwitcher lang={lang} value={mapType} onChange={setMapType} />
           <ScaleBar />
@@ -523,13 +501,41 @@ function OverviewTip({ lang, hover, wrap, province, data, metric }: {
     metric === "risk"
       ? data && data.risk_class >= 1 ? fmt(tr.ovTipRisk, { c: riskName(data.risk_class, lang) }) : tr.ovTipRiskNone
       : data?.rain_mm != null ? fmt(tr.ovTipRain, { mm: nf.format(Math.round(data.rain_mm * 10) / 10) }) : tr.ovTipRainNA;
-  const flip = !!wrap && hover.x > wrap.clientWidth - 220;
+  // Placed beside the pointer: tries right/below, left/below, right/above, left/above (then above/below centred) and takes the first spot that is inside the map
+  // and does not cover another overlay (legend, slider, tools...); falls back to a clamped position.
+  const place = (el: HTMLDivElement | null) => {
+    if (!el || !wrap) return;
+    const w = el.offsetWidth, h = el.offsetHeight, W = wrap.clientWidth, H = wrap.clientHeight;
+    const wr = wrap.getBoundingClientRect();
+    const others = [...wrap.querySelectorAll<HTMLElement>("[data-map-overlay]")]
+      .filter((o) => o !== el && o.getAttribute("data-map-overlay") !== "tooltip" && o.checkVisibility())
+      .map((o) => o.getBoundingClientRect());
+    const clamp = (x: number, y: number) => ({ x: Math.max(4, Math.min(x, W - 4 - w)), y: Math.max(4, Math.min(y, H - 4 - h)) });
+    const overlap = (p: { x: number; y: number }) => others.reduce((sum, r) => {
+      const ox = Math.min(p.x + w + wr.left, r.right) - Math.max(p.x + wr.left, r.left);
+      const oy = Math.min(p.y + h + wr.top, r.bottom) - Math.max(p.y + wr.top, r.top);
+      return sum + (ox > 0 && oy > 0 ? ox * oy : 0);
+    }, 0);
+    const near = [[12, 12], [-12 - w, 12], [12, -12 - h], [-12 - w, -12 - h], [-w / 2, -16 - h], [-w / 2, 16]].map(([dx, dy]) => clamp(hover.x + dx, hover.y + dy));
+    // Fallback spots hugging an overlay's edge (just right of / left of / above / below it) at the pointer's row/column.
+    const edge = others.flatMap((r) => [
+      clamp(r.right - wr.left + 6, hover.y + 12), clamp(r.left - wr.left - 6 - w, hover.y + 12),
+      clamp(hover.x + 12, r.top - wr.top - 6 - h), clamp(hover.x + 12, r.bottom - wr.top + 6),
+    ]);
+    const dist = (c: { x: number; y: number }) => Math.abs(c.x - hover.x) + Math.abs(c.y - hover.y);
+    const first = near.find((c) => overlap(c) === 0);
+    const pos = first ?? [...near, ...edge].reduce((best, c) => (overlap(c) * 1000 + dist(c) < overlap(best) * 1000 + dist(best) ? c : best), near[0]);
+    el.style.left = `${pos.x}px`;
+    el.style.top = `${pos.y}px`;
+  };
   return (
     <div
+      ref={place}
       role="status"
       data-testid="overview-tip"
+      data-map-overlay="tooltip"
       className="pointer-events-none absolute z-20 w-max max-w-52 space-y-0.5 rounded-[4px] border bg-card/95 px-2.5 py-1.5 text-xs shadow-lg backdrop-blur-md"
-      style={{ left: hover.x, top: hover.y, transform: `translate(${flip ? "calc(-100% - 12px)" : "12px"}, 12px)` }}
+      style={{ left: hover.x, top: hover.y }}
     >
       <p className="font-semibold">{pick(lang, province.name, province.name_th)}</p>
       <p>{value}</p>

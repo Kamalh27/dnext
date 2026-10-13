@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, IBM_Plex_Sans_Thai } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -23,6 +23,15 @@ const plexMono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: "DNext · LandslideWatch TH",
   description: "Landslide risk screening tool for Thailand. Not an official forecast.",
+};
+
+// viewport-fit=cover lets the layout use the notch/home-indicator area (padded with env(safe-area-inset-*)); resizes-content makes the
+// on-screen keyboard shrink the layout viewport so the chat composer stays visible (browsers without support fall back to the visualViewport hook).
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

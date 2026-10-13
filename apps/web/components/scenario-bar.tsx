@@ -49,15 +49,15 @@ export function ScenarioBar({ lang, provinces, selected, kpis, hasResults, onSel
   const chips = selected && kpis ? chipsOf(kpis, lang) : [];
 
   return (
-    <section aria-label={tr.scenarioSummary} className="shrink-0 space-y-1.5 border-b bg-card px-3 py-2" data-testid="scenario-bar">
-      <div className="flex items-center gap-2">
+    <section aria-label={tr.scenarioSummary} className="shrink-0 space-y-1.5 border-b bg-card px-3 py-2 short:flex short:items-center short:gap-2 short:space-y-0" data-testid="scenario-bar">
+      <div className="flex items-center gap-2 short:min-w-0 short:flex-1">
         <label className="relative flex min-w-0 flex-1 items-center">
-          <MapPin className="pointer-events-none absolute left-2 size-4 text-primary" aria-hidden />
+          <MapPin className="pointer-events-none absolute left-2 size-4 text-primary coarse:left-2.5" aria-hidden />
           <select
             aria-label={tr.provinceLabel}
             value={selected?.pcode ?? ""}
             onChange={(e) => onSelect(e.target.value || null)}
-            className="h-8 w-full min-w-0 rounded-[4px] border bg-background pr-2 pl-8 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="h-8 w-full min-w-0 truncate rounded-[4px] border bg-background pr-2 pl-8 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring coarse:h-11 coarse:pl-9 coarse:text-base"
           >
             <option value="">{tr.allThailand}</option>
             {sorted.map((p) => <option key={p.pcode} value={p.pcode}>{provinceName(p, lang)}</option>)}
@@ -68,7 +68,7 @@ export function ScenarioBar({ lang, provinces, selected, kpis, hasResults, onSel
             type="button"
             onClick={onReset}
             title={tr.resetTitle}
-            className="flex h-8 shrink-0 items-center gap-1.5 rounded-[4px] border bg-background px-2.5 text-xs font-medium outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex h-8 shrink-0 items-center gap-1.5 rounded-[4px] border bg-background px-2.5 text-xs font-medium outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring coarse:h-11 coarse:px-3.5 coarse:text-sm"
           >
             <RotateCcw className="size-3.5" aria-hidden />
             {tr.reset}
@@ -76,15 +76,15 @@ export function ScenarioBar({ lang, provinces, selected, kpis, hasResults, onSel
         )}
       </div>
       {!selected ? (
-        <p className="text-xs text-muted-foreground">{tr.chooseHint}</p>
+        <p className="text-xs text-muted-foreground short:max-w-[40%] short:truncate" title={tr.chooseHint}>{tr.chooseHint}</p>
       ) : chips.length > 0 ? (
-        <ul className="flex flex-wrap gap-1" aria-label={tr.scenarioSummary}>
+        <ul className="flex flex-wrap gap-1 short:max-w-[50%] short:flex-nowrap short:overflow-hidden short:[&>li:not(:first-child)]:hidden" aria-label={tr.scenarioSummary}>
           {chips.map((c) => (
             <li key={c} className="max-w-full truncate rounded-[4px] bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground" title={c}>{c}</li>
           ))}
         </ul>
       ) : hasResults ? null : (
-        <p className="text-xs text-muted-foreground">{tr.noScenario}</p>
+        <p className="text-xs text-muted-foreground short:max-w-[40%] short:truncate" title={tr.noScenario}>{tr.noScenario}</p>
       )}
     </section>
   );

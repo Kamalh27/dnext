@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Header } from "./header";
+import { ViewTabs } from "./view-tabs";
 import { ResizeHandle } from "./resize-handle";
 import { ChatPanel, type Message } from "./chat-panel";
 import { MapPanel } from "./map-panel";
@@ -55,6 +56,23 @@ export function AppShell() {
   const lastPrompt = useRef("");
   const tr = t(lang);
   const row = useRef<HTMLElement>(null);
+
+  // On-screen keyboard: where the layout viewport does not shrink by itself (iOS Safari), size the app to the visual viewport.
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const root = document.documentElement.style;
+    const apply = () => {
+      if (window.innerHeight - vv.height > 120) {
+        root.setProperty("--app-h", `${Math.round(vv.height)}px`);
+        if (vv.offsetTop > 0) window.scrollTo(0, 0);
+      } else root.removeProperty("--app-h");
+    };
+    vv.addEventListener("resize", apply);
+    vv.addEventListener("scroll", apply);
+    apply();
+    return () => { vv.removeEventListener("resize", apply); vv.removeEventListener("scroll", apply); root.removeProperty("--app-h"); };
+  }, []);
 
   // Reference layers load on mount (no scenario needed). Tile URLs expire, so refetch at ~85% of expires_in_s (min 5 min).
   // A failure never blocks the UI: the list stays as it was and we try again in a minute.
@@ -279,31 +297,26 @@ export function AppShell() {
   const allMarkers = useMemo(() => markers.flatMap((m) => m.markers), [markers]);
 
   return (
-    <div className="flex h-dvh flex-col">
-      <Header lang={lang} setLang={setLang} />
-      <div role="tablist" aria-label="View" className="flex border-b bg-background md:hidden">
-        {(["chat", "map"] as const).map((k) => (
-          <button
-            key={k}
-            role="tab"
-            aria-selected={tab === k}
-            onClick={() => setTab(k)}
-            className={cn(
-              "flex-1 py-2 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              tab === k ? "border-b-2 border-primary text-foreground" : "text-muted-foreground",
-            )}
-          >
-            {tr[k]}
-          </button>
-        ))}
+    <div className="flex h-[var(--app-h,100dvh)] flex-col">
+      <Header lang={lang} setLang={setLang} tab={tab} onTab={setTab} />
+      {/* Below 1024px the chat and the map are tabs (full-width panels); on short screens the tabs live inside the header instead. */}
+      <div className="lg:hidden short:hidden">
+        <ViewTabs lang={lang} tab={tab} onTab={setTab} bar />
       </div>
       <main
         ref={row}
-        className="relative grid min-h-0 flex-1 md:grid-cols-[clamp(320px,var(--chat-w,32%),70%)_1fr]"
+        className="relative grid min-h-0 flex-1 grid-cols-1 pr-[env(safe-area-inset-right,0px)] pb-[env(safe-area-inset-bottom,0px)] pl-[env(safe-area-inset-left,0px)] lg:grid-cols-[var(--chat-col)_1fr]"
       >
-        <div className={cn("min-h-0 flex-col border-r bg-background", tab === "chat" ? "flex" : "hidden md:flex")}>
+        <div
+          id="panel-chat"
+          data-chat-scroll
+          className={cn(
+            "min-h-0 flex-col bg-background max-lg:mx-auto max-lg:w-full max-lg:max-w-[720px] max-lg:border-x lg:border-r short:overflow-y-auto short:overscroll-contain",
+            tab === "chat" ? "flex" : "hidden lg:flex",
+          )}
+        >
           <ScenarioBar lang={lang} provinces={provinces} selected={selected} kpis={kpis} hasResults={hasResults} onSelect={selectByCode} onReset={clearScenario} />
-          <div className="min-h-0 flex-1">
+          <div className="min-h-0 flex-1 short:flex-none">
           <ChatPanel
             lang={lang}
             messages={messages}
@@ -326,7 +339,7 @@ export function AppShell() {
           />
           </div>
         </div>
-        <div className={cn("min-h-0", tab === "map" ? "block" : "hidden md:block")}>
+        <div id="panel-map" className={cn("min-h-0", tab === "map" ? "block" : "hidden lg:block")}>
           <MapPanel lang={lang} layer={layer} layers={layers} staticLayers={staticLayers} markers={allMarkers} provinces={provinces} selected={selected} onSelect={selectProvince}
             overview={overviewOn && series ? { series, day: overviewDay, metric: overviewMetric, playing } : null}
             onOverviewDay={pickOverviewDay}

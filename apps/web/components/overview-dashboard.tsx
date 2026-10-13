@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
+import { DashSection } from "./dash-section";
 import { Building2, GraduationCap, Hospital, Layers, Map as MapIcon, Route, TriangleAlert, Users, type LucideIcon } from "lucide-react";
 import { CartesianGrid, Line, LineChart, ReferenceDot, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { fmt, t, type Dict } from "@/lib/i18n";
@@ -29,18 +30,26 @@ export function OverviewDashboard({ lang, series, d, onDay, onSelect }: Props) {
   const [pref, setPref] = useState<DashMetric>("people");
   const metric = avail.includes(pref) ? pref : (avail[0] ?? "people");
   return (
-    <>
-      <Tiles lang={lang} d={d} />
-      {series.days.length > 1 && <Trend lang={lang} series={series} day={d.h} onDay={onDay} />}
+    <div>
+      <DashSection k="key" title={tr.ovSecKey} desktopOpen phoneOpen testId="overview-key">
+        <Tiles lang={lang} d={d} />
+      </DashSection>
+      {series.days.length > 1 && (
+        <DashSection k="trend" title={tr.ovTrendTitle} desktopOpen phoneOpen={false}>
+          <Trend lang={lang} series={series} day={d.h} onDay={onDay} />
+        </DashSection>
+      )}
       {avail.length > 0 && (
-        <section aria-label={tr.ovShowBy} className="space-y-3 border-t pt-3" data-testid="overview-breakdown">
+        <DashSection k="breakdown" title={tr.ovSecBreakdown} desktopOpen phoneOpen={false} testId="overview-breakdown">
           <MetricSwitch lang={lang} value={metric} options={avail} onChange={setPref} />
           <ClassChart lang={lang} d={d} metric={metric} />
           <ProvinceChart lang={lang} d={d} metric={metric} onSelect={onSelect} />
-        </section>
+        </DashSection>
       )}
-      <p className="border-t pt-2.5 text-[11px] leading-snug text-muted-foreground" data-testid="overview-footnote">{tr.ovFoot}</p>
-    </>
+      <DashSection k="about" title={tr.ovSecAbout} desktopOpen={false} phoneOpen={false}>
+        <p className="text-xs leading-snug text-muted-foreground" data-testid="overview-footnote">{tr.ovFoot}</p>
+      </DashSection>
+    </div>
   );
 }
 
@@ -62,7 +71,7 @@ function Tile({ lang, Icon, label, value, sub, title, progress, testId }: { lang
           <div className="h-full rounded-full bg-primary" style={{ width: `${Math.max(0, Math.min(1, progress)) * 100}%`, minWidth: progress > 0 ? 3 : 0 }} />
         </div>
       )}
-      {sub && <p className="mt-1 text-[11px] leading-tight text-muted-foreground">{sub}</p>}
+      {sub && <p className="mt-1 text-xs leading-tight text-muted-foreground">{sub}</p>}
     </div>
   );
 }
@@ -170,13 +179,12 @@ function Trend({ lang, series, day, onDay }: { lang: Lang; series: OverviewSerie
   const ppl: TrendRow[] = series.days.flatMap((x, i) => (x.totals.people_elevated == null ? [] : [{ i, h: x.h, date: x.date, v: x.totals.people_elevated }]));
   const at = (rows: TrendRow[]) => rows.find((r) => r.h === day);
   return (
-    <section aria-label={tr.ovTrendTitle} className="space-y-1.5 border-t pt-3" data-testid="overview-trend">
-      <h3 className={H3}>{tr.ovTrendTitle}</h3>
+    <div role="group" aria-label={tr.ovTrendTitle} className="space-y-1.5" data-testid="overview-trend">
       <Spark lang={lang} title={tr.ovTrendTambons} rows={tam} day={day} onDay={onDay} valueText={at(tam) ? nf.format(at(tam)!.v) : "—"} />
       {ppl.length === series.days.length && (
         <Spark lang={lang} title={tr.ovTrendPeople} rows={ppl} day={day} onDay={onDay} valueText={at(ppl) ? fmtRounded(at(ppl)!.v, lang, { compact: true, approx: true }) : "—"} />
       )}
-      <div className="grid" style={{ gridTemplateColumns: `repeat(${series.days.length}, minmax(0, 1fr))` }} role="group" aria-label={tr.ovDay}>
+      <div className="grid grid-cols-[repeat(var(--n),minmax(0,1fr))] coarse:grid-cols-[repeat(var(--n),minmax(2.75rem,1fr))]" style={{ "--n": series.days.length } as CSSProperties} role="group" aria-label={tr.ovDay}>
         {series.days.map((x) => (
           <button
             key={x.h}
@@ -185,14 +193,14 @@ function Trend({ lang, series, day, onDay }: { lang: Lang; series: OverviewSerie
             aria-label={fmt(tr.ovTrendDay, { date: dayHeading(x.h, x.date, lang) })}
             onClick={() => onDay(x.h)}
             data-testid={`trend-day-${x.h}`}
-            className={cn("min-h-7 truncate rounded-[4px] px-0.5 text-center text-[10px] leading-tight text-muted-foreground tabular-nums outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring", x.h === day && "bg-accent font-semibold text-foreground")}
+            className={cn("min-h-8 truncate rounded-[4px] px-0.5 text-center text-xs leading-tight coarse:min-h-11 text-muted-foreground tabular-nums outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring", x.h === day && "bg-accent font-semibold text-foreground")}
           >
             {shortDate(x.date, lang)}
           </button>
         ))}
       </div>
-      <p className="text-[11px] text-muted-foreground">{tr.ovTrendHint}</p>
-    </section>
+      <p className="text-xs text-muted-foreground">{tr.ovTrendHint}</p>
+    </div>
   );
 }
 
@@ -205,7 +213,7 @@ const C_TITLE: Record<DashMetric, keyof Dict> = { people: "ovCPeople", buildings
 function MetricSwitch({ lang, value, options, onChange }: { lang: Lang; value: DashMetric; options: DashMetric[]; onChange: (m: DashMetric) => void }) {
   const tr = t(lang);
   return (
-    <div role="group" aria-label={tr.ovShowBy} className="grid overflow-hidden rounded-[4px] border" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
+    <div role="group" aria-label={tr.ovShowBy} className="flex flex-wrap gap-1">
       {options.map((m) => (
         <button
           key={m}
@@ -214,7 +222,7 @@ function MetricSwitch({ lang, value, options, onChange }: { lang: Lang; value: D
           onClick={() => onChange(m)}
           data-testid={`dash-metric-${m}`}
           className={cn(
-            "min-h-8 px-1 py-1 text-center text-[11px] leading-tight font-medium outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+            "min-h-8 min-w-fit flex-1 basis-20 rounded-[4px] border px-2 py-1 text-center text-xs leading-tight font-medium coarse:min-h-11 outline-none focus-visible:ring-2 focus-visible:ring-ring",
             value === m ? "bg-primary text-primary-foreground" : "bg-background hover:bg-accent",
           )}
         >
@@ -286,7 +294,7 @@ function ProvinceChart({ lang, d, metric, onSelect }: { lang: Lang; d: OverviewD
                     title={`${name}${risk} · ${text}`}
                     data-testid="overview-top-row"
                     data-pcode={pcode}
-                    className="grid w-full grid-cols-[minmax(0,5.5rem)_minmax(0,1fr)_auto] items-center gap-2 rounded-[4px] px-1 py-1 text-left text-xs outline-none transition hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
+                    className="grid min-h-8 w-full grid-cols-[minmax(0,5.5rem)_minmax(0,1fr)_auto] items-center gap-2 rounded-[4px] px-1 py-1 text-left text-xs coarse:min-h-11 outline-none transition hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <span className="truncate font-medium">{name}</span>
                     <Bar pct={max > 0 ? value / max : 0} color={p.risk_class >= 1 ? riskColor(p.risk_class) : "color-mix(in oklab, var(--muted-foreground) 55%, transparent)"} ring />
@@ -296,7 +304,7 @@ function ProvinceChart({ lang, d, metric, onSelect }: { lang: Lang; d: OverviewD
               );
             })}
           </ul>
-          <p className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11px] text-muted-foreground">
+          <p className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs text-muted-foreground">
             <span>{tr.ovRiskKey}:</span>
             {RISK_COLORS.map((c, i) => (
               <span key={c} className="inline-flex items-center gap-1">
