@@ -90,11 +90,11 @@ export function MapControls({ lang, onLocate, fullscreenTarget }: { lang: Lang; 
 
   return (
     <div className="absolute top-3 right-3 flex flex-col items-end gap-2">
-      <div className={cn("flex flex-col divide-y overflow-hidden rounded-full", glass)} role="group" aria-label={tr.mapControls}>
+      <div className={cn("flex flex-col divide-y overflow-hidden rounded-[4px]", glass)} role="group" aria-label={tr.mapControls}>
         <MapButton label={tr.zoomIn} onClick={() => zoom(1)}><Plus /></MapButton>
         <MapButton label={tr.zoomOut} onClick={() => zoom(-1)}><Minus /></MapButton>
       </div>
-      <div className={cn("flex flex-col divide-y overflow-hidden rounded-full", glass)}>
+      <div className={cn("flex flex-col divide-y overflow-hidden rounded-[4px]", glass)}>
         <MapButton label={tr.myLocation} onClick={locate} disabled={locating}>
           {locating ? <LoaderCircle className="animate-spin" /> : <LocateFixed />}
         </MapButton>
@@ -107,7 +107,7 @@ export function MapControls({ lang, onLocate, fullscreenTarget }: { lang: Lang; 
       </div>
       <span className="pointer-events-none -mt-1 text-[10px] font-semibold tracking-wide text-foreground/70 uppercase" aria-hidden>{is3d ? "3D" : "2D"}</span>
       {notice && (
-        <p role="status" className={cn("max-w-56 rounded-lg px-3 py-2 text-xs", glass)}>{notice}</p>
+        <p role="status" className={cn("max-w-56 rounded-[4px] px-3 py-2 text-xs", glass)}>{notice}</p>
       )}
     </div>
   );
@@ -146,7 +146,7 @@ export function MapSearch({ lang, onPin }: { lang: Lang; onPin: (p: (Pt & { labe
 
   return (
     <form onSubmit={submit} role="search" className="w-[min(20rem,calc(100vw-6.5rem))]">
-      <div className={cn("flex items-center gap-2 rounded-full py-1 pr-1 pl-3.5 focus-within:ring-2 focus-within:ring-ring/50", glass)}>
+      <div className={cn("flex items-center gap-2 rounded-[4px] py-1 pr-1 pl-3.5 focus-within:ring-2 focus-within:ring-ring/50", glass)}>
         {busy ? <LoaderCircle className="size-4 shrink-0 animate-spin text-muted-foreground" /> : <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden />}
         <input
           value={q}
@@ -156,12 +156,12 @@ export function MapSearch({ lang, onPin }: { lang: Lang; onPin: (p: (Pt & { labe
           className="h-8 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
         />
         {q && (
-          <button type="button" onClick={clear} aria-label={tr.clear} title={tr.clear} className="grid size-7 place-items-center rounded-full text-muted-foreground outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring">
+          <button type="button" onClick={clear} aria-label={tr.clear} title={tr.clear} className="grid size-7 place-items-center rounded-[3px] text-muted-foreground outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring">
             <X className="size-4" />
           </button>
         )}
       </div>
-      {msg && <p role="status" className={cn("mt-1.5 rounded-lg px-3 py-1.5 text-xs", glass)}>{msg}</p>}
+      {msg && <p role="status" className={cn("mt-1.5 rounded-[4px] px-3 py-1.5 text-xs", glass)}>{msg}</p>}
     </form>
   );
 }

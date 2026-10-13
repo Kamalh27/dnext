@@ -97,12 +97,12 @@ function MapInner({ lang, layer, markers }: { lang: Lang; layer: MapLayer | null
 
       <div className="absolute bottom-9 left-3 flex flex-col items-start gap-2">
       {layer && (
-        <div className="w-60 space-y-2.5 rounded-xl border bg-card/90 p-3.5 text-xs shadow-lg backdrop-blur-md">
+        <div className="w-60 space-y-2.5 rounded-[4px] border bg-card/90 p-3.5 text-xs shadow-lg backdrop-blur-md">
           <p className="text-[13px] font-semibold leading-snug">{layer.name}</p>
           <ul aria-label={tr.legend} className="space-y-1">
             {layer.legend.map((l) => (
               <li key={l.label} className="flex items-center gap-2">
-                <span className="size-3 shrink-0 rounded-full border border-black/20" style={{ background: l.color }} aria-hidden />
+                <span className="size-3 shrink-0 rounded-[2px] border border-black/20" style={{ background: l.color }} aria-hidden />
                 {l.label}
               </li>
             ))}

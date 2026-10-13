@@ -35,18 +35,18 @@ export function BasemapSwitcher({ lang, value, onChange }: { lang: Lang; value: 
         aria-expanded={open}
         aria-label={`${tr.basemap}: ${label(value)}`}
         onClick={() => setOpen((o) => !o)}
-        className={cn("group relative block size-14 overflow-hidden rounded-xl p-0 outline-none focus-visible:ring-2 focus-visible:ring-ring", glass)}
+        className={cn("group relative block size-14 overflow-hidden rounded-[4px] p-0 outline-none focus-visible:ring-2 focus-visible:ring-ring", glass)}
       >
         {/* eslint-disable-next-line @next/next/no-img-element -- tiny static SVG */}
         <img src={THUMB[value]} alt="" className="size-full object-cover transition-transform group-hover:scale-105" />
-        <span className="absolute top-1 left-1 grid size-4 place-items-center rounded bg-black/45 text-white"><Layers className="size-2.5" aria-hidden /></span>
+        <span className="absolute top-1 left-1 grid size-4 place-items-center rounded-[3px] bg-black/45 text-white"><Layers className="size-2.5" aria-hidden /></span>
         <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-1 pt-3 pb-0.5 text-center text-[10px] font-medium text-white">
           {label(value)}
         </span>
       </button>
 
       {open && (
-        <div role="radiogroup" aria-label={tr.basemap} className={cn("absolute bottom-0 left-[62px] z-10 flex gap-1.5 rounded-2xl p-1.5", glass)}>
+        <div role="radiogroup" aria-label={tr.basemap} className={cn("absolute bottom-0 left-[62px] z-10 flex gap-1.5 rounded-[4px] p-1.5", glass)}>
           {(["terrain", "satellite"] as const).map((k) => {
             const sel = value === k;
             return (
@@ -55,12 +55,12 @@ export function BasemapSwitcher({ lang, value, onChange }: { lang: Lang; value: 
                 role="radio"
                 aria-checked={sel}
                 onClick={() => { onChange(k); setOpen(false); }}
-                className={cn("flex w-16 flex-col gap-0.5 rounded-xl p-1 text-center text-[10px] outline-none transition focus-visible:ring-2 focus-visible:ring-ring", sel ? "bg-accent" : "hover:bg-accent/60")}
+                className={cn("flex w-16 flex-col gap-0.5 rounded-[4px] p-1 text-center text-[10px] outline-none transition focus-visible:ring-2 focus-visible:ring-ring", sel ? "bg-accent" : "hover:bg-accent/60")}
               >
-                <span className={cn("relative block h-10 overflow-hidden rounded-lg ring-2", sel ? "ring-primary" : "ring-transparent")}>
+                <span className={cn("relative block h-10 overflow-hidden rounded-[3px] ring-2", sel ? "ring-primary" : "ring-transparent")}>
                   {/* eslint-disable-next-line @next/next/no-img-element -- tiny static SVG */}
                   <img src={THUMB[k]} alt="" className="size-full object-cover" />
-                  {sel && <span className="absolute top-1 right-1 grid size-3.5 place-items-center rounded-full bg-primary text-primary-foreground"><Check className="size-2.5" aria-hidden /></span>}
+                  {sel && <span className="absolute top-1 right-1 grid size-3.5 place-items-center rounded-[3px] bg-primary text-primary-foreground"><Check className="size-2.5" aria-hidden /></span>}
                 </span>
                 <span className={cn("font-medium", sel && "text-primary")}>{label(k)}</span>
               </button>
