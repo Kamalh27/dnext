@@ -42,6 +42,7 @@ def scenario_events(r: dict) -> list[tuple[str, dict]]:
             "resolution_m": h["resolution_m"], "date_of_data": h["date_of_data"],
             "limitations": h["limitations"] + x["limitations"],
             "shelters": x.get("shelters"), "kind": r.get("kind", "what_if"),
+            "rainfall_mm": r.get("rainfall_mm"), "duration_h": r.get("duration_h"), "area_code": a.get("admin_code"),
             **_extras(h, x),
             **({k: r["forecast"][k] for k in ("forecast_rain_mm", "observed_rain_mm", "horizon_days", "model_run_time")}
                if r.get("forecast") else {}),
