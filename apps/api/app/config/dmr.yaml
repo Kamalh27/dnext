@@ -1,0 +1,45 @@
+# DMR landslide-risk method (ADPC / DMR). Risk = Trigger x Susceptibility x Vulnerability x Exposure / 125  -> 0..5
+# All assets are public/cleared for use (confirmed by the data owners). Static susceptibility is ADPC's CNN map.
+assets:
+  boundary: projects/<project>/assets/<asset>
+  thresholds: projects/<project>/assets/<asset>   # 7,425 tambon polygons with 30-day rainfall percentile thresholds
+  susceptibility: projects/<project>/assets/<asset>   # band b1, 0-100, 12 m
+  vulnerability: projects/<project>/assets/<asset>   # 0-0.50 nationally, 12 m
+  exposure: projects/<project>/assets/<asset>                        # 0.07-0.82 nationally, 12 m
+
+susceptibility_threshold: 10      # pixels below this are "not susceptible" (masked)
+
+# Susceptibility classes: z-score ("Standardize") method on pixels >= threshold.
+# mean/stddev are NATIONAL stats of susceptibility >= 10 (computed 2026-10-13 at 1 km; rerun scripts/dmr_stats.py if the map is updated).
+susceptibility_zscore:
+  mean: 41.379
+  stddev: 19.861
+  k: [-1.5, -0.5, 0.5, 1.5]       # class breaks at mean + k*sd -> 5 classes
+
+# class = ceil(value * multiplier), clamped 1..5. Chosen from national ranges (vulnerability max 0.50 -> x10; exposure max 0.82 -> x5).
+scaling:
+  vulnerability_multiplier: 10
+  exposure_multiplier: 5
+
+trigger:
+  window_days: 30
+  # Tambon thresholds (30-day rainfall, mm). Trigger class = highest threshold exceeded (P60->1 ... P95->5); below P60 -> 0.
+  columns: [P60max, P70max, P80max, P90max, P95max]
+  observed_source: imerg          # imerg | gsmap. NOTE: thresholds were derived from GSMaP; IMERG may be biased relative to it.
+  forecast_source: gfs            # NOAA/GFS0P25 (IMERG is observation-only, no forecast)
+
+risk:
+  divisor: 125
+  # Risk value bins -> class 1..5 (class >= high_from counts as "high" for exposure statistics)
+  cutoffs: [1, 2, 3, 4]
+  class_names: [Very low, Low, Moderate, High, Very high]
+  class_colors: ["#ffffb2", "#fecc5c", "#fd8d3c", "#f03b20", "#bd0026"]
+  high_from: 4                    # class 4+ = risk value >= 3
+
+layers:
+  rain: {name: "Rainfall, 30-day total (mm)", palette: ["f7fbff", "c6dbef", "9ecae1", "3182bd", "08519c"], min: 0, max: 500}
+  trigger: {name: "Rainfall trigger class (tambon)", palette: ["d9d9d9", "ffffb2", "fecc5c", "fd8d3c", "f03b20", "bd0026"], min: 0, max: 5}
+  susceptibility: {name: "Susceptibility class (1-5)", palette: ["1a9641", "a6d96a", "ffffbf", "fdae61", "d7191c"], min: 1, max: 5}
+  vulnerability: {name: "Vulnerability class (1-5)", palette: ["1a9641", "a6d96a", "ffffbf", "fdae61", "d7191c"], min: 1, max: 5}
+  exposure: {name: "Exposure class (1-5)", palette: ["1a9641", "a6d96a", "ffffbf", "fdae61", "d7191c"], min: 1, max: 5}
+  risk: {name: "Landslide risk (0-5)", palette: ["ffffb2", "fecc5c", "fd8d3c", "f03b20", "bd0026"], min: 0, max: 5}
