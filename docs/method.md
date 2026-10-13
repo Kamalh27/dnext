@@ -48,7 +48,7 @@ Exposure: for each tambon the Earth Engine call sums, grouped by hazard class, p
 ## 5. Validation approach
 
 1. **NASA Global Landslide Catalog (GLC)**: sample S at GLC points (accuracy `exact`, `1km`, `5km`) in Thailand and the Mekong region versus random background points, report ROC-AUC (`scripts/validate_susceptibility.py`, writes `scripts/out/validation.md`). Report the number from that run; do not quote one before it exists. GLC is event-reporting biased toward roads and towns and ends in 2016.
-2. **LHASA cross-check**: Spearman rank correlation of S with the LHASA global 1 km susceptibility raster. LHASA-Mekong (ADPC/SERVIR) is the regional reference: doi:10.3389/feart.2022.1057796.
+2. **LHASA cross-check**: Spearman rank correlation of S with the LHASA global 1 km susceptibility raster.
 3. **Face validity**: known past events from local records should fall in high-S areas; flat delta plains should be near zero.
 
 ## 6. Honest limitations

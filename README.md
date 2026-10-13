@@ -100,7 +100,7 @@ _Placeholders; add after the first deploy._
 - **Numbers only from tools.** The system prompt forbids figures from memory; people are rounded; households are labelled estimates (people / 2.5).
 - **Assumptions are always shown**: uniform rainfall, 100 m resolution, no soil depth or lithology, global rainfall threshold not calibrated to Thailand.
 - **Data caveats are visible** in each result (`data_sources`, `limitations`), see [docs/data_sources.md](docs/data_sources.md).
-- **Validation is reported, not claimed.** `scripts/validate_susceptibility.py` computes AUC against NASA GLC; quote only what it outputs. Cross-check with LHASA-Mekong (doi:10.3389/feart.2022.1057796).
+- **Validation is reported, not claimed.** `scripts/validate_susceptibility.py` computes AUC against NASA GLC; quote only what it outputs.
 - Out-of-scope requests (places outside Thailand, absurd rainfall) are refused with an explanation.
 
 ## Layout
