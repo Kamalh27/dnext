@@ -21,31 +21,31 @@ export function Header({ lang, setLang }: { lang: Lang; setLang: (l: Lang) => vo
   const themeLabel = dark ? tr.themeToLight : tr.themeToDark;
 
   return (
-    <header className="relative z-20 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-black/10 bg-primary px-3 text-primary-foreground shadow-sm sm:px-5">
-      <Link href="/" className="flex items-center gap-2.5 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground/70" aria-label="DNext · LandslideWatch TH">
+    <header className="relative z-20 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-black/10 bg-primary px-3 text-primary-foreground shadow-sm sm:px-5 dark:border-border dark:bg-card dark:text-foreground dark:shadow-none">
+      <Link href="/" className="flex items-center gap-2.5 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground/70 dark:focus-visible:ring-ring" aria-label="DNext · LandslideWatch TH">
         <LogoMark className="size-8" inverted />
         <Wordmark inverted />
       </Link>
 
       <nav className="flex items-center gap-1.5" aria-label="Site">
-        <div role="group" aria-label={tr.language} className="mr-1 flex rounded-full bg-primary-foreground/15 p-0.5 text-xs font-medium">
+        <div role="group" aria-label={tr.language} className="mr-1 flex rounded-full bg-primary-foreground/15 p-0.5 dark:bg-muted text-xs font-medium">
           {(["en", "th"] as const).map((l) => (
             <button
               key={l}
               aria-pressed={lang === l}
               onClick={() => setLang(l)}
               className={cn(
-                "rounded-full px-2.5 py-1 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary-foreground/70",
-                lang === l ? "bg-primary-foreground text-primary shadow-sm" : "text-primary-foreground/80 hover:text-primary-foreground",
+                "rounded-full px-2.5 py-1 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary-foreground/70 dark:focus-visible:ring-ring",
+                lang === l ? "bg-primary-foreground text-primary shadow-sm dark:bg-card dark:text-foreground" : "text-primary-foreground/80 hover:text-primary-foreground dark:text-muted-foreground dark:hover:text-foreground",
               )}
             >
               {l === "en" ? "EN" : "ไทย"}
             </button>
           ))}
         </div>
-        <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground" onClick={() => setModal("about")} aria-label={tr.aboutOpen} title={tr.aboutOpen}><Info /></Button>
-        <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground" onClick={() => setModal("feedback")} aria-label={tr.feedbackOpen} title={tr.feedbackOpen}><MessageSquareText /></Button>
-        <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground" onClick={toggle} aria-label={themeLabel} title={themeLabel} aria-pressed={dark}>
+        <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground dark:text-foreground dark:hover:bg-accent dark:hover:text-accent-foreground" onClick={() => setModal("about")} aria-label={tr.aboutOpen} title={tr.aboutOpen}><Info /></Button>
+        <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground dark:text-foreground dark:hover:bg-accent dark:hover:text-accent-foreground" onClick={() => setModal("feedback")} aria-label={tr.feedbackOpen} title={tr.feedbackOpen}><MessageSquareText /></Button>
+        <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground dark:text-foreground dark:hover:bg-accent dark:hover:text-accent-foreground" onClick={toggle} aria-label={themeLabel} title={themeLabel} aria-pressed={dark}>
           {dark ? <Sun /> : <Moon />}
         </Button>
       </nav>

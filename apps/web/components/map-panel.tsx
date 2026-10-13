@@ -72,7 +72,7 @@ function MapInner({ lang, layer, markers }: { lang: Lang; layer: MapLayer | null
         )}
         {pin && (
           <AdvancedMarker position={pin} title={pin.label}>
-            <Pin background="#0f766e" borderColor="#fff" glyphColor="#fff" />
+            <Pin background="#8a4b24" borderColor="#fff" glyphColor="#fff" />
           </AdvancedMarker>
         )}
         {markers.map((m, i) => {
