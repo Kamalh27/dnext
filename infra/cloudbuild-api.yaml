@@ -6,8 +6,10 @@ substitutions:
   _MAX_INSTANCES: "5"
   _AGENT_MODEL: gemini-3.5-flash
   _ALLOWED_ORIGINS: "*"      # tightened to the web URL by deploy.sh after the web service exists
-  _AUTH_REQUIRED: "false"    # "true" once GOOGLE_OAUTH_CLIENT_ID is set: chat and scenario/forecast runs then need a Google sign-in
-  _GOOGLE_CLIENT_ID: ""      # Web OAuth client id (public value)
+  _AUTH_REQUIRED: "false"    # "true" once Firebase Authentication is set up: chat and scenario/forecast runs then need a Google sign-in
+  _FIREBASE_API_KEY: ""      # Firebase web config: public identifiers, not secrets
+  _FIREBASE_AUTH_DOMAIN: ""
+  _FIREBASE_APP_ID: ""
 options:
   logging: CLOUD_LOGGING_ONLY
 steps:
@@ -32,5 +34,5 @@ steps:
       - --cpu-boost
       - --min-instances=${_MIN_INSTANCES}
       - --max-instances=${_MAX_INSTANCES}
-      - --set-env-vars=^@^GEO_BACKEND=ee@EE_PROJECT=$PROJECT_ID@GOOGLE_GENAI_USE_VERTEXAI=true@GOOGLE_CLOUD_PROJECT=$PROJECT_ID@GOOGLE_CLOUD_LOCATION=global@AGENT_MODEL=${_AGENT_MODEL}@ALLOWED_ORIGINS=${_ALLOWED_ORIGINS}@AUTH_REQUIRED=${_AUTH_REQUIRED}@GOOGLE_OAUTH_CLIENT_ID=${_GOOGLE_CLIENT_ID}
-      - --set-secrets=GOOGLE_MAPS_SERVER_KEY=maps-server-key:latest,SESSION_SECRET=session-secret:latest
+      - --set-env-vars=^@^GEO_BACKEND=ee@EE_PROJECT=$PROJECT_ID@GOOGLE_GENAI_USE_VERTEXAI=true@GOOGLE_CLOUD_PROJECT=$PROJECT_ID@GOOGLE_CLOUD_LOCATION=global@AGENT_MODEL=${_AGENT_MODEL}@ALLOWED_ORIGINS=${_ALLOWED_ORIGINS}@AUTH_REQUIRED=${_AUTH_REQUIRED}@FIREBASE_PROJECT_ID=$PROJECT_ID@FIREBASE_API_KEY=${_FIREBASE_API_KEY}@FIREBASE_AUTH_DOMAIN=${_FIREBASE_AUTH_DOMAIN}@FIREBASE_APP_ID=${_FIREBASE_APP_ID}
+      - --set-secrets=GOOGLE_MAPS_SERVER_KEY=maps-server-key:latest

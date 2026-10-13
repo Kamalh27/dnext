@@ -24,9 +24,11 @@ class Settings(BaseSettings):
     rate_limit: str = "30/minute"
     # --- sign-in + per-account limits (see app/auth.py, app/usage.py) ---
     auth_required: bool = False                 # True in production: chat/scenario/forecast need a Google sign-in
-    google_oauth_client_id: str = ""            # Web OAuth client id (public); audience of the Google ID token
-    session_secret: str = ""                    # HMAC secret for our session token (Secret Manager in production)
-    session_ttl_s: int = 12 * 3600
+    # Firebase Authentication (Google provider). The web config values are PUBLIC identifiers, not secrets; /auth/config hands them to the UI.
+    firebase_project_id: str = ""               # audience of the ID tokens; defaults to PROJECT_ID / EE_PROJECT
+    firebase_api_key: str = ""
+    firebase_auth_domain: str = ""              # e.g. <project>.firebaseapp.com
+    firebase_app_id: str = ""
     limit_chat_per_day: int = 30
     limit_run_per_day: int = 200                # scenario + forecast runs
     limit_burst_per_min: int = 6                # per account, per instance
