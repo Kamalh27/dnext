@@ -1,10 +1,10 @@
 import { parseSSE } from "./sse";
-import type { Explain, Lang, ScenarioResponse, SseEvent, StaticLayersResponse } from "./types";
+import type { Explain, ForecastResponse, Lang, Province, ScenarioResponse, SseEvent, StaticLayersResponse } from "./types";
 
 export const API_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080").replace(/\/$/, "");
 
 export async function streamChat(
-  body: { message: string; session_id: string; language: Lang },
+  body: { message: string; session_id: string; language: Lang; area?: string },
   onEvent: (e: SseEvent) => void,
   signal: AbortSignal,
 ) {
@@ -29,12 +29,22 @@ async function json<T>(res: Response): Promise<T> {
   return res.json();
 }
 
+/** `area` is a province pcode (e.g. "TH55"). */
 export const runScenario = (b: { area: string; rainfall_mm: number; duration_h: number }) =>
   fetch(`${API_BASE}/scenario`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(b),
   }).then((r) => json<ScenarioResponse>(r));
+
+export const runForecast = (b: { area: string; horizon_days: number }) =>
+  fetch(`${API_BASE}/forecast`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(b),
+  }).then((r) => json<ForecastResponse>(r));
+
+export const fetchProvinces = (signal?: AbortSignal) => fetch("/provinces.json", { signal }).then((r) => json<Province[]>(r));
 
 export const fetchStaticLayers = (signal?: AbortSignal) =>
   fetch(`${API_BASE}/layers/static`, { signal }).then((r) => json<StaticLayersResponse>(r));

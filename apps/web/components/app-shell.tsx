@@ -5,9 +5,11 @@ import { Header } from "./header";
 import { ResizeHandle } from "./resize-handle";
 import { ChatPanel, type Message } from "./chat-panel";
 import { MapPanel } from "./map-panel";
-import { fetchStaticLayers, runScenario, streamChat } from "@/lib/api";
+import { ScenarioBar } from "./scenario-bar";
+import type { RunError, RunKind } from "./scenario-card";
+import { fetchProvinces, fetchStaticLayers, runForecast as apiForecast, runScenario, streamChat } from "@/lib/api";
 import { t } from "@/lib/i18n";
-import type { ChartData, Kpis, Lang, MapLayer, MapLayersEvent, MapMarkers, SseEvent, StaticLayerItem, TableData } from "@/lib/types";
+import type { ChartData, Kpis, Lang, MapLayer, MapLayersEvent, MapMarkers, Province, ScenarioResponse, SseEvent, StaticLayerItem, TableData } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const upsert = <T extends { id: string }>(list: T[], item: T) =>
@@ -18,6 +20,8 @@ function primaryOf(set: MapLayersEvent): MapLayer | null {
   const p = set.layers.find((l) => l.key === "risk") ?? set.layers[0];
   return p ? { id: p.id, name: p.name, tile_url: p.tile_url, opacity: p.opacity, bbox: set.bbox, legend: p.legend, scenario_id: set.scenario_id } : null;
 }
+
+const asList = <T,>(v: T | T[] | undefined): T[] => (v === undefined ? [] : Array.isArray(v) ? v : [v]);
 
 export function AppShell() {
   const [lang, setLang] = useState<Lang>("en");
@@ -32,8 +36,13 @@ export function AppShell() {
   const [kpis, setKpis] = useState<Kpis | null>(null);
   const [charts, setCharts] = useState<ChartData[]>([]);
   const [tables, setTables] = useState<TableData[]>([]);
-  const [scenarioBusy, setScenarioBusy] = useState(false);
-  const [scenarioError, setScenarioError] = useState<string | null>(null);
+  const [provinces, setProvinces] = useState<Province[]>([]);
+  const [selected, setSelected] = useState<Province | null>(null);
+  const [runBusy, setRunBusy] = useState<RunKind | null>(null);
+  const [runError, setRunError] = useState<RunError | null>(null);
+  const provincesRef = useRef<Province[]>([]);
+  // Bumped whenever results are cleared or replaced, so a slow scenario/forecast response for an old selection is dropped.
+  const runToken = useRef(0);
   const sessionId = useRef<string>(typeof crypto !== "undefined" ? crypto.randomUUID() : "web");
   const abort = useRef<AbortController | null>(null);
   const lastPrompt = useRef("");
@@ -65,6 +74,82 @@ export function AppShell() {
     };
   }, []);
 
+  // Province outlines (static file). Failure leaves the picker empty; everything else keeps working.
+  useEffect(() => {
+    const ctl = new AbortController();
+    fetchProvinces(ctl.signal)
+      .then((list) => {
+        if (!Array.isArray(list)) return;
+        provincesRef.current = list;
+        setProvinces(list);
+      })
+      .catch((err) => {
+        if (!ctl.signal.aborted) console.warn("Province list unavailable:", (err as Error).message);
+      });
+    return () => ctl.abort();
+  }, []);
+
+  const hasResults = !!(layer || layers || kpis || charts.length || tables.length || markers.length);
+
+  const clearScenario = useCallback(() => {
+    runToken.current++;
+    setLayer(null);
+    setLayers(null);
+    setKpis(null);
+    setCharts([]);
+    setTables([]);
+    setMarkers([]);
+    setRunBusy(null);
+    setRunError(null);
+  }, []);
+
+  /** Dropdown / map click. Switching to a different area than the current results belong to drops those results. */
+  const selectProvince = useCallback(
+    (p: Province | null) => {
+      if ((p?.pcode ?? null) === (selected?.pcode ?? null)) return;
+      setSelected(p);
+      if (hasResults && (kpis?.area_code ?? null) !== (p?.pcode ?? null)) clearScenario();
+    },
+    [selected, hasResults, kpis, clearScenario],
+  );
+  const selectByCode = useCallback((code: string | null) => selectProvince(provinces.find((x) => x.pcode === code) ?? null), [provinces, selectProvince]);
+
+  /**
+   * One entry point for every result: slider run, forecast run and chat events.
+   * replace=true (a run) swaps the whole result set; replace=false (a chat event) merges into what is showing.
+   */
+  const applyPayload = useCallback((r: ScenarioResponse, replace: boolean) => {
+    const list = <T extends { id: string }>(prev: T[], items: T[]) => (replace ? items : items.reduce(upsert, prev));
+    const sets = r.map_layers;
+    if (r.map_layer) {
+      const l = r.map_layer;
+      setLayer(l);
+      // A layer set from another scenario is stale; the matching map_layers set follows (or is in this payload).
+      if (!sets) setLayers((prev) => (!replace && prev && prev.scenario_id === l.scenario_id ? prev : null));
+    }
+    if (sets) {
+      setLayers(sets);
+      // Keep the primary layer in sync (explain popover needs scenario_id) unless map_layer already sent it.
+      setLayer((prev) => (r.map_layer ?? (prev && prev.scenario_id === sets.scenario_id ? prev : primaryOf(sets) ?? prev)));
+    }
+    if (replace && !r.map_layer && !sets) {
+      setLayer(null);
+      setLayers(null);
+    }
+    const tbs = r.tables ?? (r.table ? [r.table] : []);
+    if (replace || tbs.length) setTables((x) => list(x, tbs));
+    const mks = asList(r.map_markers);
+    if (replace || mks.length) setMarkers((x) => list(x, mks));
+    const chs = asList(r.chart);
+    if (replace || chs.length) setCharts((x) => list(x, chs));
+    if (r.kpis) {
+      setKpis(r.kpis);
+      // Results for a known province select it (without clearing the results that just arrived).
+      const hit = provincesRef.current.find((x) => x.pcode === r.kpis?.area_code);
+      if (hit) setSelected(hit);
+    } else if (replace) setKpis(null);
+  }, []);
+
   const patchAssistant = (fn: (m: Message) => Message) =>
     setMessages((ms) => ms.map((m, i) => (i === ms.length - 1 && m.role === "assistant" ? fn(m) : m)));
 
@@ -77,26 +162,22 @@ export function AppShell() {
         patchAssistant((m) => ({ ...m, text: m.text + e.data.text }));
         break;
       case "map_layer":
-        setLayer(e.data);
-        // A layer set from another scenario is stale; the matching map_layers event follows.
-        setLayers((prev) => (prev && prev.scenario_id === e.data.scenario_id ? prev : null));
+        applyPayload({ map_layer: e.data }, false);
         break;
       case "map_layers":
-        setLayers(e.data);
-        // Keep the primary layer in sync (explain popover needs scenario_id) unless map_layer already sent it.
-        setLayer((prev) => (prev && prev.scenario_id === e.data.scenario_id ? prev : primaryOf(e.data) ?? prev));
+        applyPayload({ map_layers: e.data }, false);
         break;
       case "map_markers":
-        setMarkers((m) => upsert(m, e.data));
+        applyPayload({ map_markers: e.data }, false);
         break;
       case "table":
-        setTables((x) => upsert(x, e.data));
+        applyPayload({ table: e.data }, false);
         break;
       case "chart":
-        setCharts((x) => upsert(x, e.data));
+        applyPayload({ chart: e.data }, false);
         break;
       case "kpis":
-        setKpis(e.data);
+        applyPayload({ kpis: e.data }, false);
         break;
       case "final":
         sessionId.current = e.data.session_id || sessionId.current;
@@ -105,7 +186,7 @@ export function AppShell() {
         patchAssistant((m) => ({ ...m, error: e.data.message }));
         break;
     }
-  }, []);
+  }, [applyPayload]);
 
   const send = useCallback(
     async (text: string) => {
@@ -120,7 +201,7 @@ export function AppShell() {
       setMarkers([]);
       setMessages((ms) => [...ms, { role: "user", text: message }, { role: "assistant", text: "" }]);
       try {
-        await streamChat({ message, session_id: sessionId.current, language: lang }, onEvent, abort.current.signal);
+        await streamChat({ message, session_id: sessionId.current, language: lang, area: selected?.pcode }, onEvent, abort.current.signal);
       } catch (err) {
         if ((err as Error).name !== "AbortError") patchAssistant((m) => ({ ...m, error: (err as Error).message }));
       } finally {
@@ -128,7 +209,7 @@ export function AppShell() {
         setStatus([]);
       }
     },
-    [busy, lang, onEvent],
+    [busy, lang, selected, onEvent],
   );
 
   const retry = () => {
@@ -136,25 +217,25 @@ export function AppShell() {
     void send(lastPrompt.current);
   };
 
-  const scenario = useCallback(
-    async (rainfall_mm: number, duration_h: number) => {
-      if (!kpis) return;
-      setScenarioBusy(true);
-      setScenarioError(null);
+  const run = useCallback(
+    async (kind: RunKind, call: (area: string) => Promise<ScenarioResponse>) => {
+      if (!selected) return;
+      const token = ++runToken.current;
+      setRunBusy(kind);
+      setRunError(null);
       try {
-        const r = await runScenario({ area: kpis.area_name, rainfall_mm, duration_h });
-        setLayer(r.map_layer);
-        setLayers(r.map_layers ?? null);
-        setKpis(r.kpis);
-        setCharts((c) => upsert(c, r.chart));
+        const r = await call(selected.pcode);
+        if (token === runToken.current) applyPayload(r, true);
       } catch (err) {
-        setScenarioError((err as Error).message);
+        if (token === runToken.current) setRunError({ kind, message: (err as Error).message });
       } finally {
-        setScenarioBusy(false);
+        if (token === runToken.current) setRunBusy(null);
       }
     },
-    [kpis],
+    [selected, applyPayload],
   );
+  const scenario = useCallback((rainfall_mm: number, duration_h: number) => run("scenario", (area) => runScenario({ area, rainfall_mm, duration_h })), [run]);
+  const forecast = useCallback((horizon_days: number) => run("forecast", (area) => apiForecast({ area, horizon_days })), [run]);
 
   const allMarkers = useMemo(() => markers.flatMap((m) => m.markers), [markers]);
 
@@ -181,7 +262,9 @@ export function AppShell() {
         ref={row}
         className="relative grid min-h-0 flex-1 md:grid-cols-[clamp(320px,var(--chat-w,32%),70%)_1fr]"
       >
-        <div className={cn("min-h-0 border-r bg-background", tab === "chat" ? "block" : "hidden md:block")}>
+        <div className={cn("min-h-0 flex-col border-r bg-background", tab === "chat" ? "flex" : "hidden md:flex")}>
+          <ScenarioBar lang={lang} provinces={provinces} selected={selected} kpis={kpis} hasResults={hasResults} onSelect={selectByCode} onReset={clearScenario} />
+          <div className="min-h-0 flex-1">
           <ChatPanel
             lang={lang}
             messages={messages}
@@ -193,13 +276,16 @@ export function AppShell() {
             kpis={kpis}
             charts={charts}
             tables={tables}
-            scenarioBusy={scenarioBusy}
-            scenarioError={scenarioError}
+            province={selected}
+            runBusy={runBusy}
+            runError={runError}
             onScenario={scenario}
+            onForecast={forecast}
           />
+          </div>
         </div>
         <div className={cn("min-h-0", tab === "map" ? "block" : "hidden md:block")}>
-          <MapPanel lang={lang} layer={layer} layers={layers} staticLayers={staticLayers} markers={allMarkers} />
+          <MapPanel lang={lang} layer={layer} layers={layers} staticLayers={staticLayers} markers={allMarkers} provinces={provinces} selected={selected} onSelect={selectProvince} />
         </div>
         <ResizeHandle row={row} label={tr.resizeChat} />
       </main>

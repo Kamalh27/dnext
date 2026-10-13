@@ -12,7 +12,8 @@ import { ArrowLeft } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { explain } from "@/lib/api";
 import { t } from "@/lib/i18n";
-import type { Explain, Lang, MapLayer, MapLayerItem, MapLayersEvent, MapMarkers, StaticLayerItem } from "@/lib/types";
+import { DEFAULT_VIEW, findProvince } from "@/lib/geo";
+import type { Explain, Lang, MapLayer, MapLayerItem, MapLayersEvent, MapMarkers, Province, StaticLayerItem } from "@/lib/types";
 
 const KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 const MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAP_ID || "DEMO_MAP_ID";
@@ -23,7 +24,10 @@ const KIND_STYLE: Record<string, { glyph: string; bg: string }> = {
   bridge: { glyph: "B", bg: "#4d4d4d" },
 };
 
-interface PanelProps { lang: Lang; layer: MapLayer | null; layers: MapLayersEvent | null; staticLayers: StaticLayerItem[]; markers: MapMarkers["markers"] }
+interface PanelProps {
+  lang: Lang; layer: MapLayer | null; layers: MapLayersEvent | null; staticLayers: StaticLayerItem[]; markers: MapMarkers["markers"];
+  provinces: Province[]; selected: Province | null; onSelect: (p: Province) => void;
+}
 
 const STATIC_ORDER = ["susceptibility", "vulnerability", "exposure", "population"];
 const STATIC_OPACITY = 0.7;
@@ -37,7 +41,8 @@ function stackBottomUp(ls: MapLayerItem[]) {
   return i < 0 ? r : [...r.slice(0, i), ...r.slice(i + 1), r[i]];
 }
 
-export function MapPanel({ lang, layer, layers, staticLayers, markers }: PanelProps) {
+export function MapPanel(props: PanelProps) {
+  const { lang } = props;
   const tr = t(lang);
   if (!KEY) {
     return (
@@ -49,12 +54,12 @@ export function MapPanel({ lang, layer, layers, staticLayers, markers }: PanelPr
   }
   return (
     <APIProvider apiKey={KEY}>
-      <MapInner lang={lang} layer={layer} layers={layers} staticLayers={staticLayers} markers={markers} />
+      <MapInner {...props} />
     </APIProvider>
   );
 }
 
-function MapInner({ lang, layer, layers, staticLayers, markers }: PanelProps) {
+function MapInner({ lang, layer, layers, staticLayers, markers, provinces, selected, onSelect }: PanelProps) {
   const tr = t(lang);
   const { theme } = useTheme();
   const [mapType, setMapType] = useState<"terrain" | "satellite">("satellite");
@@ -69,6 +74,14 @@ function MapInner({ lang, layer, layers, staticLayers, markers }: PanelProps) {
   const [wrap, setWrap] = useState<HTMLDivElement | null>(null);
   // The globe is opt-in (Globe button). A new result (layer) closes it so the hazard map is never hidden behind it.
   const [globe, setGlobe] = useState(false);
+  // Thin outlines of every province are a toggleable reference layer (per session). The selected province stays highlighted regardless.
+  const [outlines, setOutlines] = useState(true);
+  const [cam, setCam] = useState<{ zoom: number; lat: number; lng: number }>({ zoom: DEFAULT_VIEW.zoom, lat: DEFAULT_VIEW.center.lat, lng: DEFAULT_VIEW.center.lng });
+  const [seenProvince, setSeenProvince] = useState(selected?.pcode);
+  if (selected?.pcode !== seenProvince) {
+    setSeenProvince(selected?.pcode);
+    setPoint(null);
+  }
   const [seenLayer, setSeenLayer] = useState(layer?.id);
   if (layer?.id !== seenLayer) {
     setSeenLayer(layer?.id);
@@ -116,19 +129,39 @@ function MapInner({ lang, layer, layers, staticLayers, markers }: PanelProps) {
     return vis.find((l) => l.key === "risk") ?? vis[0] ?? staticItems.find((l) => l.visible) ?? null;
   }, [items, staticItems]);
 
+  // Click picks the province under the pointer (point-in-polygon on the loaded outlines, independent of the outlines layer being shown).
+  // Inside the already-selected province with a scenario on the map it explains that point instead.
+  const onMapClick = (e: { detail: { latLng: google.maps.LatLngLiteral | null } }) => {
+    const ll = e.detail.latLng;
+    if (!ll) return;
+    if (provinces.length === 0) return void (layer && setPoint(ll)); // outlines unavailable: keep the old explain-anywhere behaviour
+    const hit = findProvince(provinces, ll.lat, ll.lng);
+    if (!hit) return;
+    if (layer && hit.pcode === selected?.pcode) return setPoint(ll);
+    setPoint(null);
+    onSelect(hit);
+  };
+
   return (
-    <div ref={setWrap} className="relative h-full w-full bg-background" data-overlay-count={overlayInfo.count} data-overlay-opacity={overlayInfo.opacity}>
+    <div ref={setWrap} className="relative h-full w-full bg-background" data-overlay-count={overlayInfo.count} data-overlay-opacity={overlayInfo.opacity}
+      data-selected-province={selected?.pcode ?? ""}
+      data-province-outlines={outlines ? "on" : "off"}
+      data-zoom={cam.zoom}
+      data-center={`${cam.lat.toFixed(3)},${cam.lng.toFixed(3)}`}
+    >
       <Map
         mapId={MAP_ID}
         colorScheme={theme === "dark" ? "DARK" : "LIGHT"}
         mapTypeId={mapType === "satellite" ? "hybrid" : "terrain"}
-        defaultCenter={{ lat: 15.5, lng: 101 }}
-        defaultZoom={6}
+        defaultCenter={DEFAULT_VIEW.center}
+        defaultZoom={DEFAULT_VIEW.zoom}
         gestureHandling="greedy"
         disableDefaultUI
         mapTypeControl={false}
-        onClick={(e) => e.detail.latLng && layer && setPoint(e.detail.latLng)}
+        onClick={onMapClick}
       >
+        <ProvinceOutlines provinces={provinces} selected={selected} showAll={outlines} light={mapType === "satellite" || theme === "dark"} />
+        <CameraProbe onCamera={setCam} />
         <LayerOverlays items={drawItems} bbox={bbox} scope={scope} onInfo={setOverlayInfo} />
         {me && (
           <AdvancedMarker position={me} title={tr.pinMe}>
@@ -161,7 +194,7 @@ function MapInner({ lang, layer, layers, staticLayers, markers }: PanelProps) {
       <div className="absolute top-3 left-3 flex flex-col items-start gap-2">
         <MapSearch lang={lang} onPin={setPin} />
       </div>
-      <MapControls lang={lang} onLocate={setMe} onGlobe={() => setGlobe(true)} fullscreenTarget={wrap} layers={items} reference={staticItems} onLayerChange={onLayerChange} />
+      <MapControls lang={lang} onLocate={setMe} onGlobe={() => setGlobe(true)} onResetView={() => setGlobe(false)} boundaries={{ visible: outlines, onChange: setOutlines }} fullscreenTarget={wrap} layers={items} reference={staticItems} onLayerChange={onLayerChange} />
 
       {globe && (
         <div className="absolute inset-0 z-10 bg-black">
@@ -277,6 +310,78 @@ function LayerOverlays({ items, bbox, scope, onInfo }: {
     if (!map || Number.isNaN(w)) return;
     map.fitBounds({ west: w, south: s, east: e, north: n }, 48);
   }, [map, scope, w, s, e, n]);
+
+  return null;
+}
+
+/** Mirrors the camera into React state (on idle) so the wrapper can expose zoom/center. */
+function CameraProbe({ onCamera }: { onCamera: (c: { zoom: number; lat: number; lng: number }) => void }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!map) return;
+    const read = () => {
+      const c = map.getCenter();
+      const z = map.getZoom();
+      if (c && z != null) onCamera({ zoom: z, lat: c.lat(), lng: c.lng() });
+    };
+    read();
+    const l = map.addListener("idle", read);
+    return () => l.remove();
+  }, [map, onCamera]);
+  return null;
+}
+
+const OUTLINE_LIGHT = "#f2c98a"; // brand amber, readable on satellite and dark base maps
+const OUTLINE_DARK = "#8a4b24"; // brand brown, for the light terrain map
+
+/**
+ * Province outlines on the map's Data layer (never clickable: selection is done by point-in-polygon in the map click handler).
+ * showAll=false hides the thin outlines but keeps the selected province's highlight. Selecting a province fits the view to it;
+ * if the map is hidden (mobile chat tab) the fit waits until it has a size.
+ */
+function ProvinceOutlines({ provinces, selected, showAll, light }: { provinces: Province[]; selected: Province | null; showAll: boolean; light: boolean }) {
+  const map = useMap();
+  const pending = useRef<Province | null>(null);
+  const color = light ? OUTLINE_LIGHT : OUTLINE_DARK;
+  const code = selected?.pcode;
+
+  useEffect(() => {
+    if (!map || provinces.length === 0) return;
+    const feats = map.data.addGeoJson({
+      type: "FeatureCollection",
+      features: provinces.map((p) => ({ type: "Feature", properties: { pcode: p.pcode }, geometry: p.geometry })),
+    });
+    return () => feats.forEach((f) => map.data.remove(f));
+  }, [map, provinces]);
+
+  useEffect(() => {
+    if (!map) return;
+    map.data.setStyle((f) => {
+      if (f.getProperty("pcode") === code) {
+        return { clickable: false, strokeColor: color, strokeWeight: 3, strokeOpacity: 0.95, fillColor: color, fillOpacity: 0.12, zIndex: 2 };
+      }
+      return showAll
+        ? { clickable: false, strokeColor: color, strokeWeight: 1, strokeOpacity: 0.45, fillOpacity: 0, zIndex: 1 }
+        : { clickable: false, visible: false };
+    });
+  }, [map, code, showAll, color, provinces]);
+
+  useEffect(() => {
+    if (!map) return;
+    const div = map.getDiv();
+    const fit = () => {
+      const p = pending.current;
+      if (!p || div.clientWidth === 0 || div.clientHeight === 0) return;
+      pending.current = null;
+      const [w, s, e, n] = p.bbox;
+      map.fitBounds({ west: w, south: s, east: e, north: n }, 48);
+    };
+    pending.current = selected; // null on the initial load: no fit, no zoom
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(div);
+    return () => ro.disconnect();
+  }, [map, selected]);
 
   return null;
 }

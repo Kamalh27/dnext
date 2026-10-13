@@ -7,10 +7,10 @@ import { LegalModal } from "./legal-modal";
 import { LogoMark } from "./logo";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ResultCards } from "./result-cards";
-import { ScenarioCard } from "./scenario-card";
+import { ScenarioCard, type RunError, type RunKind } from "./scenario-card";
 import { t } from "@/lib/i18n";
 import type { LegalKind } from "@/lib/legal";
-import type { ChartData, Kpis, Lang, TableData } from "@/lib/types";
+import type { ChartData, Kpis, Lang, Province, TableData } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export interface Message { role: "user" | "assistant"; text: string; error?: string }
@@ -26,9 +26,11 @@ interface Props {
   kpis: Kpis | null;
   charts: ChartData[];
   tables: TableData[];
-  scenarioBusy: boolean;
-  scenarioError: string | null;
+  province: Province | null;
+  runBusy: RunKind | null;
+  runError: RunError | null;
   onScenario: (mm: number, h: number) => void;
+  onForecast: (days: number) => void;
 }
 
 export function ChatPanel(p: Props) {
@@ -106,7 +108,7 @@ export function ChatPanel(p: Props) {
           </ul>
         )}
         <ResultCards lang={p.lang} kpis={p.kpis} charts={p.charts} tables={p.tables} loading={p.busy} />
-        {p.kpis && <ScenarioCard lang={p.lang} kpis={p.kpis} busy={p.scenarioBusy} error={p.scenarioError} onRun={p.onScenario} />}
+        {(p.province || p.kpis) && <ScenarioCard lang={p.lang} province={p.province} busy={p.runBusy} error={p.runError} onRun={p.onScenario} onForecast={p.onForecast} />}
         <div ref={endRef} />
       </div>
 

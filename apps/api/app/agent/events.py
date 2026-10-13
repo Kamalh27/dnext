@@ -58,8 +58,9 @@ def scenario_events(r: dict) -> list[tuple[str, dict]]:
     if x.get("tambon_table"):
         ev.append(("table", {
             "id": f"{sid}-tambons", "title": f"Tambon risk and exposure: {a['name']} (top {len(x['tambon_table'])} of {x.get('tambons_ranked', '?')})",
-            "columns": ["Tambon", "Amphoe", "Trigger (0-5)", "30-day rain (mm)", "Risk, peak (0-5)", "Elevated-risk area (%)", "Exposure class (1-5)", "People in elevated risk (est.)"],
-            "rows": [[t["name"], t["amphoe"], t["trigger_class"], t["rain30_mm"], t["risk_max"], t["share_high_pct"], t["exposure_class"], t["people"]]
+            # 6 columns so it fits the narrow side panel; the amphoe is folded into the tambon name
+            "columns": ["Tambon (amphoe)", "Trigger 0-5", "Rain 30 d (mm)", "Peak risk 0-5", "Exposure 1-5", "People in elevated risk (est.)"],
+            "rows": [[f"{t['name']} ({t['amphoe']})", t["trigger_class"], t["rain30_mm"], t["risk_max"], t["exposure_class"], t["people"]]
                      for t in x["tambon_table"]],
             "scenario_id": sid,
         }))

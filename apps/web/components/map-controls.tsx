@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useMap, useMapsLibrary } from "@vis.gl/react-google-maps";
-import { Box, Globe, Layers, LoaderCircle, LocateFixed, Map as MapIcon, Maximize2, Minimize2, Minus, Plus, Search, X } from "lucide-react";
+import { Box, Globe, House, Layers, LoaderCircle, LocateFixed, Map as MapIcon, Maximize2, Minimize2, Minus, Plus, Search, X } from "lucide-react";
 import { t } from "@/lib/i18n";
 import { LayersPanel, type LayerPatch } from "./layers-panel";
+import { DEFAULT_VIEW } from "@/lib/geo";
 import type { Lang, MapLayerItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -25,9 +26,10 @@ function MapButton({ label, onClick, children, disabled, pressed, className }: {
 }
 
 /** Zoom, my location, 2D/3D and fullscreen. Must render under <APIProvider> (uses the default map instance). */
-export function MapControls({ lang, onLocate, onGlobe, fullscreenTarget, layers, reference, onLayerChange }: {
-  lang: Lang; onLocate: (p: Pt) => void; onGlobe: () => void; fullscreenTarget: HTMLElement | null;
+export function MapControls({ lang, onLocate, onGlobe, onResetView, fullscreenTarget, layers, reference, onLayerChange, boundaries }: {
+  lang: Lang; onLocate: (p: Pt) => void; onGlobe: () => void; onResetView: () => void; fullscreenTarget: HTMLElement | null;
   layers: MapLayerItem[]; reference: MapLayerItem[]; onLayerChange: (id: string, p: LayerPatch) => void;
+  boundaries: { visible: boolean; onChange: (v: boolean) => void };
 }) {
   const tr = t(lang);
   const panelId = useId();
@@ -96,6 +98,12 @@ export function MapControls({ lang, onLocate, onGlobe, fullscreenTarget, layers,
     );
   }, [map, onLocate, tr]);
 
+  // Back to the Thailand overview, flat and north-up. Selection and results are untouched; an open globe is closed.
+  const resetView = () => {
+    onResetView();
+    map?.moveCamera({ center: DEFAULT_VIEW.center, zoom: DEFAULT_VIEW.zoom, tilt: 0, heading: 0 });
+  };
+
   const toggle3d = () => {
     if (!map) return;
     const next = !is3d;
@@ -116,6 +124,7 @@ export function MapControls({ lang, onLocate, onGlobe, fullscreenTarget, layers,
       <div className={cn("flex flex-col divide-y overflow-hidden rounded-[4px]", glass)} role="group" aria-label={tr.mapControls}>
         <MapButton label={tr.zoomIn} onClick={() => zoom(1)}><Plus /></MapButton>
         <MapButton label={tr.zoomOut} onClick={() => zoom(-1)}><Minus /></MapButton>
+        <MapButton label={tr.resetView} onClick={resetView}><House /></MapButton>
       </div>
       <div ref={layersRoot} className="relative">
         <div className={cn("overflow-hidden rounded-[4px]", glass)}>
@@ -132,7 +141,7 @@ export function MapControls({ lang, onLocate, onGlobe, fullscreenTarget, layers,
             <Layers />
           </button>
         </div>
-        {showPanel && <LayersPanel id={panelId} lang={lang} scenario={layers} reference={reference} onChange={onLayerChange} />}
+        {showPanel && <LayersPanel id={panelId} lang={lang} scenario={layers} reference={reference} onChange={onLayerChange} boundaries={boundaries} />}
       </div>
       <div className={cn("flex flex-col divide-y overflow-hidden rounded-[4px]", glass)}>
         <MapButton label={tr.myLocation} onClick={locate} disabled={locating}>
