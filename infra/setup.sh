@@ -7,7 +7,8 @@ export CLOUDSDK_CORE_PROJECT="$PROJECT_ID"   # scoped to this script; does not c
 gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com \
   aiplatform.googleapis.com earthengine.googleapis.com firestore.googleapis.com storage.googleapis.com \
   secretmanager.googleapis.com geocoding-backend.googleapis.com maps-backend.googleapis.com \
-  cloudtrace.googleapis.com bigquery.googleapis.com
+  cloudtrace.googleapis.com bigquery.googleapis.com \
+  firebase.googleapis.com identitytoolkit.googleapis.com securetoken.googleapis.com
 gcloud iam service-accounts create $SA --display-name "LandslideWatch API" || true
 for r in aiplatform.user serviceusage.serviceUsageConsumer earthengine.writer datastore.user \
          secretmanager.secretAccessor logging.logWriter cloudtrace.agent; do

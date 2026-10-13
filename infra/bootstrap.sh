@@ -71,8 +71,6 @@ echo "== Maps keys -> Secret Manager"
 put_secret maps-key "$MAPS_KEY"                       # browser key (referrer-restricted)
 # Server-side Geocoding fallback needs an API-restricted key WITHOUT referrer restriction; falls back to MAPS_KEY.
 put_secret maps-server-key "${MAPS_SERVER_KEY:-$MAPS_KEY}"
-# HMAC secret for our sign-in session tokens: generated once, never overwritten (rotating it signs everyone out)
-gcloud secrets describe session-secret --project "$PROJECT_ID" >/dev/null 2>&1 || put_secret session-secret "$(openssl rand -base64 48)"
 
 BUCKET="${PROJECT_ID}-lw"
 RUN="uv run --group scripts python ../../scripts"

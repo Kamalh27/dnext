@@ -173,33 +173,11 @@ async def healthz():
     return {"ok": True, "backend": settings().geo_backend}
 
 
-class GoogleLoginIn(BaseModel):
-    credential: str = Field(max_length=4096)
-
-
 @app.get("/auth/config")
 async def auth_config():
-    """Public: lets the web app decide whether to show sign-in, without a rebuild per environment."""
-    from app import usage
-    s = settings()
-    return {"auth_required": s.auth_required, "google_client_id": s.google_oauth_client_id or None, "limits": usage.limits()}
-
-
-@app.post("/auth/google")
-@limiter.limit("20/minute")
-async def auth_google(request: Request, body: GoogleLoginIn):
+    """Public: tells the web app whether sign-in is required and gives it the (public) Firebase web config, so no rebuild per environment."""
     from app import auth, usage
-    try:
-        info = await asyncio.to_thread(auth.verify_google_id_token, body.credential)
-        token, user = auth.issue_session(info)
-    except RuntimeError as e:                       # server not configured
-        raise HTTPException(503, str(e))
-    except Exception as e:  # noqa: BLE001 - bad/expired/foreign token
-        log.info("google sign-in rejected: %s", str(e)[:120])
-        raise HTTPException(401, {"code": "invalid_google_token", "message": "Google sign-in could not be verified. Please try again."})
-    return {"token": token, "expires_in_s": settings().session_ttl_s,
-            "user": {"name": user.name, "email": user.email, "picture": user.picture},
-            "usage": await asyncio.to_thread(usage.snapshot, user.uid), "limits": usage.limits()}
+    return {"auth_required": settings().auth_required, "firebase": auth.public_config(), "limits": usage.limits()}
 
 
 @app.get("/me")
