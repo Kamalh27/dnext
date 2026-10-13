@@ -43,13 +43,19 @@ export function MapPanel({ lang, layer, markers }: { lang: Lang; layer: MapLayer
 function MapInner({ lang, layer, markers }: { lang: Lang; layer: MapLayer | null; markers: MapMarkers["markers"] }) {
   const tr = t(lang);
   const { theme } = useTheme();
-  const [mapType, setMapType] = useState<"terrain" | "satellite">("terrain");
+  const [mapType, setMapType] = useState<"terrain" | "satellite">("satellite");
   const [override, setOverride] = useState<{ id: string; value: number } | null>(null);
   const [point, setPoint] = useState<{ lat: number; lng: number } | null>(null);
   const [me, setMe] = useState<Pt | null>(null);
   const [pin, setPin] = useState<(Pt & { label: string }) | null>(null);
   const [wrap, setWrap] = useState<HTMLDivElement | null>(null);
-  const [globe, setGlobe] = useState(false);
+  // Open on the globe; it gives way to the 2D map when the user taps "Explore" or a result (layer) arrives.
+  const [globe, setGlobe] = useState(true);
+  const [seenLayer, setSeenLayer] = useState(layer?.id);
+  if (layer?.id !== seenLayer) {
+    setSeenLayer(layer?.id);
+    if (layer) setGlobe(false);
+  }
 
   const opacity = override && layer && override.id === layer.id ? override.value : (layer?.opacity ?? 0.7);
 
