@@ -212,9 +212,7 @@ def _legend(k: str) -> list[dict]:
     if k == "trigger":
         return [{"label": str(i), "color": "#" + col} for i, col in enumerate(c["palette"], start=c["min"])]
     if k == "population":
-        p = c["palette"]
-        return [{"label": "Few", "color": "#" + p[0]}, {"label": "Some", "color": "#" + p[2]}, {"label": "Many", "color": "#" + p[3]},
-                {"label": f"Dense ({c['max']}+ per ha)", "color": "#" + p[-1]}]
+        return population_legend()
     names = cfg()["risk"]["class_names"]
     return [{"label": names[i - 1], "color": "#" + col} for i, col in enumerate(c["palette"], start=1)]
 
@@ -307,10 +305,25 @@ def thailand_mask() -> ee.Image:
     return ee.Image().byte().paint(fc, 1).selfMask()
 
 
+def _fmt(x: float) -> str:
+    return f"{x:g}"
+
+
+def population_legend() -> list[dict]:
+    """Value-range legend that matches population_layer()'s classes exactly (people per hectare)."""
+    c = cfg()["layers"]["population"]
+    b, pal = c["breaks"], c["palette"]
+    labels = [f"{_fmt(b[i])}\u2013{_fmt(b[i + 1])}" for i in range(len(b) - 1)] + [f"{_fmt(b[-1])}+"]
+    return [{"label": f"{lab} people/ha", "color": "#" + col} for lab, col in zip(labels, pal)]
+
+
 def population_layer() -> ee.Image:
-    """WorldPop 2020 people per 100 m pixel, only inside Thailand, zeros masked."""
+    """WorldPop 2020 as discrete density classes 1..N (people per hectare), only inside Thailand; below the first break is masked."""
     pop = worldpop().updateMask(thailand_mask())
-    return pop.updateMask(pop.gte(cfg()["layers"]["population"].get("min_visible", 0))).selfMask()   # hide specks below ~half a person per ha
+    cls = ee.Image(0)
+    for b in cfg()["layers"]["population"]["breaks"]:
+        cls = cls.add(pop.gte(b))
+    return cls.selfMask().toByte().rename("pop_class")
 
 
 def worldpop() -> ee.Image:

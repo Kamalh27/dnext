@@ -93,3 +93,12 @@ def test_static_layers_endpoint_in_mock_mode():
 def test_every_layer_key_has_a_legend():
     keys = ("risk", "trigger", "rain", "susceptibility", "vulnerability", "exposure", "population")
     assert all(dmr._legend(k) for k in keys)
+
+
+def test_population_legend_matches_breaks_and_palette():
+    c = dmr.cfg()["layers"]["population"]
+    leg = dmr.population_legend()
+    assert len(leg) == len(c["breaks"]) == len(c["palette"])
+    assert leg[0]["label"].startswith("0.5–2") and leg[-1]["label"].startswith("40+")
+    assert [l["color"] for l in leg] == ["#" + p for p in c["palette"]]
+    assert all("people/ha" in l["label"] for l in leg)
