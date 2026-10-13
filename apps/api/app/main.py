@@ -107,6 +107,18 @@ def sse(event: str, data: dict) -> ServerSentEvent:
     return ServerSentEvent(event=event, raw_data=json.dumps(data, ensure_ascii=False))
 
 
+@app.get("/overview")
+async def overview(horizon_days: int = 0):
+    """National current conditions by province (observed, or observed + GFS forecast), from the daily precomputes. No scenario needed."""
+    from app.geo import overview as ov
+    if not (0 <= horizon_days <= 10):
+        raise HTTPException(422, "horizon_days must be between 0 and 10")
+    try:
+        return await asyncio.to_thread(ov.national, horizon_days)
+    except ov.OverviewUnavailable as e:
+        raise HTTPException(503, str(e))
+
+
 @app.get("/layers/static")
 async def static_layers():
     """Reference layers (susceptibility, vulnerability, exposure, population) for the Layers panel; no scenario needed."""
