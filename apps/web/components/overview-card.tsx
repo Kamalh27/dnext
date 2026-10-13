@@ -31,7 +31,7 @@ export function OverviewCard({ lang, series, day, onDay, onSelect, onAsk }: { la
             ? tr.ovQuiet
             : fmt(tr.ovSummary, { n: nf.format(totals.triggered), m: nf.format(totals.tambons_total), p: nf.format(totals.provinces_triggered), pm: nf.format(totals.provinces_total) })}
         </p>
-        <p className="mt-0.5 text-xs text-muted-foreground" data-testid="overview-asof">{fmt(tr.ovAsOf, { date: series.date_of_data, run: runLabel(series.model_run_time) })}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground" data-testid="overview-asof">{series.days.length > 1 ? fmt(tr.ovAsOf, { date: series.date_of_data, run: runLabel(series.model_run_time) }) : fmt(tr.ovAsOfObserved, { date: series.date_of_data })}</p>
       </div>
       <OverviewDashboard lang={lang} series={series} d={d} onDay={onDay} onSelect={onSelect} />
     </section>

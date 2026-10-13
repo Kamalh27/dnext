@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, Square, ArrowUpRight } from "lucide-react";
+import { ArrowUp, Square, ArrowUpRight, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Markdown } from "./markdown";
 import { LegalModal } from "./legal-modal";
@@ -9,20 +9,27 @@ import { LogoMark } from "./logo";
 import { OverviewCard } from "./overview-card";
 import { ResultCards } from "./result-cards";
 import { ScenarioCard, type RunError, type RunKind } from "./scenario-card";
-import { t } from "@/lib/i18n";
+import type { ApiError } from "@/lib/api-error";
+import { useAuth, useBurstLeft } from "@/lib/auth";
+import { fmt, t } from "@/lib/i18n";
+import { apiErrorText } from "@/lib/limit-text";
 import type { LegalKind } from "@/lib/legal";
 import type { ChartData, Kpis, Lang, OverviewSeries, Province, TableData } from "@/lib/types";
 import { MQ, useMedia } from "@/lib/use-media";
 import { cn } from "@/lib/utils";
 
-export interface Message { role: "user" | "assistant"; text: string; error?: string }
+/** `limit` = the API refused this turn with a 429 (daily or burst limit); it is rendered from the error so the language and the countdown stay live. */
+export interface Message { role: "user" | "assistant"; text: string; error?: string; limit?: ApiError }
 
 interface Props {
   lang: Lang;
   messages: Message[];
   busy: boolean;
   status: string[];
-  onSend: (text: string) => void;
+  /** Returns false when the message was not sent (signed out, waiting out a limit, busy): the draft stays in the composer. */
+  onSend: (text: string) => boolean;
+  /** A chat message that sign-in had blocked was re-sent: drop the draft if it is still that message. */
+  resent: { n: number; text: string } | null;
   onStop: () => void;
   onRetry: () => void;
   kpis: Kpis | null;
@@ -43,6 +50,16 @@ export function ChatPanel(p: Props) {
   const tr = t(p.lang);
   const [input, setInput] = useState("");
   const [legal, setLegal] = useState<LegalKind | null>(null);
+  const auth = useAuth();
+  const burstLeft = useBurstLeft();
+  const chat = auth.status === "signed_in" ? auth.usage?.chat ?? null : null;
+  const chatsLeft = chat ? Math.max(0, chat.limit - chat.used) : null;
+  const noChats = chatsLeft === 0;
+  const [seenResent, setSeenResent] = useState(0);
+  if (p.resent && p.resent.n !== seenResent) {
+    setSeenResent(p.resent.n);
+    setInput((cur) => (cur.trim() === p.resent!.text ? "" : cur));
+  }
   // The legal links stay pinned under the composer only on desktop; on phones/tablets and short screens they sit at the end of the scroll area (saves ~44px of pinned chrome).
   const desktop = useMedia(MQ.desktop);
   const short = useMedia(MQ.short);
@@ -57,8 +74,8 @@ export function ChatPanel(p: Props) {
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    p.onSend(input);
-    setInput("");
+    if (noChats || burstLeft > 0) return;
+    if (p.onSend(input)) setInput("");
   };
 
   const legalNav = (
@@ -88,7 +105,8 @@ export function ChatPanel(p: Props) {
                 <li key={s}>
                   <button
                     onClick={() => p.onSend(s)}
-                    className="group flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border bg-card px-3.5 py-3 text-sm shadow-xs outline-none transition hover:border-primary/40 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
+                    disabled={burstLeft > 0}
+                    className="group flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border bg-card px-3.5 py-3 text-sm shadow-xs outline-none transition hover:border-primary/40 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
                   >
                     <span className="min-w-0 break-words">{s}</span>
                     <ArrowUpRight className="size-4 shrink-0 text-muted-foreground transition group-hover:text-primary" aria-hidden />
@@ -122,6 +140,12 @@ export function ChatPanel(p: Props) {
                   </ul>
                 )}
                 {m.text && <div className={cn(p.busy && i === p.messages.length - 1 && "mt-1.5")}><Markdown text={m.text} /></div>}
+                {m.limit && (
+                  <div role={m.limit.isBurst && burstLeft > 0 ? "status" : "alert"} data-testid="chat-limit" className="mt-1 text-destructive">
+                    {apiErrorText(m.limit, p.lang, burstLeft)}{" "}
+                    {m.limit.isBurst && burstLeft === 0 && i === p.messages.length - 1 && <button className="underline" onClick={p.onRetry}>{tr.retry}</button>}
+                  </div>
+                )}
                 {m.error && (
                   <div role="alert" className="mt-1 text-destructive">
                     {tr.error}: {m.error}{" "}
@@ -152,9 +176,24 @@ export function ChatPanel(p: Props) {
           {p.busy ? (
             <Button type="button" variant="secondary" size="icon" className="rounded-full" onClick={p.onStop} aria-label={tr.stop} title={tr.stop}><Square className="fill-current" /></Button>
           ) : (
-            <Button type="submit" size="icon" className="rounded-full" disabled={!input.trim()} aria-label={tr.send} title={tr.send}><ArrowUp /></Button>
+            <Button
+              type="submit"
+              size="icon"
+              className="rounded-full"
+              disabled={!input.trim() || noChats || burstLeft > 0}
+              aria-label={tr.send}
+              title={noChats ? tr.chatLimitTitle : burstLeft > 0 ? fmt(tr.waitN, { n: burstLeft }) : tr.send}
+            ><ArrowUp /></Button>
           )}
         </form>
+        {burstLeft > 0 ? (
+          <p role="status" data-testid="burst-wait" className="flex items-center gap-1.5 px-2 pt-1.5 text-xs text-amber-700 short:pt-0.5 dark:text-amber-400"><Timer className="size-3.5" aria-hidden />{fmt(tr.waitN, { n: burstLeft })}</p>
+        ) : chatsLeft != null ? (
+          <p data-testid="usage-line" className={cn("px-2 pt-1.5 text-xs short:pt-0.5", chatsLeft === 0 ? "text-destructive" : chatsLeft <= 5 ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground")}>
+            {chatsLeft === 0 ? tr.chatsLeftNone : chatsLeft === 1 ? tr.chatsLeftOne : fmt(tr.chatsLeftMany, { n: chatsLeft })}
+            {chatsLeft <= 5 && <> · {tr.resetsMidnight}</>}
+          </p>
+        ) : null}
       </div>
       {!legalInFlow && legalNav}
       <LegalModal lang={p.lang} kind={legal} onClose={() => setLegal(null)} />

@@ -7,8 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Skeleton } from "@/components/ui/skeleton";
-import { downloadBriefing } from "@/lib/api";
+import { ApiError, downloadBriefing } from "@/lib/api";
+import { gate, useBurstLeft } from "@/lib/auth";
 import { t } from "@/lib/i18n";
+import { apiErrorText } from "@/lib/limit-text";
 import { areaName, chartTexts, extrasText, limitationsOf, localTable, pick } from "@/lib/lang";
 import type { ChartData, Kpis, Lang, TableData } from "@/lib/types";
 
@@ -18,7 +20,8 @@ export function ResultCards({ lang, kpis, charts, tables, loading }: { lang: Lan
   const tr = t(lang);
   const nf = new Intl.NumberFormat(lang === "th" ? "th-TH" : "en-US");
   const [exporting, setExporting] = useState(false);
-  const [exportErr, setExportErr] = useState(false);
+  const [exportErr, setExportErr] = useState<ApiError | boolean>(false);
+  const burstLeft = useBurstLeft();
 
   if (!kpis && !charts.length && !tables.length) {
     return loading ? <Skeleton className="h-24 w-full" aria-label="Loading results" /> : null;
@@ -46,10 +49,11 @@ export function ResultCards({ lang, kpis, charts, tables, loading }: { lang: Lan
     : null;
 
   const onExport = async () => {
-    if (!kpis) return;
+    if (!kpis || burstLeft > 0) return;
+    if (!gate()) return;   // signed out: the sign-in dialog opens instead of calling the API
     setExporting(true);
     setExportErr(false);
-    try { await downloadBriefing(kpis.scenario_id); } catch { setExportErr(true); } finally { setExporting(false); }
+    try { await downloadBriefing(kpis.scenario_id); } catch (e) { setExportErr(e instanceof ApiError ? (e.isAuthRequired ? false : e) : true); } finally { setExporting(false); }
   };
 
   return (
@@ -103,11 +107,15 @@ export function ResultCards({ lang, kpis, charts, tables, loading }: { lang: Lan
               </CollapsibleContent>
             </Collapsible>
             <span title={kpis.scenario_id ? undefined : tr.exportNA} className="inline-block">
-              <Button variant="outline" size="default" disabled={!kpis.scenario_id || exporting} onClick={onExport} aria-label={tr.export}>
+              <Button variant="outline" size="default" disabled={!kpis.scenario_id || exporting || burstLeft > 0} onClick={onExport} aria-label={tr.export}>
                 {tr.export}
               </Button>
             </span>
-            {exportErr && <p role="alert" className="text-xs text-destructive">{tr.error}</p>}
+            {exportErr && (
+              <p role="alert" className="text-xs text-destructive">
+                {exportErr instanceof ApiError && (exportErr.isBurst || exportErr.isDaily) ? apiErrorText(exportErr, lang, burstLeft) : tr.error}
+              </p>
+            )}
           </CardContent>
         </Card>
       )}

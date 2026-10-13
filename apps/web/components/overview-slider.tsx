@@ -35,6 +35,7 @@ export function OverviewSlider({ lang, series, day, metric, playing, onDay, onMe
   const compact = useMedia(MQ.compactMap);
   const [open, setOpen] = usePersistedOpen("panel-slider", !compact);
   const steps = series.days.length - 1;
+  const noForecast = steps === 0;      // only the observed day is available (forecast data out of date): no slider, no Play
   const cur = series.days.find((d) => d.h === day) ?? series.days[0];
   const date = shortDate(cur.date, lang);
   const valueText = fmt(day === 0 ? tr.ovValueTextLatest : tr.ovValueText, { n: day, date });
@@ -42,7 +43,7 @@ export function OverviewSlider({ lang, series, day, metric, playing, onDay, onMe
   // The collapsed row is narrow: "Latest obs. · 11 Oct" / "+2 d · 14 Oct".
   const dayShort = `${day === 0 ? tr.ovLatest : fmt(tr.ovTick, { n: day })} · ${date}`;
 
-  const play = (
+  const play = noForecast ? null : (
     <button
       type="button"
       onClick={onPlay}
@@ -66,7 +67,7 @@ export function OverviewSlider({ lang, series, day, metric, playing, onDay, onMe
       className="@container/sl pointer-events-auto w-full max-w-md rounded-[4px] border bg-card/90 text-xs shadow-lg backdrop-blur-md"
     >
       <div className="flex items-center gap-1 pl-3">
-        <h2 className={cn("min-w-0 flex-1 py-2 text-[13px] leading-snug font-semibold", open ? "break-words" : "truncate @max-[22rem]/sl:sr-only")} title={tr.ovTitle}>{open ? tr.ovTitle : tr.ovTitleShort}</h2>
+        <h2 className={cn("min-w-0 flex-1 py-2 text-[13px] leading-snug font-semibold", open ? "break-words" : "truncate @max-[22rem]/sl:sr-only")} title={noForecast ? tr.ovTitleObserved : tr.ovTitle}>{open ? (noForecast ? tr.ovTitleObserved : tr.ovTitle) : (noForecast ? tr.ovTitleObserved : tr.ovTitleShort)}</h2>
         {!open && play}
         {!open && <p className="min-w-0 shrink truncate px-1 py-0.5 text-xs leading-snug font-semibold tabular-nums @max-[22rem]/sl:flex-1" aria-live="polite" data-testid="overview-day-label" title={dayText}>{dayShort}</p>}
         {open && (
@@ -104,7 +105,8 @@ export function OverviewSlider({ lang, series, day, metric, playing, onDay, onMe
             </p>
           </div>
 
-          <div>
+          {noForecast && <p className="py-1 text-xs leading-snug text-muted-foreground" role="status" data-testid="overview-no-forecast">{tr.ovNoForecast}</p>}
+          <div className={cn(noForecast && "hidden")}>
             <input
               type="range"
               min={0}
