@@ -136,6 +136,13 @@ export interface OverviewProvinceDay {
   people_elevated: number;
   rain_mm: number | null; // province-mean rain of that single day
   triggered_share: number;
+  name?: string;
+  name_th?: string;
+  // Counted inside the Moderate-or-higher zone; absent when the features precompute is missing.
+  buildings?: number;
+  hospitals?: number;
+  schools?: number;
+  road_km?: number;
 }
 export interface OverviewTop {
   pcode: string;
@@ -147,12 +154,29 @@ export interface OverviewTop {
   tambons: number;
   people_elevated: number;
 }
+/** Exposure inside the Moderate-or-higher risk zone nationally. null (on the day) = features precompute missing. */
+export interface OverviewElevated { buildings: number; hospitals: number; schools: number; road_km: number }
+/** One DMR risk class on susceptible ground in tambons above their trigger. Feature fields are absent when not computed. */
+export interface OverviewClass {
+  class: number; // 1..5
+  name: string;
+  area_km2: number;
+  people: number;
+  buildings?: number;
+  hospitals?: number;
+  schools?: number;
+  road_km?: number;
+}
 export interface OverviewDay {
   h: number; // 0 = latest observed, 1..5 = forecast days
   date: string; // YYYY-MM-DD
-  totals: { tambons_total: number; triggered: number; high_trigger: number; provinces_triggered: number; provinces_total: number; people_elevated: number };
+  totals: { tambons_total: number; triggered: number; high_trigger: number; provinces_triggered: number; provinces_total: number; people_elevated: number | null };
   provinces: OverviewProvinceDay[];
   top: OverviewTop[];
+  elevated?: OverviewElevated | null;
+  classes?: OverviewClass[];
+  /** Number of tambons with trigger class 0..5 (6 numbers). */
+  trigger_classes?: number[];
 }
 export interface OverviewSeries {
   date_of_data: string;

@@ -34,6 +34,7 @@ interface Props {
   onForecast: (days: number) => void;
   /** National overview for the selected day (null = not in overview mode). */
   overview: { series: OverviewSeries; day: number } | null;
+  onOverviewDay: (day: number) => void;
   onPickProvince: (pcode: string) => void;
 }
 
@@ -58,7 +59,7 @@ export function ChatPanel(p: Props) {
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-5" aria-live="polite">
         {p.messages.length === 0 && (
           <div className={cn("flex flex-col items-center gap-5 px-2 text-center", p.overview ? "pt-1" : "pt-6")}>
-            {p.overview && <OverviewCard lang={p.lang} series={p.overview.series} day={p.overview.day} onSelect={p.onPickProvince} />}
+            {p.overview && <OverviewCard lang={p.lang} series={p.overview.series} day={p.overview.day} onDay={p.onOverviewDay} onSelect={p.onPickProvince} />}
             <div className="flex flex-col items-center">
             <span className="mb-4 grid size-16 place-items-center rounded-2xl bg-accent"><LogoMark className="size-11" /></span>
             <h2 className="text-lg font-semibold tracking-tight">{tr.emptyTitle}</h2>
