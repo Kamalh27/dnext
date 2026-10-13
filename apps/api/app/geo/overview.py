@@ -7,6 +7,7 @@ risk, people in the elevated zone and class areas per tambon, aggregated to prov
 import time
 
 from app.geo import dmr, obs_cache, static_stats
+from app.settings import load_yaml
 
 _memo: dict = {}
 _TTL_S = 600
@@ -57,7 +58,10 @@ def national(horizon_days: int = 0) -> dict:
     if horizon_days and (str(horizon_days) not in {str(k) for k in f.get("horizons", {})} or time.time() * 1000 - f.get("run_ms", 0) > obs_cache.MAX_FORECAST_AGE_MS):
         raise OverviewUnavailable("No fresh GFS forecast in the precompute for this horizon")
     rows = _rows(data, horizon_days)
-    st = static_stats.tambon_stats(ss, [r for r in rows if r["adm3_pcode"] in ss["tambon"]])["rows"]
+    feats = static_stats.load_features()
+    res = static_stats.tambon_stats(ss, [r for r in rows if r["adm3_pcode"] in ss["tambon"]], features=feats,
+                                    footprint_m2=load_yaml("thresholds.yaml")["exposure"].get("avg_footprint_m2", 60.0))
+    st = res["rows"]
     prov: dict[str, dict] = {}
     for r in rows:
         s = st.get(r["adm3_pcode"], {})
@@ -71,11 +75,17 @@ def national(horizon_days: int = 0) -> dict:
         p["max_trigger"] = max(p["max_trigger"], r["trigger_class"])
         p["people_elevated"] += s.get("people_high") or 0.0
         p["risk_max"] = max(p["risk_max"], s.get("risk_max") or 0.0)
+        for k in ("buildings", "hospitals", "schools", "road_km"):          # inside the elevated zone; absent without the features precompute
+            if s.get(k) is not None:
+                p[k] = p.get(k, 0.0) + s[k]
     provinces = []
     for p in prov.values():
         p["triggered_share"] = round(p["triggered"] / p["tambons"], 3) if p["tambons"] else 0.0
         p["people_elevated"] = int(round(p["people_elevated"], -2))
         p["risk_max"] = round(p["risk_max"], 2)
+        if "buildings" in p:
+            p["buildings"], p["hospitals"], p["schools"], p["road_km"] = (int(round(p["buildings"], -1)), int(round(p["hospitals"])),
+                                                                           int(round(p["schools"])), round(p["road_km"], 1))
         n = p.pop("_rain_n", 0)
         p["rain_mm"] = round(p.pop("_rain_sum", 0.0) / n, 1) if n else None      # province-mean rain for the slider day
         # 0 = nothing triggered (or no susceptible ground); 1..5 = the DMR risk class of the province's peak risk. Drives the map colours.
@@ -91,6 +101,14 @@ def national(horizon_days: int = 0) -> dict:
         "high_trigger": sum(r["trigger_class"] >= 4 for r in rows),
         "provinces_triggered": sum(p["triggered"] > 0 for p in provinces), "provinces_total": len(provinces),
         "people_elevated": int(round(sum(p["people_elevated"] for p in provinces), -3)),
+        "elevated": ({k: (int(round(sum(p[k] for p in provinces), -2)) if k == "buildings" else
+                          round(sum(p[k] for p in provinces), 1) if k == "road_km" else int(sum(p[k] for p in provinces)))
+                      for k in ("buildings", "hospitals", "schools", "road_km")} if feats else None),
+        # people / buildings / ... on susceptible ground in tambons above trigger, by DMR risk class (1 Very low .. 5 Very high)
+        "classes": [{**c, "area_km2": round(c["area_km2"], 1), "people": int(round(c["people"], -2)),
+                     **({k: (int(round(c[k], -1)) if k == "buildings" else round(c[k], 1) if k == "road_km" else int(round(c[k])))
+                         for k in ("buildings", "hospitals", "schools", "road_km")} if feats else {})} for c in res["by_class"]],
+        "trigger_classes": [sum(1 for r in rows if r["trigger_class"] == i) for i in range(6)],
         "provinces": provinces, "top": [p for p in provinces if p["risk_class"] > 0][:5],
         "limitations": ["Observed rainfall (GSMaP, last 30 days) compared with each tambon's DMR thresholds; not an official warning or forecast."
                         if not horizon_days else
@@ -116,7 +134,9 @@ def series(max_days: int = 5) -> dict:
         days.append({
             "h": h, "date": _day_date(cur, h),
             "totals": {k: o[k] for k in ("tambons_total", "triggered", "high_trigger", "provinces_triggered", "provinces_total", "people_elevated")},
-            "provinces": [{k: p[k] for k in ("pcode", "risk_class", "risk_max", "triggered", "tambons", "max_trigger", "people_elevated", "rain_mm", "triggered_share")}
+            "elevated": o["elevated"], "classes": o["classes"], "trigger_classes": o["trigger_classes"],
+            "provinces": [{k: p[k] for k in ("pcode", "name", "name_th", "risk_class", "risk_max", "triggered", "tambons", "max_trigger", "people_elevated",
+                                             "rain_mm", "triggered_share", "buildings", "hospitals", "schools", "road_km") if k in p}
                           for p in o["provinces"]],
             "top": [{k: p[k] for k in ("pcode", "name", "name_th", "risk_max", "risk_class", "triggered", "tambons", "people_elevated")} for p in o["top"]],
         })

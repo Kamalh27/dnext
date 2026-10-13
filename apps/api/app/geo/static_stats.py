@@ -99,6 +99,8 @@ def tambon_stats(data: dict, rows: list[dict], high_value: float | None = None, 
     hv = high_value if high_value is not None else r["cutoffs"][r["exposure_from"] - 2]
     divisor, cutoffs, names = r["divisor"], r["cutoffs"], r["class_names"]
     areas = {n: 0.0 for n in names}
+    by_class = [{"class": i + 1, "name": n, "area_km2": 0.0, "people": 0.0, "buildings": 0.0, "hospitals": 0.0, "schools": 0.0, "road_km": 0.0}
+                for i, n in enumerate(names)]
     out: dict[str, dict] = {}
     for row in rows:
         code, t = row["adm3_pcode"], row["trigger_class"]
@@ -118,7 +120,19 @@ def tambon_stats(data: dict, rows: list[dict], high_value: float | None = None, 
             rec["share_high"] = (sum(v[0] for _, v in hi) / total) if total > 0 else 0.0
             rec["people_high"] = sum(v[1] for _, v in hi)
             for p, v in valid.items():
-                areas[names[dmr.risk_class(t * p / divisor, cutoffs) - 1]] += v[0]
+                ci = dmr.risk_class(t * p / divisor, cutoffs) - 1
+                areas[names[ci]] += v[0]
+                by_class[ci]["area_km2"] += v[0]
+                by_class[ci]["people"] += v[1]
+            if features is not None:
+                for p, f in (features["tambon"].get(code, {}).get("h") or {}).items():       # same classes for the features
+                    p = int(p)
+                    if p >= 1:
+                        b = by_class[dmr.risk_class(t * p / divisor, cutoffs) - 1]
+                        b["buildings"] += f[0] / footprint_m2
+                        b["hospitals"] += f[1]
+                        b["schools"] += f[2]
+                        b["road_km"] += f[3]
             if features is not None:
                 for p, f in (features["tambon"].get(code, {}).get("h") or {}).items():
                     p = int(p)
@@ -128,7 +142,7 @@ def tambon_stats(data: dict, rows: list[dict], high_value: float | None = None, 
                         rec["schools"] += f[2]
                         rec["road_km"] += f[3]
         out[code] = rec
-    res = {"rows": out, "class_area_km2": {k: round(v, 1) for k, v in areas.items()}}
+    res = {"rows": out, "class_area_km2": {k: round(v, 1) for k, v in areas.items()}, "by_class": by_class}
     if features is not None:
         res["totals"] = {k: sum(r[k] for r in out.values()) for k in ("buildings", "hospitals", "schools", "road_km")}
     return res
