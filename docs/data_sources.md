@@ -33,3 +33,16 @@ IDs and caveats verified **2026-10-12** (Earth Engine catalog, Vertex AI docs, d
 - **Household size.** 2.5 comes from preliminary, news-reported 2025 census figures. We divide people by it and call the result an estimate.
 - **No soil depth, no lithology.** Two of the strongest controls on landslide initiation are absent from open global data in EE. Susceptibility is therefore weaker than a site-investigated map, and this is stated in the tool output.
 - **Single threshold.** The rainfall threshold defaults to the global Caine (1980) curve; it is not calibrated for Thailand (swappable in `thresholds.yaml`).
+
+
+## DMR / ADPC layers (default hazard model, added 2026-10-13)
+| Use | Asset | Notes |
+|---|---|---|
+| Susceptibility | `projects/<project>/assets/<asset>` | band `b1`, 0-100, 12 m, EPSG:32647 |
+| Vulnerability | `projects/<project>/assets/<asset>` | band `combined_vulnerability`, 0-0.50 |
+| Exposure | `projects/<project>/assets/<asset>` | band `exposure`, 0.07-0.82 |
+| Rainfall thresholds + tambon boundaries | `projects/<project>/assets/<asset>` | 7,425 tambon polygons; EN/TH names and pcodes; `P60max`..`P95max` (30-day mm) |
+| Boundary | `projects/<project>/assets/<asset>` | |
+| Observed rain | `NASA/GPM_L3/IMERG_V07` (or `JAXA/GPM_L3/GSMaP/v6/operational`) | newest image ~1 day old |
+| Forecast rain | `NOAA/GFS0P25` | IMERG has no forecast |
+See `docs/dmr_method.md`. The tambon thresholds table also gives us the tambon boundary layer, so the HDX shapefile is no longer required for tambon ranking.

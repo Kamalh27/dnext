@@ -276,7 +276,7 @@ def _tambon_in(area, region: ee.Geometry) -> ee.FeatureCollection:
     return fc
 
 
-def exposure(area, rainfall_mm: float, duration_h: float, min_class: str = "High") -> dict:
+def exposure(area, rainfall_mm: float, duration_h: float, min_class: str = "High", forecast_days: int | None = None) -> dict:
     min_idx = class_index(min_class)
     tr, total, meta, w_img = _prepare(area, rainfall_mm, duration_h)
     h, cls, region, from_asset = _hazard_images(area, tr, w_img)

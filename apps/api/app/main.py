@@ -106,6 +106,30 @@ def sse(event: str, data: dict) -> ServerSentEvent:
     return ServerSentEvent(event=event, raw_data=json.dumps(data, ensure_ascii=False))
 
 
+@app.get("/readyz")
+async def readyz():
+    """Deep check: can this identity read every Earth Engine asset the active hazard model needs? (Cloud Run SA vs public assets)"""
+    if settings().geo_backend != "ee":
+        return {"ok": True, "backend": settings().geo_backend, "assets": {}}
+
+    def check() -> dict:
+        from app.geo import dmr
+        from app.geo.ee_init import init
+        import ee
+        init()
+        wanted = dict(dmr.cfg()["assets"]) if settings().hazard_model == "dmr" else {}
+        out = {}
+        for k, a in wanted.items():
+            try:
+                out[k] = {"asset": a, "readable": bool(ee.data.getAsset(a))}
+            except Exception as e:  # noqa: BLE001
+                out[k] = {"asset": a, "readable": False, "error": str(e)[:120]}
+        return out
+
+    res = await asyncio.to_thread(check)
+    return {"ok": all(v["readable"] for v in res.values()), "model": settings().hazard_model, "assets": res}
+
+
 @app.get("/healthz")
 async def healthz():
     return {"ok": True, "backend": settings().geo_backend}
