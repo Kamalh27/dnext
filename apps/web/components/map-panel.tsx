@@ -5,16 +5,18 @@ import { useTheme } from "./theme-provider";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BasemapSwitcher } from "./basemap-switcher";
 import type { LayerPatch } from "./layers-panel";
+import { OverviewSlider } from "./overview-slider";
 import { MapControls, MapSearch, type Pt } from "./map-controls";
 import { ScaleBar } from "./scale-bar";
 import { AdvancedMarker, APIProvider, InfoWindow, Map, Map3D, MapMode, Marker3D, Pin, useMap } from "@vis.gl/react-google-maps";
 import { ArrowLeft } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { explain } from "@/lib/api";
-import { t } from "@/lib/i18n";
+import { fmt, t } from "@/lib/i18n";
 import { DEFAULT_VIEW, findProvince } from "@/lib/geo";
-import { localLayer } from "@/lib/lang";
-import type { Explain, Lang, MapLayer, MapLayerItem, MapLayersEvent, MapMarkers, Province, StaticLayerItem } from "@/lib/types";
+import { localLayer, pick } from "@/lib/lang";
+import { countsOf, fillsFor, legendFor, numFmt, riskName, type Fill, type OverviewMetric } from "@/lib/overview";
+import type { Explain, Lang, MapLayer, MapLayerItem, MapLayersEvent, MapMarkers, OverviewProvinceDay, OverviewSeries, Province, StaticLayerItem } from "@/lib/types";
 
 const KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 const MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAP_ID || "DEMO_MAP_ID";
@@ -28,6 +30,9 @@ const KIND_STYLE: Record<string, { glyph: string; bg: string }> = {
 interface PanelProps {
   lang: Lang; layer: MapLayer | null; layers: MapLayersEvent | null; staticLayers: StaticLayerItem[]; markers: MapMarkers["markers"];
   provinces: Province[]; selected: Province | null; onSelect: (p: Province) => void;
+  /** National overview (null = not in overview mode): series, selected day, metric and playback state. */
+  overview: { series: OverviewSeries; day: number; metric: OverviewMetric; playing: boolean } | null;
+  onOverviewDay: (d: number) => void; onOverviewMetric: (m: OverviewMetric) => void; onOverviewPlay: () => void;
 }
 
 const STATIC_ORDER = ["susceptibility", "vulnerability", "exposure", "population"];
@@ -60,7 +65,7 @@ export function MapPanel(props: PanelProps) {
   );
 }
 
-function MapInner({ lang, layer, layers, staticLayers, markers, provinces, selected, onSelect }: PanelProps) {
+function MapInner({ lang, layer, layers, staticLayers, markers, provinces, selected, onSelect, overview, onOverviewDay, onOverviewMetric, onOverviewPlay }: PanelProps) {
   const tr = t(lang);
   const { theme } = useTheme();
   const [mapType, setMapType] = useState<"terrain" | "satellite">("satellite");
@@ -130,6 +135,20 @@ function MapInner({ lang, layer, layers, staticLayers, markers, provinces, selec
     return vis.find((l) => l.key === "risk") ?? vis[0] ?? staticItems.find((l) => l.visible) ?? null;
   }, [items, staticItems]);
 
+  // Overview choropleth: per-province fill for the selected day and metric (recomputed on slider/metric change; the GeoJSON is never re-added).
+  const day = overview ? (overview.series.days.find((d) => d.h === overview.day) ?? overview.series.days[0]) : null;
+  const byPcode = useMemo(() => Object.fromEntries((day?.provinces ?? []).map((p) => [p.pcode, p] as const)) as Record<string, OverviewProvinceDay | undefined>, [day]);
+  const metric = overview?.metric ?? "risk";
+  const fills = useMemo(() => (day ? fillsFor(metric, day.provinces) : null), [day, metric]);
+  const overviewLegend = overview ? legendFor(metric, lang) : null;
+  const [hover, setHover] = useState<{ pcode: string; x: number; y: number } | null>(null);
+  const hoverActive = !!overview;
+  const [seenOverview, setSeenOverview] = useState(hoverActive);
+  if (seenOverview !== hoverActive) {
+    setSeenOverview(hoverActive);
+    if (!hoverActive) setHover(null);
+  }
+
   // Click picks the province under the pointer (point-in-polygon on the loaded outlines, independent of the outlines layer being shown).
   // Inside the already-selected province with a scenario on the map it explains that point instead.
   const onMapClick = (e: { detail: { latLng: google.maps.LatLngLiteral | null } }) => {
@@ -144,8 +163,12 @@ function MapInner({ lang, layer, layers, staticLayers, markers, provinces, selec
   };
 
   return (
-    <div ref={setWrap} className="relative h-full w-full bg-background" data-overlay-count={overlayInfo.count} data-overlay-opacity={overlayInfo.opacity}
+    <div ref={setWrap} className="@container relative h-full w-full bg-background" data-overlay-count={overlayInfo.count} data-overlay-opacity={overlayInfo.opacity}
       data-selected-province={selected?.pcode ?? ""}
+      data-overview={overview ? "on" : "off"}
+      data-overview-day={overview?.day ?? ""}
+      data-overview-metric={overview ? metric : ""}
+      data-overview-classes={fills ? countsOf(metric, fills) : ""}
       data-province-outlines={outlines ? "on" : "off"}
       data-zoom={cam.zoom}
       data-center={`${cam.lat.toFixed(3)},${cam.lng.toFixed(3)}`}
@@ -161,7 +184,8 @@ function MapInner({ lang, layer, layers, staticLayers, markers, provinces, selec
         mapTypeControl={false}
         onClick={onMapClick}
       >
-        <ProvinceOutlines provinces={provinces} selected={selected} showAll={outlines} light={mapType === "satellite" || theme === "dark"} />
+        <ProvinceOutlines provinces={provinces} selected={selected} showAll={outlines} light={mapType === "satellite" || theme === "dark"} fills={fills} hover={hover?.pcode ?? null} />
+        {overview && <OverviewHover provinces={provinces} onHover={setHover} />}
         <CameraProbe onCamera={setCam} />
         <LayerOverlays items={drawItems} bbox={bbox} scope={scope} onInfo={setOverlayInfo} />
         {me && (
@@ -197,6 +221,15 @@ function MapInner({ lang, layer, layers, staticLayers, markers, provinces, selec
       </div>
       <MapControls lang={lang} onLocate={setMe} onGlobe={() => setGlobe(true)} onResetView={() => setGlobe(false)} boundaries={{ visible: outlines, onChange: setOutlines }} fullscreenTarget={wrap} layers={items} reference={staticItems} onLayerChange={onLayerChange} />
 
+      {overview && hover && (
+        <OverviewTip lang={lang} hover={hover} wrap={wrap} province={provinces.find((p) => p.pcode === hover.pcode)} data={byPcode[hover.pcode]} metric={metric} />
+      )}
+      {overview && !globe && (
+        <div className="pointer-events-none absolute top-14 right-[3.75rem] left-3 flex justify-center @2xl:top-auto @2xl:right-3 @2xl:bottom-9 @2xl:left-[16.5rem]">
+          <OverviewSlider lang={lang} series={overview.series} day={overview.day} metric={metric} playing={overview.playing} onDay={onOverviewDay} onMetric={onOverviewMetric} onPlay={onOverviewPlay} />
+        </div>
+      )}
+
       {globe && (
         <div className="absolute inset-0 z-10 bg-black">
           <Map3D
@@ -223,6 +256,19 @@ function MapInner({ lang, layer, layers, staticLayers, markers, provinces, selec
       )}
 
       <div className="absolute bottom-9 left-3 flex flex-col items-start gap-2">
+      {overviewLegend && (
+        <div className="w-60 space-y-2.5 rounded-[4px] border bg-card/90 p-3.5 text-xs shadow-lg backdrop-blur-md" data-testid="legend-card" data-legend="overview">
+          <p className="text-[13px] font-semibold leading-snug">{overviewLegend.title}</p>
+          <ul aria-label={tr.legend} className="space-y-1">
+            {overviewLegend.items.map((l) => (
+              <li key={l.label} className="flex items-center gap-2">
+                <span className="size-3 shrink-0 rounded-[2px] border border-black/20" style={{ background: l.color }} aria-hidden />
+                {l.label}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {top && (
         <div className="w-60 space-y-2.5 rounded-[4px] border bg-card/90 p-3.5 text-xs shadow-lg backdrop-blur-md" data-testid="legend-card">
           <p className="text-[13px] font-semibold leading-snug">{top.name}</p>
@@ -340,7 +386,7 @@ const OUTLINE_DARK = "#8a4b24"; // brand brown, for the light terrain map
  * showAll=false hides the thin outlines but keeps the selected province's highlight. Selecting a province fits the view to it;
  * if the map is hidden (mobile chat tab) the fit waits until it has a size.
  */
-function ProvinceOutlines({ provinces, selected, showAll, light }: { provinces: Province[]; selected: Province | null; showAll: boolean; light: boolean }) {
+function ProvinceOutlines({ provinces, selected, showAll, light, fills, hover }: { provinces: Province[]; selected: Province | null; showAll: boolean; light: boolean; fills: ReadonlyMap<string, Fill> | null; hover: string | null }) {
   const map = useMap();
   const pending = useRef<Province | null>(null);
   const color = light ? OUTLINE_LIGHT : OUTLINE_DARK;
@@ -361,11 +407,17 @@ function ProvinceOutlines({ provinces, selected, showAll, light }: { provinces: 
       if (f.getProperty("pcode") === code) {
         return { clickable: false, strokeColor: color, strokeWeight: 3, strokeOpacity: 0.95, fillColor: color, fillOpacity: 0.12, zIndex: 2 };
       }
+      if (fills) {
+        const pc = String(f.getProperty("pcode"));
+        const fl = fills.get(pc) ?? { color: "#a8a29e", opacity: 0.14 };
+        const hot = pc === hover;
+        return { clickable: false, fillColor: fl.color, fillOpacity: fl.opacity, strokeColor: color, strokeWeight: hot ? 2.5 : showAll ? 1 : 0, strokeOpacity: hot ? 0.95 : 0.45, zIndex: hot ? 2 : 1 };
+      }
       return showAll
         ? { clickable: false, strokeColor: color, strokeWeight: 1, strokeOpacity: 0.45, fillOpacity: 0, zIndex: 1 }
         : { clickable: false, visible: false };
     });
-  }, [map, code, showAll, color, provinces]);
+  }, [map, code, showAll, color, provinces, fills, hover]);
 
   useEffect(() => {
     if (!map) return;
@@ -422,6 +474,66 @@ function ExplainBody({ lang, point, scenarioId }: { lang: Lang; point: { lat: nu
           </ul>
         </>
       )}
+    </div>
+  );
+}
+
+/** Reports the province under the pointer (point-in-polygon on the loaded outlines) while the overview choropleth is showing. */
+function OverviewHover({ provinces, onHover }: { provinces: Province[]; onHover: (h: { pcode: string; x: number; y: number } | null) => void }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!map || provinces.length === 0) return;
+    let raf = 0;
+    let last: { lat: number; lng: number; x: number; y: number } | null = null;
+    const flush = () => {
+      raf = 0;
+      if (!last) return;
+      const hit = findProvince(provinces, last.lat, last.lng);
+      onHover(hit ? { pcode: hit.pcode, x: last.x, y: last.y } : null);
+    };
+    const move = map.addListener("mousemove", (e: google.maps.MapMouseEvent) => {
+      const dom = e.domEvent as MouseEvent | undefined;
+      if (!e.latLng || !dom || !("clientX" in dom)) return;
+      const r = map.getDiv().getBoundingClientRect();
+      last = { lat: e.latLng.lat(), lng: e.latLng.lng(), x: dom.clientX - r.left, y: dom.clientY - r.top };
+      if (!raf) raf = requestAnimationFrame(flush);
+    });
+    const out = map.addListener("mouseout", () => {
+      last = null;
+      onHover(null);
+    });
+    return () => {
+      move.remove();
+      out.remove();
+      if (raf) cancelAnimationFrame(raf);
+      onHover(null);
+    };
+  }, [map, provinces, onHover]);
+  return null;
+}
+
+/** Small tooltip next to the pointer: province, the active metric's value and the tambon count above trigger. */
+function OverviewTip({ lang, hover, wrap, province, data, metric }: {
+  lang: Lang; hover: { x: number; y: number }; wrap: HTMLDivElement | null; province: Province | undefined; data: OverviewProvinceDay | undefined; metric: OverviewMetric;
+}) {
+  const tr = t(lang);
+  const nf = numFmt(lang);
+  if (!province) return null;
+  const value =
+    metric === "risk"
+      ? data && data.risk_class >= 1 ? fmt(tr.ovTipRisk, { c: riskName(data.risk_class, lang) }) : tr.ovTipRiskNone
+      : data?.rain_mm != null ? fmt(tr.ovTipRain, { mm: nf.format(Math.round(data.rain_mm * 10) / 10) }) : tr.ovTipRainNA;
+  const flip = !!wrap && hover.x > wrap.clientWidth - 220;
+  return (
+    <div
+      role="status"
+      data-testid="overview-tip"
+      className="pointer-events-none absolute z-20 w-max max-w-52 space-y-0.5 rounded-[4px] border bg-card/95 px-2.5 py-1.5 text-xs shadow-lg backdrop-blur-md"
+      style={{ left: hover.x, top: hover.y, transform: `translate(${flip ? "calc(-100% - 12px)" : "12px"}, 12px)` }}
+    >
+      <p className="font-semibold">{pick(lang, province.name, province.name_th)}</p>
+      <p>{value}</p>
+      {data && <p className="text-muted-foreground">{fmt(tr.chipTriggered, { n: nf.format(data.triggered), m: nf.format(data.tambons) })}</p>}
     </div>
   );
 }

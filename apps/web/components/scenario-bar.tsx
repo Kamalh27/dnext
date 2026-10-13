@@ -3,13 +3,8 @@
 import { useMemo } from "react";
 import { MapPin, RotateCcw } from "lucide-react";
 import { fmt, t } from "@/lib/i18n";
+import { runLabel } from "@/lib/overview";
 import type { Kpis, Lang, Province } from "@/lib/types";
-
-/** "2026-10-13T06:00:00Z" -> "2026-10-13 06Z"; anything else is shown as sent. */
-const runLabel = (s: string) => {
-  const m = /^(\d{4}-\d{2}-\d{2})[T ](\d{2})/.exec(s);
-  return m ? `${m[1]} ${m[2]}Z` : s;
-};
 
 export const provinceName = (p: Province, lang: Lang) => (lang === "th" ? p.name_th || p.name : p.name);
 

@@ -7,10 +7,11 @@ import { ChatPanel, type Message } from "./chat-panel";
 import { MapPanel } from "./map-panel";
 import { ScenarioBar } from "./scenario-bar";
 import type { RunError, RunKind } from "./scenario-card";
-import { fetchProvinces, fetchStaticLayers, runForecast as apiForecast, runScenario, streamChat } from "@/lib/api";
+import { fetchOverviewSeries, fetchProvinces, fetchStaticLayers, runForecast as apiForecast, runScenario, streamChat } from "@/lib/api";
 import { t } from "@/lib/i18n";
 import { hasThai } from "@/lib/lang";
-import type { ChartData, Kpis, Lang, MapLayer, MapLayersEvent, MapMarkers, Province, ScenarioResponse, SseEvent, StaticLayerItem, TableData } from "@/lib/types";
+import type { OverviewMetric } from "@/lib/overview";
+import type { ChartData, Kpis, Lang, MapLayer, MapLayersEvent, MapMarkers, OverviewSeries, Province, ScenarioResponse, SseEvent, StaticLayerItem, TableData } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const upsert = <T extends { id: string }>(list: T[], item: T) =>
@@ -41,6 +42,11 @@ export function AppShell() {
   const [selected, setSelected] = useState<Province | null>(null);
   const [runBusy, setRunBusy] = useState<RunKind | null>(null);
   const [runError, setRunError] = useState<RunError | null>(null);
+  // National overview: daily precompute (observed day 0 + 5 forecast days). Fetched once; a failure keeps the plain empty map.
+  const [series, setSeries] = useState<OverviewSeries | null>(null);
+  const [overviewDay, setOverviewDay] = useState(0);
+  const [overviewMetric, setOverviewMetric] = useState<OverviewMetric>("risk");
+  const [playing, setPlaying] = useState(false);
   const provincesRef = useRef<Province[]>([]);
   // Bumped whenever results are cleared or replaced, so a slow scenario/forecast response for an old selection is dropped.
   const runToken = useRef(0);
@@ -90,7 +96,33 @@ export function AppShell() {
     return () => ctl.abort();
   }, []);
 
+  useEffect(() => {
+    const ctl = new AbortController();
+    fetchOverviewSeries(ctl.signal)
+      .then((r) => {
+        if (Array.isArray(r?.days) && r.days.length > 0) setSeries(r);
+      })
+      .catch((err) => {
+        if (!ctl.signal.aborted) console.info("National overview unavailable:", (err as Error).message);
+      });
+    return () => ctl.abort();
+  }, []);
+
   const hasResults = !!(layer || layers || kpis || charts.length || tables.length || markers.length);
+
+  // Overview mode: nothing selected and no results. A province or a result leaves it; clearing both brings it back.
+  const overviewOn = !!series && !selected && !hasResults;
+  const [wasOverview, setWasOverview] = useState(overviewOn);
+  if (wasOverview !== overviewOn) {
+    setWasOverview(overviewOn);
+    if (!overviewOn) setPlaying(false);
+  }
+  useEffect(() => {
+    if (!playing || !series) return;
+    const n = series.days.length;
+    const id = setInterval(() => setOverviewDay((d) => (d + 1) % n), 1200);
+    return () => clearInterval(id);
+  }, [playing, series]);
 
   const clearScenario = useCallback(() => {
     runToken.current++;
@@ -285,11 +317,18 @@ export function AppShell() {
             runError={runError}
             onScenario={scenario}
             onForecast={forecast}
+            overview={overviewOn && series ? { series, day: overviewDay } : null}
+            onPickProvince={selectByCode}
           />
           </div>
         </div>
         <div className={cn("min-h-0", tab === "map" ? "block" : "hidden md:block")}>
-          <MapPanel lang={lang} layer={layer} layers={layers} staticLayers={staticLayers} markers={allMarkers} provinces={provinces} selected={selected} onSelect={selectProvince} />
+          <MapPanel lang={lang} layer={layer} layers={layers} staticLayers={staticLayers} markers={allMarkers} provinces={provinces} selected={selected} onSelect={selectProvince}
+            overview={overviewOn && series ? { series, day: overviewDay, metric: overviewMetric, playing } : null}
+            onOverviewDay={(d) => { setPlaying(false); setOverviewDay(d); }}
+            onOverviewMetric={setOverviewMetric}
+            onOverviewPlay={() => setPlaying((v) => !v)}
+          />
         </div>
         <ResizeHandle row={row} label={tr.resizeChat} />
       </main>
