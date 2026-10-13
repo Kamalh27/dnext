@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useMap, useMapsLibrary } from "@vis.gl/react-google-maps";
-import { Box, Globe, House, Layers, LoaderCircle, LocateFixed, Map as MapIcon, Maximize2, Minimize2, Minus, Plus, Search, X } from "lucide-react";
+import { Box, EllipsisVertical, Globe, House, Layers, LoaderCircle, LocateFixed, Map as MapIcon, Maximize2, Minimize2, Minus, Plus, Search, X } from "lucide-react";
 import { t } from "@/lib/i18n";
+import { usePersistedOpen } from "@/lib/panel-state";
+import { MQ, useMedia } from "@/lib/use-media";
 import { LayersPanel, type LayerPatch } from "./layers-panel";
 import { DEFAULT_VIEW } from "@/lib/geo";
 import type { Lang, MapLayerItem } from "@/lib/types";
@@ -13,7 +15,7 @@ export interface Pt { lat: number; lng: number }
 
 const glass = "border bg-card/90 shadow-lg backdrop-blur-md";
 const btn =
-  "grid size-9 place-items-center text-foreground outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 [&_svg]:size-[18px]";
+  "grid size-9 coarse:size-11 place-items-center text-foreground outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 [&_svg]:size-[18px]";
 
 function MapButton({ label, onClick, children, disabled, pressed, className }: {
   label: string; onClick: () => void; children: ReactNode; disabled?: boolean; pressed?: boolean; className?: string;
@@ -119,15 +121,39 @@ export function MapControls({ lang, onLocate, onGlobe, onResetView, fullscreenTa
     else void fullscreenTarget?.requestFullscreen?.();
   };
 
+  const short = useMedia(MQ.short);
+  const [menuOpen, setMenuOpen] = usePersistedOpen("tools-menu", false);
+  const menuRoot = useRef<HTMLDivElement>(null);
+  const menuBtn = useRef<HTMLButtonElement>(null);
+  const showMenu = menuOpen && short;
+  useEffect(() => {
+    if (!showMenu) return;
+    const away = (e: PointerEvent) => !menuRoot.current?.contains(e.target as Node) && setMenuOpen(false);
+    const esc = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setMenuOpen(false);
+      menuBtn.current?.focus();
+    };
+    document.addEventListener("pointerdown", away);
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("pointerdown", away); document.removeEventListener("keydown", esc); };
+  }, [showMenu, setMenuOpen]);
+
+  const locateBtn = <MapButton label={tr.myLocation} onClick={() => { locate(); setMenuOpen(false); }} disabled={locating}>{locating ? <LoaderCircle className="animate-spin" /> : <LocateFixed />}</MapButton>;
+  const view3dBtn = <MapButton label={is3d ? tr.view2d : tr.view3d} onClick={() => { toggle3d(); setMenuOpen(false); }} pressed={is3d} className={cn(is3d && "bg-primary text-primary-foreground hover:bg-primary")}>{is3d ? <MapIcon /> : <Box />}</MapButton>;
+  const globeBtn = <MapButton label={tr.globeView} onClick={() => { onGlobe(); setMenuOpen(false); }}><Globe /></MapButton>;
+  const fullBtn = <MapButton label={full ? tr.exitFullscreen : tr.fullscreen} onClick={() => { toggleFull(); setMenuOpen(false); }}>{full ? <Minimize2 /> : <Maximize2 />}</MapButton>;
+  const homeBtn = <MapButton label={tr.resetView} onClick={() => { resetView(); setMenuOpen(false); }}><House /></MapButton>;
+
   return (
-    <div className="absolute top-3 right-3 flex flex-col items-end gap-2">
-      <div className={cn("flex flex-col divide-y overflow-hidden rounded-[4px]", glass)} role="group" aria-label={tr.mapControls}>
+    <div className="absolute top-3 right-3 flex flex-col items-end gap-2 coarse:gap-1.5">
+      <div data-map-overlay="tools" className={cn("flex flex-col divide-y overflow-hidden rounded-[4px]", glass)} role="group" aria-label={tr.mapControls}>
         <MapButton label={tr.zoomIn} onClick={() => zoom(1)}><Plus /></MapButton>
         <MapButton label={tr.zoomOut} onClick={() => zoom(-1)}><Minus /></MapButton>
-        <MapButton label={tr.resetView} onClick={resetView}><House /></MapButton>
+        {!short && homeBtn}
       </div>
       <div ref={layersRoot} className="relative">
-        <div className={cn("overflow-hidden rounded-[4px]", glass)}>
+        <div data-map-overlay="tools" className={cn("overflow-hidden rounded-[4px]", glass)}>
           <button
             ref={layersBtn}
             type="button"
@@ -141,21 +167,39 @@ export function MapControls({ lang, onLocate, onGlobe, onResetView, fullscreenTa
             <Layers />
           </button>
         </div>
-        {showPanel && <LayersPanel id={panelId} lang={lang} scenario={layers} reference={reference} onChange={onLayerChange} boundaries={boundaries} />}
+        {showPanel && <LayersPanel id={panelId} lang={lang} scenario={layers} reference={reference} onChange={onLayerChange} boundaries={boundaries} onClose={() => { setLayersOpen(false); layersBtn.current?.focus(); }} />}
       </div>
-      <div className={cn("flex flex-col divide-y overflow-hidden rounded-[4px]", glass)}>
-        <MapButton label={tr.myLocation} onClick={locate} disabled={locating}>
-          {locating ? <LoaderCircle className="animate-spin" /> : <LocateFixed />}
-        </MapButton>
-        <MapButton label={is3d ? tr.view2d : tr.view3d} onClick={toggle3d} pressed={is3d} className={cn(is3d && "bg-primary text-primary-foreground hover:bg-primary")}>
-          {is3d ? <MapIcon /> : <Box />}
-        </MapButton>
-        <MapButton label={tr.globeView} onClick={onGlobe}><Globe /></MapButton>
-        <MapButton label={full ? tr.exitFullscreen : tr.fullscreen} onClick={toggleFull}>
-          {full ? <Minimize2 /> : <Maximize2 />}
-        </MapButton>
-      </div>
-      <span className="pointer-events-none -mt-1 text-[10px] font-semibold tracking-wide text-foreground/70 uppercase" aria-hidden>{is3d ? "3D" : "2D"}</span>
+      {short ? (
+        // Short screens (phone landscape): zoom + layers + a "more" menu; the rest moves into a small popover row.
+        <div ref={menuRoot} className="relative">
+          <div data-map-overlay="tools" className={cn("overflow-hidden rounded-[4px]", glass)}>
+            <button
+              ref={menuBtn}
+              type="button"
+              aria-label={tr.moreTools}
+              title={tr.moreTools}
+              aria-haspopup="true"
+              aria-expanded={showMenu}
+              onClick={() => setMenuOpen(!menuOpen)}
+              className={cn(btn, showMenu && "bg-primary text-primary-foreground hover:bg-primary")}
+            >
+              <EllipsisVertical />
+            </button>
+          </div>
+          {showMenu && (
+            <div data-map-overlay="tools-menu" role="group" aria-label={tr.moreTools} className={cn("absolute top-0 right-full mr-2 flex divide-x overflow-hidden rounded-[4px]", glass)}>
+              {locateBtn}{view3dBtn}{globeBtn}{fullBtn}{homeBtn}
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
+          <div data-map-overlay="tools" className={cn("flex flex-col divide-y overflow-hidden rounded-[4px]", glass)}>
+            {locateBtn}{view3dBtn}{globeBtn}{fullBtn}
+          </div>
+          <span data-map-overlay="tools" className="pointer-events-none -mt-1 text-xs font-semibold tracking-wide text-foreground/70 uppercase" aria-hidden>{is3d ? "3D" : "2D"}</span>
+        </>
+      )}
       {notice && (
         <p role="status" className={cn("max-w-56 rounded-[4px] px-3 py-2 text-xs", glass)}>{notice}</p>
       )}
@@ -195,18 +239,18 @@ export function MapSearch({ lang, onPin }: { lang: Lang; onPin: (p: (Pt & { labe
   const clear = () => { setQ(""); setMsg(null); onPin(null); };
 
   return (
-    <form onSubmit={submit} role="search" className="w-[min(20rem,calc(100vw-6.5rem))]">
-      <div className={cn("flex items-center gap-2 rounded-[4px] py-1 pr-1 pl-3.5 focus-within:ring-2 focus-within:ring-ring/50", glass)}>
+    <form onSubmit={submit} role="search" data-map-overlay="search" className="w-[min(20rem,calc(100cqw-5rem))]">
+      <div className={cn("flex items-center gap-2 rounded-[4px] py-1 pr-1 pl-3.5 focus-within:ring-2 focus-within:ring-ring/50 coarse:py-0", glass)}>
         {busy ? <LoaderCircle className="size-4 shrink-0 animate-spin text-muted-foreground" /> : <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden />}
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder={tr.searchPlaceholder}
           aria-label={tr.searchPlaceholder}
-          className="h-8 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+          className="h-8 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground coarse:h-11 coarse:text-base"
         />
         {q && (
-          <button type="button" onClick={clear} aria-label={tr.clear} title={tr.clear} className="grid size-7 place-items-center rounded-[3px] text-muted-foreground outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring">
+          <button type="button" onClick={clear} aria-label={tr.clear} title={tr.clear} className="grid size-8 place-items-center rounded-[3px] text-muted-foreground coarse:size-11 outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring">
             <X className="size-4" />
           </button>
         )}

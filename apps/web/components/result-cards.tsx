@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Building2, ChevronDown, CloudRain, GraduationCap, Hospital, House, MapPin, Route, Users, type LucideIcon } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Button } from "@/components/ui/button";
@@ -57,7 +57,7 @@ export function ResultCards({ lang, kpis, charts, tables, loading }: { lang: Lan
       {kpis && (
         <Card size="sm">
           <CardHeader>
-            <CardTitle className="flex items-center gap-1.5 text-base font-semibold">
+            <CardTitle className="flex min-w-0 items-center gap-1.5 text-base font-semibold break-words">
               <MapPin className="size-4 text-primary" aria-hidden />
               {areaName(kpis, lang)}
             </CardTitle>
@@ -72,7 +72,7 @@ export function ResultCards({ lang, kpis, charts, tables, loading }: { lang: Lan
                   </dt>
                   <dd className="mt-1 flex items-baseline gap-1 text-[22px] leading-none font-semibold tracking-tight tabular-nums">
                     {value ?? <span className="text-muted-foreground" title={tr.na} aria-label={tr.na}>—</span>}
-                    {est && value && <span className="text-[11px] font-normal tracking-normal text-muted-foreground">{tr.est}</span>}
+                    {est && value && <span className="text-xs font-normal tracking-normal text-muted-foreground">{tr.est}</span>}
                   </dd>
                 </div>
               ))}
@@ -84,13 +84,13 @@ export function ResultCards({ lang, kpis, charts, tables, loading }: { lang: Lan
                   </dt>
                   <dd className="mt-1 flex flex-wrap items-baseline gap-x-2 text-[22px] leading-none font-semibold tracking-tight tabular-nums">
                     {trig.value ?? <span className="text-muted-foreground" title={tr.na} aria-label={tr.na}>—</span>}
-                    {trig.note && <span className="text-[11px] font-normal tracking-normal text-muted-foreground">{trig.note}</span>}
+                    {trig.note && <span className="text-xs font-normal tracking-normal text-muted-foreground">{trig.note}</span>}
                   </dd>
                 </div>
               )}
             </dl>
             <Collapsible>
-              <CollapsibleTrigger className="group flex items-center gap-1 rounded text-sm font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
+              <CollapsibleTrigger className="group flex min-h-8 items-center gap-1 rounded text-sm font-medium coarse:min-h-11 text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
                 {tr.about}
                 <ChevronDown className="size-4 transition-transform group-data-[panel-open]:rotate-180" aria-hidden />
               </CollapsibleTrigger>
@@ -137,6 +137,9 @@ function TableCard({ table, lang }: { table: TableData; lang: Lang }) {
 }
 
 function BarCard({ chart, lang }: { chart: ChartData; lang: Lang }) {
+  const [box, setBox] = useState<HTMLDivElement | null>(null);
+  const width = useWidth(box);
+  const narrow = width > 0 && width < 320;   // phones: fewer ticks, a narrower label column
   const { title, xLabel, yLabel } = chartTexts(chart, lang);
   const series = [...new Set(chart.data.map((d) => d.series).filter((s): s is string => !!s))];
   const rows = chart.data.reduce<Record<string, string | number>[]>((acc, d) => {
@@ -152,19 +155,19 @@ function BarCard({ chart, lang }: { chart: ChartData; lang: Lang }) {
     <Card size="sm">
       <CardHeader><CardTitle className="text-sm font-semibold">{title}</CardTitle></CardHeader>
       <CardContent>
-        <div role="img" aria-label={title} className="w-full" style={{ height: horizontal ? Math.max(150, rows.length * 32 + 24) : 208 }}>
+        <div ref={setBox} role="img" aria-label={title} className="w-full min-w-0" style={{ height: horizontal ? Math.max(150, rows.length * 32 + 24) : 208 }}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={rows} layout={horizontal ? "vertical" : "horizontal"} margin={horizontal ? { top: 4, right: 12, bottom: 4, left: 0 } : { top: 4, right: 8, bottom: 16, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={horizontal} horizontal={!horizontal} />
               {horizontal ? (
                 <>
-                  <XAxis type="number" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} stroke="var(--border)" />
-                  <YAxis type="category" dataKey="label" width={104} interval={0} tickLine={false} tick={{ fontSize: 11, fill: "var(--foreground)" }} stroke="var(--border)" />
+                  <XAxis type="number" tickCount={narrow ? 3 : 5} tick={{ fontSize: 12, fill: "var(--muted-foreground)" }} stroke="var(--border)" />
+                  <YAxis type="category" dataKey="label" width={narrow ? 80 : 104} interval={0} tickLine={false} tick={{ fontSize: 12, fill: "var(--foreground)" }} stroke="var(--border)" />
                 </>
               ) : (
                 <>
-                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} stroke="var(--border)" label={{ value: xLabel, position: "insideBottom", offset: -10, fontSize: 11, fill: "var(--muted-foreground)" }} />
-                  <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} stroke="var(--border)" label={{ value: yLabel, angle: -90, position: "insideLeft", fontSize: 11, fill: "var(--muted-foreground)" }} />
+                  <XAxis dataKey="label" interval="preserveStartEnd" minTickGap={narrow ? 12 : 6} tick={{ fontSize: 12, fill: "var(--muted-foreground)" }} stroke="var(--border)" label={{ value: xLabel, position: "insideBottom", offset: -10, fontSize: 12, fill: "var(--muted-foreground)" }} />
+                  <YAxis tickCount={narrow ? 4 : 5} tick={{ fontSize: 12, fill: "var(--muted-foreground)" }} stroke="var(--border)" label={{ value: yLabel, angle: -90, position: "insideLeft", fontSize: 12, fill: "var(--muted-foreground)" }} />
                 </>
               )}
               <Tooltip cursor={{ fill: "var(--muted)" }} contentStyle={{ background: "var(--popover)", color: "var(--popover-foreground)", border: "1px solid var(--border)", borderRadius: 10, fontSize: 12 }} />
@@ -176,4 +179,16 @@ function BarCard({ chart, lang }: { chart: ChartData; lang: Lang }) {
       </CardContent>
     </Card>
   );
+}
+
+/** Width of an element in CSS px (0 until measured), kept current with a ResizeObserver. */
+function useWidth(el: HTMLElement | null) {
+  const [w, setW] = useState(0);
+  useEffect(() => {
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => setW(Math.round(e.contentRect.width)));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [el]);
+  return w;
 }

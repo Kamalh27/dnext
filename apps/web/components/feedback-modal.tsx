@@ -28,7 +28,7 @@ function FeedbackBody({ lang }: { lang: Lang }) {
   return (
     <>
       {FORM_URL ? (
-        <div className="relative h-[72dvh]">
+        <div className="relative h-[min(72dvh,48rem)] max-sm:h-[calc(100dvh-4.5rem)]">
           {!loaded && <Skeleton className="absolute inset-3 h-auto rounded-lg" />}
           <iframe
             src={embedUrl(FORM_URL)}
@@ -43,7 +43,7 @@ function FeedbackBody({ lang }: { lang: Lang }) {
             href={FORM_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="absolute right-3 bottom-3 inline-flex items-center gap-1 rounded-md bg-card/95 px-2 py-1 text-xs shadow outline-none ring-1 ring-border focus-visible:ring-2 focus-visible:ring-ring"
+            className="absolute right-3 bottom-3 inline-flex min-h-8 items-center gap-1 rounded-md bg-card/95 px-2 py-1 text-xs coarse:min-h-11 coarse:px-3 mb-[env(safe-area-inset-bottom,0px)] shadow outline-none ring-1 ring-border focus-visible:ring-2 focus-visible:ring-ring"
           >
             {tr.openInTab} <ExternalLink className="size-3" aria-hidden />
           </a>

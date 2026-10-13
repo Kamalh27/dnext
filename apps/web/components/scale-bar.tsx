@@ -33,7 +33,7 @@ export function ScaleBar({ className }: { className?: string }) {
 
   if (!s) return null;
   return (
-    <div className={cn("w-fit rounded-[4px] border bg-card/90 px-2 pt-1 pb-1.5 text-[11px] font-medium shadow-lg backdrop-blur-md", className)} aria-label={`Scale ${s.label}`}>
+    <div data-map-overlay="scale" className={cn("w-fit rounded-[4px] border bg-card/90 px-2 pt-1 pb-1.5 text-xs font-medium shadow-lg backdrop-blur-md", className)} aria-label={`Scale ${s.label}`}>
       <div className="mb-0.5 tabular-nums leading-none">{s.label}</div>
       <div className="h-1.5 border-x-2 border-b-2 border-foreground/80" style={{ width: s.px }} aria-hidden />
     </div>

@@ -3,7 +3,7 @@ import { LogoMark } from "./logo";
 import { t } from "@/lib/i18n";
 import type { Lang } from "@/lib/types";
 
-const link = "font-medium underline underline-offset-2 outline-none focus-visible:ring-2 focus-visible:ring-ring";
+const link = "font-medium underline underline-offset-2 outline-none focus-visible:ring-2 focus-visible:ring-ring inline-flex min-h-8 min-w-8 items-center justify-center coarse:min-h-11 coarse:min-w-11";
 
 export function AboutModal({ lang, open, onClose }: { lang: Lang; open: boolean; onClose: () => void }) {
   const tr = t(lang);
@@ -12,8 +12,8 @@ export function AboutModal({ lang, open, onClose }: { lang: Lang; open: boolean;
       <div className="space-y-5 px-5 py-4 text-sm leading-relaxed">
         <div className="flex items-center gap-3">
           <LogoMark className="size-12" />
-          <div>
-            <p className="text-lg font-semibold tracking-tight">DNext · LandslideWatch TH</p>
+          <div className="min-w-0">
+            <p className="text-lg font-semibold tracking-tight break-words">DNext · LandslideWatch TH</p>
             <p className="text-muted-foreground">{tr.aboutTagline}</p>
           </div>
         </div>

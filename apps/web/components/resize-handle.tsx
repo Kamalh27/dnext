@@ -87,9 +87,9 @@ export function ResizeHandle({ row, label }: { row: RefObject<HTMLElement | null
       onFocus={() => setMeasured(Math.round(base()))}
       onDoubleClick={() => onChange(null)}
       title={label}
-      style={{ left: "clamp(320px, var(--chat-w, 32%), 70%)" }}
+      style={{ left: "var(--chat-col)" }}
       className={cn(
-        "group absolute inset-y-0 z-20 hidden w-3 -translate-x-1/2 cursor-col-resize touch-none outline-none md:block",
+        "group absolute inset-y-0 z-20 hidden w-3 -translate-x-1/2 cursor-col-resize touch-none outline-none lg:block",
       )}
     >
       <span className={cn("absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border transition-colors group-hover:w-0.5 group-hover:bg-primary group-focus-visible:w-0.5 group-focus-visible:bg-primary", drag && "w-0.5 bg-primary")} />

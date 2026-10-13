@@ -3,6 +3,9 @@
 @import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark, .dark *));
+/* Touch screens (44px targets, 16px inputs) and short screens (phone landscape): keep in sync with MQ in lib/use-media.ts. */
+@custom-variant coarse (@media (pointer: coarse));
+@custom-variant short (@media (max-height: 500px));
 
 @theme inline {
   --color-brand: var(--brand);
@@ -125,7 +128,14 @@
   --brand-fg: oklch(0.2 0.03 55);
 }
 
+:root {
+  /* Chat column of the desktop split (>= 1024px): stored/dragged width, at most 70% of the row and 760px (no stretched text on ultra-wide). */
+  --chat-col: clamp(320px, var(--chat-w, 32%), min(70%, 760px));
+}
+
 @layer base {
+  html, body { overscroll-behavior: none; }
+  body { overflow: hidden; }
   html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
   ::selection { background: color-mix(in oklab, var(--brand) 28%, transparent); }
   * {
@@ -137,4 +147,13 @@
   html {
     @apply font-sans;
   }
+}
+/* Map overlays: a bottom sheet (layers on phones/short screens) takes over the map, and an open base-map chooser replaces the scale bar and the legend. */
+[data-selected-province]:has([data-sheet-open]) [data-map-overlay]:not([data-map-overlay="layers"]) { visibility: hidden; }
+[data-selected-province]:has([data-map-overlay="basemap-chooser"]) [data-map-overlay="scale"] { visibility: hidden; }
+[data-selected-province]:has([data-map-overlay="basemap-chooser"]) [data-map-overlay="legend"] { visibility: hidden; }
+/* Keyboard up on a landscape phone (viewport < 300px tall): give the chat the whole height while the input has focus. */
+@media (max-height: 300px) {
+  body:has([data-chat-input]:focus) header,
+  body:has([data-chat-input]:focus) [role="tablist"] { display: none; }
 }

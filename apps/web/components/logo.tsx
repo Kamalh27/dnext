@@ -24,7 +24,7 @@ export function Wordmark({ className, inverted }: { className?: string; inverted
       <span className="text-[19px] leading-[20px] font-semibold tracking-tight">
         D<span className="font-normal">Next</span>
       </span>
-      <span className={cn("hidden text-[11px] leading-[12px] font-medium tracking-[0.04em] sm:block", inverted ? "text-primary-foreground/80 dark:text-muted-foreground" : "text-muted-foreground")}>
+      <span className={cn("hidden text-xs leading-[12px] font-medium tracking-[0.04em] sm:block short:hidden", inverted ? "text-primary-foreground/80 dark:text-muted-foreground" : "text-muted-foreground")}>
         LandslideWatch TH
       </span>
     </span>
