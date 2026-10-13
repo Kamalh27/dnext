@@ -18,6 +18,8 @@ from app.settings import settings
 log = logging.getLogger(__name__)
 LOCAL = Path(".local_storage/dmr/static_stats.json")
 GCS_BLOB = "dmr/static_stats.json"
+FEATURES_LOCAL = Path(".local_storage/dmr/static_features.json")
+FEATURES_GCS_BLOB = "dmr/static_features.json"
 _lock = threading.Lock()
 _mem: dict = {"t": 0.0, "data": None}
 _TTL_S = 3600
@@ -56,12 +58,43 @@ def reset() -> None:
         _mem.update(t=0.0, data=None)
 
 
+_fmem: dict = {"t": 0.0, "data": None}
+
+
+def load_features() -> dict | None:
+    """Per-tambon histograms of buildings (GHSL), hospitals, schools and main roads (OSM) by static risk product, if built."""
+    now = time.time()
+    with _lock:
+        if now - _fmem["t"] < _TTL_S:
+            return _fmem["data"]
+    data = None
+    p = os.environ.get("DMR_STATIC_FEATURES_PATH")
+    for path in ([Path(p)] if p else []) + [FEATURES_LOCAL]:
+        if path.is_file():
+            data = json.loads(path.read_text())
+            break
+    if data is None and (settings().project_id or settings().ee_project):
+        try:
+            from google.cloud import storage
+            project = settings().project_id or settings().ee_project
+            blob = storage.Client(project=project).bucket(f"{project}-lw").blob(FEATURES_GCS_BLOB)
+            if blob.exists():
+                data = json.loads(blob.download_as_text())
+        except Exception as e:  # noqa: BLE001
+            log.info("static features: GCS not available (%s)", str(e)[:80])
+    with _lock:
+        _fmem.update(t=now, data=data)
+    return data
+
+
 def covers(data: dict | None, rows: list[dict]) -> bool:
     return bool(data) and all(r["adm3_pcode"] in data["tambon"] for r in rows)
 
 
-def tambon_stats(data: dict, rows: list[dict], high_value: float | None = None) -> dict:
-    """Same shape as dmr.tambon_stats(): {"rows": {pcode: {...}}, "class_area_km2": {...}}."""
+def tambon_stats(data: dict, rows: list[dict], high_value: float | None = None, features: dict | None = None,
+                 footprint_m2: float = 60.0) -> dict:
+    """Same shape as dmr.tambon_stats(): {"rows": {pcode: {...}}, "class_area_km2": {...}}.
+    With `features`, rows also carry buildings (est.), hospitals, schools and road_km inside the elevated zone, and "totals" sums them."""
     r = dmr.cfg()["risk"]
     hv = high_value if high_value is not None else r["cutoffs"][r["exposure_from"] - 2]
     divisor, cutoffs, names = r["divisor"], r["cutoffs"], r["class_names"]
@@ -74,6 +107,8 @@ def tambon_stats(data: dict, rows: list[dict], high_value: float | None = None) 
         total = s["area"] or 0.0
         rec = {"adm3_pcode": code, "rain30_mm": row["rain30_mm"], "trigger_class": t, "expo": s.get("ex"), "expo_class": s.get("ec"),
                "risk": None, "risk_max": None, "share_high": 0.0, "people_high": 0.0}
+        if features is not None:
+            rec.update(buildings=0.0, hospitals=0.0, schools=0.0, road_km=0.0)
         valid = {p: v for p, v in hist.items() if p >= 1}
         if t > 0 and valid:
             va = sum(v[0] for v in valid.values())
@@ -84,5 +119,16 @@ def tambon_stats(data: dict, rows: list[dict], high_value: float | None = None) 
             rec["people_high"] = sum(v[1] for _, v in hi)
             for p, v in valid.items():
                 areas[names[dmr.risk_class(t * p / divisor, cutoffs) - 1]] += v[0]
+            if features is not None:
+                for p, f in (features["tambon"].get(code, {}).get("h") or {}).items():
+                    p = int(p)
+                    if p >= 1 and t * p / divisor >= hv:
+                        rec["buildings"] += f[0] / footprint_m2
+                        rec["hospitals"] += f[1]
+                        rec["schools"] += f[2]
+                        rec["road_km"] += f[3]
         out[code] = rec
-    return {"rows": out, "class_area_km2": {k: round(v, 1) for k, v in areas.items()}}
+    res = {"rows": out, "class_area_km2": {k: round(v, 1) for k, v in areas.items()}}
+    if features is not None:
+        res["totals"] = {k: sum(r[k] for r in out.values()) for k in ("buildings", "hospitals", "schools", "road_km")}
+    return res

@@ -18,6 +18,9 @@ LIMITATIONS: dict[str, str] = {
         "จำนวนคนมาจาก WorldPop 2020 ที่อาศัยในพื้นที่ที่ระดับความเสี่ยงปานกลางขึ้นไป (ความเสี่ยง >= 2 ปัดเศษ) ส่วนจำนวนครัวเรือนเป็นค่าประมาณ",
     "Observed rainfall is NASA IMERG; the DMR thresholds were derived from JAXA GSMaP, so classes may be biased slightly high or low.":
         "ฝนตรวจวัดมาจาก NASA IMERG ขณะที่เกณฑ์ของ DMR สร้างจาก JAXA GSMaP ระดับที่ได้จึงอาจสูงหรือต่ำกว่าความเป็นจริงเล็กน้อย",
+    "Buildings are estimated from the GHSL 2020 built-up surface (100 m) divided by an average footprint of 60 m2; hospitals, schools and main roads "
+    "(motorway to tertiary) come from OpenStreetMap, which can be incomplete. All counts are for the Moderate-or-higher risk zone.":
+        "จำนวนอาคารประมาณจากพื้นที่ก่อสร้าง GHSL ปี 2020 (100 ม.) หารด้วยขนาดฐานอาคารเฉลี่ย 60 ตร.ม. ส่วนโรงพยาบาล โรงเรียน และถนนสายหลัก (มอเตอร์เวย์ถึงทางหลวงสายรอง) มาจาก OpenStreetMap ซึ่งอาจไม่ครบถ้วน ตัวเลขทั้งหมดเป็นของพื้นที่ที่มีความเสี่ยงระดับปานกลางขึ้นไป",
     "Buildings, roads and facilities are not part of the DMR layers and are not reported in this mode.":
         "อาคาร ถนน และสิ่งอำนวยความสะดวก ไม่อยู่ในชั้นข้อมูลของ DMR จึงไม่แสดงในโหมดนี้",
 }
