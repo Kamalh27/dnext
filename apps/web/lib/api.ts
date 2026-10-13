@@ -1,5 +1,5 @@
 import { parseSSE } from "./sse";
-import type { Explain, ForecastResponse, Lang, Province, ScenarioResponse, SseEvent, StaticLayersResponse } from "./types";
+import type { Explain, ForecastResponse, Lang, OverviewSeries, Province, ScenarioResponse, SseEvent, StaticLayersResponse } from "./types";
 
 export const API_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080").replace(/\/$/, "");
 
@@ -48,6 +48,10 @@ export const fetchProvinces = (signal?: AbortSignal) => fetch("/provinces.json",
 
 export const fetchStaticLayers = (signal?: AbortSignal) =>
   fetch(`${API_BASE}/layers/static`, { signal }).then((r) => json<StaticLayersResponse>(r));
+
+/** National current conditions + 5 forecast days. 503 when the daily precompute is unavailable. */
+export const fetchOverviewSeries = (signal?: AbortSignal) =>
+  fetch(`${API_BASE}/overview/series?days=5`, { signal }).then((r) => json<OverviewSeries>(r));
 
 export const explain = (lat: number, lng: number, scenarioId: string) =>
   fetch(`${API_BASE}/explain?${new URLSearchParams({ lat: String(lat), lng: String(lng), scenario_id: scenarioId })}`).then(

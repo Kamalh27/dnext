@@ -7,11 +7,12 @@ import { Markdown } from "./markdown";
 import { LegalModal } from "./legal-modal";
 import { LogoMark } from "./logo";
 import { Skeleton } from "@/components/ui/skeleton";
+import { OverviewCard } from "./overview-card";
 import { ResultCards } from "./result-cards";
 import { ScenarioCard, type RunError, type RunKind } from "./scenario-card";
 import { t } from "@/lib/i18n";
 import type { LegalKind } from "@/lib/legal";
-import type { ChartData, Kpis, Lang, Province, TableData } from "@/lib/types";
+import type { ChartData, Kpis, Lang, OverviewSeries, Province, TableData } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export interface Message { role: "user" | "assistant"; text: string; error?: string }
@@ -32,6 +33,9 @@ interface Props {
   runError: RunError | null;
   onScenario: (mm: number, h: number) => void;
   onForecast: (days: number) => void;
+  /** National overview for the selected day (null = not in overview mode). */
+  overview: { series: OverviewSeries; day: number } | null;
+  onPickProvince: (pcode: string) => void;
 }
 
 export function ChatPanel(p: Props) {
@@ -54,11 +58,14 @@ export function ChatPanel(p: Props) {
     <section aria-label={tr.chat} className="flex h-full flex-col">
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-5" aria-live="polite">
         {p.messages.length === 0 && (
-          <div className="flex flex-col items-center px-2 pt-6 text-center">
+          <div className={cn("flex flex-col items-center gap-5 px-2 text-center", p.overview ? "pt-1" : "pt-6")}>
+            {p.overview && <OverviewCard lang={p.lang} series={p.overview.series} day={p.overview.day} onSelect={p.onPickProvince} />}
+            <div className="flex flex-col items-center">
             <span className="mb-4 grid size-16 place-items-center rounded-2xl bg-accent"><LogoMark className="size-11" /></span>
             <h2 className="text-lg font-semibold tracking-tight">{tr.emptyTitle}</h2>
             <p className="mt-1.5 max-w-xs text-sm leading-relaxed text-muted-foreground">{tr.empty}</p>
-            <ul className="mt-6 w-full space-y-2 text-left">
+            </div>
+            <ul className="w-full space-y-2 text-left">
               {tr.prompts.map((s) => (
                 <li key={s}>
                   <button

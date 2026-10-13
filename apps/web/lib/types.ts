@@ -125,6 +125,44 @@ export interface Province {
   geometry: { type: "MultiPolygon"; coordinates: number[][][][] };
 }
 
+/** GET /overview/series: national current conditions (h=0, observed) and cumulative forecast days (h=1..5). */
+export interface OverviewProvinceDay {
+  pcode: string;
+  risk_class: number; // 0 = nothing triggered / no susceptible ground, 1..5 = DMR classes Very low .. Very high
+  risk_max: number;
+  triggered: number;
+  tambons: number;
+  max_trigger: number;
+  people_elevated: number;
+  rain_mm: number | null; // province-mean rain of that single day
+  triggered_share: number;
+}
+export interface OverviewTop {
+  pcode: string;
+  name: string;
+  name_th: string;
+  risk_max: number;
+  risk_class: number;
+  triggered: number;
+  tambons: number;
+  people_elevated: number;
+}
+export interface OverviewDay {
+  h: number; // 0 = latest observed, 1..5 = forecast days
+  date: string; // YYYY-MM-DD
+  totals: { tambons_total: number; triggered: number; high_trigger: number; provinces_triggered: number; provinces_total: number; people_elevated: number };
+  provinces: OverviewProvinceDay[];
+  top: OverviewTop[];
+}
+export interface OverviewSeries {
+  date_of_data: string;
+  source: string;
+  model_run_time: string;
+  max_days: number;
+  limitations: string[];
+  days: OverviewDay[];
+}
+
 /** Shared by POST /scenario and POST /forecast. Every key is optional; marker and chart sets may arrive as one item or a list. */
 export interface ScenarioResponse {
   map_layer?: MapLayer;
