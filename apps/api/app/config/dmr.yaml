@@ -34,6 +34,7 @@ risk:
   # Risk value bins -> class 1..5 (class >= high_from counts as "high" for exposure statistics)
   cutoffs: [1, 2, 3, 4]
   class_names: [Very low, Low, Moderate, High, Very high]
+  class_names_th: [ต่ำมาก, ต่ำ, ปานกลาง, สูง, สูงมาก]
   class_colors: ["#ffffb2", "#fecc5c", "#fd8d3c", "#f03b20", "#bd0026"]
   high_from: 4                    # class 4+ = risk value >= 3  ("High")
   # Exposure statistics count people / area in an "elevated" zone: class >= exposure_from (3 = Moderate and up = risk value >= 2).
@@ -42,11 +43,11 @@ risk:
   exposure_from: 3
 
 layers:
-  rain: {name: "Rainfall, 30-day total (mm)", palette: ["f7fbff", "c6dbef", "9ecae1", "3182bd", "08519c"], min: 0, max: 500}
-  trigger: {name: "Rainfall trigger class (tambon)", palette: ["d9d9d9", "ffffb2", "fecc5c", "fd8d3c", "f03b20", "bd0026"], min: 0, max: 5}
-  susceptibility: {name: "Susceptibility class (1-5)", palette: ["1a9641", "a6d96a", "ffffbf", "fdae61", "d7191c"], min: 1, max: 5}
-  vulnerability: {name: "Vulnerability class (1-5)", palette: ["1a9641", "a6d96a", "ffffbf", "fdae61", "d7191c"], min: 1, max: 5}
-  exposure: {name: "Exposure class (1-5)", palette: ["1a9641", "a6d96a", "ffffbf", "fdae61", "d7191c"], min: 1, max: 5}
-  population: {name: "Population (WorldPop 2020, per hectare)", palette: ["3288bd", "66c2a5", "abdda4", "fee08b", "fdae61", "f46d43"], min: 1, max: 6,
+  rain: {name: "Rainfall, 30-day total (mm)", name_th: "ปริมาณฝนสะสม 30 วัน (มม.)", palette: ["f7fbff", "c6dbef", "9ecae1", "3182bd", "08519c"], min: 0, max: 500}
+  trigger: {name: "Rainfall trigger class (tambon)", name_th: "ระดับตัวกระตุ้นจากฝน (ระดับตำบล)", palette: ["d9d9d9", "ffffb2", "fecc5c", "fd8d3c", "f03b20", "bd0026"], min: 0, max: 5}
+  susceptibility: {name: "Susceptibility class (1-5)", name_th: "ระดับความอ่อนไหว (1-5)", palette: ["1a9641", "a6d96a", "ffffbf", "fdae61", "d7191c"], min: 1, max: 5}
+  vulnerability: {name: "Vulnerability class (1-5)", name_th: "ระดับความเปราะบาง (1-5)", palette: ["1a9641", "a6d96a", "ffffbf", "fdae61", "d7191c"], min: 1, max: 5}
+  exposure: {name: "Exposure class (1-5)", name_th: "ระดับการรับสัมผัส (1-5)", palette: ["1a9641", "a6d96a", "ffffbf", "fdae61", "d7191c"], min: 1, max: 5}
+  population: {name: "Population (WorldPop 2020, per hectare)", name_th: "ประชากร (WorldPop 2020 ต่อเฮกตาร์)", palette: ["3288bd", "66c2a5", "abdda4", "fee08b", "fdae61", "f46d43"], min: 1, max: 6,
           breaks: [0.5, 2, 5, 10, 20, 40]}   # discrete classes of people per hectare (one WorldPop 100 m pixel ~ 1 ha); legend labels come from these
-  risk: {name: "Landslide risk (0-5)", palette: ["ffffb2", "fecc5c", "fd8d3c", "f03b20", "bd0026"], min: 0, max: 5}
+  risk: {name: "Landslide risk (0-5)", name_th: "ความเสี่ยงดินถล่ม (0-5)", palette: ["ffffb2", "fecc5c", "fd8d3c", "f03b20", "bd0026"], min: 0, max: 5}
