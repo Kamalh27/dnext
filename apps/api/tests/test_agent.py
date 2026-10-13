@@ -54,3 +54,9 @@ def test_markers_in_scenario_events():
 def test_agent_builds_with_all_tools():
     from app.agent.agent import root_agent
     assert len(root_agent.tools) == 7
+
+
+def test_prompt_forbids_warning_wording_and_long_answers():
+    from app.agent.prompts import SYSTEM
+    assert "never \"warning thresholds\"" in SYSTEM and "เตือนภัย" in SYSTEM          # the rule names the forbidden Thai term
+    assert "at most 4 short bullet points" in SYSTEM and "Do NOT repeat the tambon table" in SYSTEM

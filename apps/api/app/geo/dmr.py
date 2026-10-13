@@ -61,7 +61,7 @@ def risk_class(value: float, cutoffs: list[float]) -> int:
 
 def risk_legend() -> list[dict]:
     r = cfg()["risk"]
-    return [{"label": n, "color": c} for n, c in zip(r["class_names"], r["class_colors"])]
+    return [{"label": n, "label_th": nt, "color": c} for n, nt, c in zip(r["class_names"], r["class_names_th"], r["class_colors"])]
 
 
 # ---------------- Earth Engine images ----------------
@@ -208,19 +208,21 @@ def _legend(k: str) -> list[dict]:
     if k == "risk":
         return risk_legend()
     if k == "rain":
-        return [{"label": f"{c['min']}", "color": "#" + c["palette"][0]}, {"label": f"{c['max']}+ mm", "color": "#" + c["palette"][-1]}]
+        return [{"label": f"{c['min']}", "label_th": f"{c['min']}", "color": "#" + c["palette"][0]},
+                {"label": f"{c['max']}+ mm", "label_th": f"{c['max']}+ มม.", "color": "#" + c["palette"][-1]}]
     if k == "trigger":
-        return [{"label": str(i), "color": "#" + col} for i, col in enumerate(c["palette"], start=c["min"])]
+        return [{"label": str(i), "label_th": str(i), "color": "#" + col} for i, col in enumerate(c["palette"], start=c["min"])]
     if k == "population":
         return population_legend()
-    names = cfg()["risk"]["class_names"]
-    return [{"label": names[i - 1], "color": "#" + col} for i, col in enumerate(c["palette"], start=1)]
+    r = cfg()["risk"]
+    return [{"label": r["class_names"][i - 1], "label_th": r["class_names_th"][i - 1], "color": "#" + col}
+            for i, col in enumerate(c["palette"], start=1)]
 
 
 def _layer(k: str, img: ee.Image, url: str, sid: str, visible: bool, group: str) -> dict:
     c = cfg()["layers"][k]
-    return {"id": f"{sid}-{k}", "key": k, "name": c["name"], "tile_url": url, "opacity": 0.75, "visible": visible,
-            "legend": _legend(k), "group": group}
+    return {"id": f"{sid}-{k}", "key": k, "name": c["name"], "name_th": c.get("name_th", c["name"]), "tile_url": url, "opacity": 0.75,
+            "visible": visible, "legend": _legend(k), "group": group}
 
 
 def build_layers(region: ee.Geometry, rain_mm: ee.Image, trig: ee.Image, risk: ee.Image, scenario_id: str) -> list[dict]:
@@ -314,7 +316,7 @@ def population_legend() -> list[dict]:
     c = cfg()["layers"]["population"]
     b, pal = c["breaks"], c["palette"]
     labels = [f"{_fmt(b[i])}\u2013{_fmt(b[i + 1])}" for i in range(len(b) - 1)] + [f"{_fmt(b[-1])}+"]
-    return [{"label": f"{lab} people/ha", "color": "#" + col} for lab, col in zip(labels, pal)]
+    return [{"label": f"{lab} people/ha", "label_th": f"{lab} คน/เฮกตาร์", "color": "#" + col} for lab, col in zip(labels, pal)]
 
 
 def population_layer() -> ee.Image:
