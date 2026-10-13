@@ -92,7 +92,6 @@ function MapInner({ lang, layer, markers }: { lang: Lang; layer: MapLayer | null
 
       <div className="absolute top-3 left-3 flex flex-col items-start gap-2">
         <MapSearch lang={lang} onPin={setPin} />
-        <BasemapSwitcher lang={lang} value={mapType} onChange={setMapType} />
       </div>
       <MapControls lang={lang} onLocate={setMe} fullscreenTarget={wrap} />
 
@@ -114,7 +113,10 @@ function MapInner({ lang, layer, markers }: { lang: Lang; layer: MapLayer | null
           </div>
         </div>
       )}
-        <ScaleBar />
+        <div className="flex items-end gap-2">
+          <BasemapSwitcher lang={lang} value={mapType} onChange={setMapType} />
+          <ScaleBar />
+        </div>
       </div>
     </div>
   );
