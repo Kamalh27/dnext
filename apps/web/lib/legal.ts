@@ -17,7 +17,7 @@ export const legal: Record<Lang, { updated: string; docs: Record<LegalKind, Lega
       privacy: {
         title: "Privacy Policy",
         sections: [
-          { h: "Overview", p: ["DNext LandslideWatch TH is a landslide risk screening tool. It needs no account and is designed to work on places and rainfall scenarios, not on individuals. Please do not type personal information into the chat."] },
+          { h: "Overview", p: ["DNext LandslideWatch TH is a landslide risk screening tool. You can browse the map and the national overview without an account. To use the chat and to run scenarios you sign in with Google, so that fair-use limits can be applied per account. The tool is designed to work on places and rainfall scenarios, not on individuals. Please do not type personal information into the chat."] },
           {
             h: "What we process",
             ul: [
@@ -27,10 +27,11 @@ export const legal: Record<Lang, { updated: string; docs: Record<LegalKind, Lega
               "Place searches, which are sent to the Google Maps Platform Geocoding service.",
               "Your location, only if you click \"My location\". Your browser reads it to centre the map; it is not sent to our servers.",
               "Feedback you submit through the embedded Google Form, which is received by us and handled under Google's privacy policy.",
+              "If you sign in with Google: the name, email address and picture that Google shares are shown in the app and kept in your browser for the length of your session. On our servers we keep only a one-way hashed account ID and your daily usage counts (chats and scenario runs), for about 3 days, to apply the limits. We do not receive or store your Google password.",
             ],
           },
-          { h: "What we do not do", ul: ["We do not sell personal data.", "We do not run advertising or analytics trackers.", "We do not make decisions about individuals or target individual households."] },
-          { h: "Retention", p: ["Chat sessions are held in server memory and are discarded when the service restarts or the session expires. Cached scenarios follow the periods above. Cloud logs are typically kept for up to 30 days."] },
+          { h: "What we do not do", ul: ["We do not sell personal data.", "We do not run advertising or analytics trackers.", "We do not use your Google sign-in for anything except identifying your account for fair-use limits.", "We do not make decisions about individuals or target individual households."] },
+          { h: "Retention", p: ["Chat sessions are held in server memory and are discarded when the service restarts or the session expires. Cached scenarios follow the periods above. Usage counters are kept for about 3 days. Your session token expires after 12 hours or when you sign out. Cloud logs are typically kept for up to 30 days."] },
           { h: "Service providers", p: ["We use Google Cloud (Cloud Run, Vertex AI, Earth Engine, Firestore, Cloud Storage, Cloud Logging) and Google Maps Platform. These providers process data on our behalf under their own terms."] },
           { h: "Your choices and rights", p: ["You can ask what we hold about you, or ask us to delete it, using the Send feedback button in the header. We aim to handle requests in line with Thailand's Personal Data Protection Act (PDPA) and other applicable law."] },
           { h: "Changes", p: ["We will update this page when our practices change and show the date above."] },
@@ -46,6 +47,7 @@ export const legal: Record<Lang, { updated: string; docs: Record<LegalKind, Lega
               "lw-theme (local storage, ours): remembers your light or dark theme choice. It stays in your browser until you clear it.",
               "Google Maps (Google): the map may use cookies or local storage that Google needs to deliver map tiles, prevent abuse and measure usage. See Google's policies.",
               "Google Forms (Google): opening the feedback form loads content from google.com, which may set cookies.",
+              "Sign in with Google (Google): the sign-in button loads Google's script from accounts.google.com, which may set cookies. After you sign in, our session token is kept in your browser's local storage (lw-session) until it expires after 12 hours or you sign out.",
             ],
           },
           { h: "Your choices", p: ["You can clear or block cookies and site data in your browser settings. Blocking Google cookies may stop the map or feedback form from working. Clearing local storage resets your theme to your system setting."] },
@@ -57,7 +59,8 @@ export const legal: Record<Lang, { updated: string; docs: Record<LegalKind, Lega
           { h: "Using this tool", p: ["By using DNext LandslideWatch TH you agree to these terms. The tool gives screening-level information to help people explore landslide risk. It is provided free of charge for information and planning."] },
           { h: "Not an official forecast or warning", p: ["Results are not official forecasts, warnings or evacuation advice. Do not use them as the only basis for safety, evacuation or emergency decisions. Follow the Thai Meteorological Department (tmd.go.th), the Department of Disaster Prevention and Mitigation (disaster.go.th) and your local authorities."] },
           { h: "Accuracy and limits", ul: ["The model is a simplified susceptibility screening and is not calibrated for individual slopes or villages.", "Rainfall is assumed to be spatially uniform, and results are coarse estimates. Households are estimated from population.", "AI-generated text can contain mistakes. Figures come from computed results, but they are only as good as the data and assumptions behind them."] },
-          { h: "Acceptable use", ul: ["Do not overload, scrape or attempt to disrupt the service.", "Do not use it to target or profile individuals.", "Do not present its output as an official source."] },
+          { h: "Acceptable use", ul: ["Do not overload, scrape or attempt to disrupt the service.", "Do not use it to target or profile individuals.", "Do not share, resell or automate use of your account, or create accounts to get around the fair-use limits.", "Do not present its output as an official source."] },
+          { h: "Accounts and fair use", p: ["Chat and scenario runs need a Google sign-in. Each account has daily and per-minute limits (currently 30 chats and 200 scenario or forecast runs per day). Limits reset at midnight Thailand time and may change. We may restrict access that looks abusive."] },
           { h: "Third-party data and services", p: ["Maps, datasets and services belong to their providers and stay subject to their terms. See Disclaimer & Data Sources."] },
           { h: "No warranty and liability", p: ["The tool is provided \"as is\" and \"as available\", without warranties of any kind. To the extent the law allows, we are not liable for losses arising from its use or from its unavailability."] },
           { h: "Changes", p: ["We may change the tool or these terms. Continued use means you accept the updated terms."] },
@@ -94,7 +97,7 @@ export const legal: Record<Lang, { updated: string; docs: Record<LegalKind, Lega
       privacy: {
         title: "นโยบายความเป็นส่วนตัว",
         sections: [
-          { h: "ภาพรวม", p: ["DNext LandslideWatch TH เป็นเครื่องมือคัดกรองความเสี่ยงดินถล่ม ไม่ต้องสมัครบัญชี และออกแบบมาเพื่อดูพื้นที่และสถานการณ์ฝน ไม่ใช่เพื่อดูข้อมูลรายบุคคล โปรดอย่าพิมพ์ข้อมูลส่วนบุคคลลงในแชท"] },
+          { h: "ภาพรวม", p: ["DNext LandslideWatch TH เป็นเครื่องมือคัดกรองความเสี่ยงดินถล่ม ดูแผนที่และภาพรวมระดับประเทศได้โดยไม่ต้องมีบัญชี การใช้แชทและการคำนวณสถานการณ์ต้องลงชื่อเข้าใช้ด้วย Google เพื่อให้กำหนดขีดจำกัดการใช้งานที่เป็นธรรมต่อบัญชีได้ เครื่องมือนี้ออกแบบมาเพื่อดูพื้นที่และสถานการณ์ฝน ไม่ใช่เพื่อดูข้อมูลรายบุคคล โปรดอย่าพิมพ์ข้อมูลส่วนบุคคลลงในแชท"] },
           {
             h: "ข้อมูลที่เราประมวลผล",
             ul: [
@@ -104,10 +107,11 @@ export const legal: Record<Lang, { updated: string; docs: Record<LegalKind, Lega
               "การค้นหาสถานที่ ซึ่งส่งไปยังบริการ Geocoding ของ Google Maps Platform",
               "ตำแหน่งของคุณ เฉพาะเมื่อคุณกด \"ตำแหน่งของฉัน\" เบราว์เซอร์ของคุณอ่านค่าเพื่อจัดกึ่งกลางแผนที่ และไม่ส่งไปยังเซิร์ฟเวอร์ของเรา",
               "ความคิดเห็นที่คุณส่งผ่าน Google Form ที่ฝังไว้ ซึ่งเราได้รับ และอยู่ภายใต้นโยบายความเป็นส่วนตัวของ Google",
+              "หากคุณลงชื่อเข้าใช้ด้วย Google: ชื่อ อีเมล และรูปภาพที่ Google ส่งให้จะแสดงในแอปและเก็บไว้ในเบราว์เซอร์ตลอดช่วงเซสชัน ส่วนบนเซิร์ฟเวอร์เราเก็บเฉพาะรหัสบัญชีที่ผ่านการแฮชแบบทางเดียวและจำนวนการใช้งานรายวัน (แชทและการคำนวณสถานการณ์) ประมาณ 3 วัน เพื่อบังคับใช้ขีดจำกัด เราไม่ได้รับหรือเก็บรหัสผ่าน Google ของคุณ",
             ],
           },
-          { h: "สิ่งที่เราไม่ทำ", ul: ["ไม่ขายข้อมูลส่วนบุคคล", "ไม่ใช้ตัวติดตามเพื่อโฆษณาหรือวิเคราะห์การใช้งาน", "ไม่ตัดสินใจเกี่ยวกับรายบุคคล และไม่ระบุเป้าหมายรายครัวเรือน"] },
-          { h: "ระยะเวลาเก็บรักษา", p: ["เซสชันแชทอยู่ในหน่วยความจำของเซิร์ฟเวอร์และถูกทิ้งเมื่อบริการรีสตาร์ตหรือเซสชันหมดอายุ แคชของสถานการณ์เป็นไปตามระยะเวลาข้างต้น บันทึกบนคลาวด์โดยทั่วไปเก็บไว้ไม่เกิน 30 วัน"] },
+          { h: "สิ่งที่เราไม่ทำ", ul: ["ไม่ขายข้อมูลส่วนบุคคล", "ไม่ใช้ตัวติดตามเพื่อโฆษณาหรือวิเคราะห์การใช้งาน", "ไม่ใช้การลงชื่อเข้าใช้ Google ของคุณเพื่อสิ่งอื่นนอกจากระบุบัญชีสำหรับขีดจำกัดการใช้งานที่เป็นธรรม", "ไม่ตัดสินใจเกี่ยวกับรายบุคคล และไม่ระบุเป้าหมายรายครัวเรือน"] },
+          { h: "ระยะเวลาเก็บรักษา", p: ["เซสชันแชทอยู่ในหน่วยความจำของเซิร์ฟเวอร์และถูกทิ้งเมื่อบริการรีสตาร์ตหรือเซสชันหมดอายุ แคชของสถานการณ์เป็นไปตามระยะเวลาข้างต้น ตัวนับการใช้งานเก็บไว้ประมาณ 3 วัน โทเค็นเซสชันของคุณหมดอายุใน 12 ชั่วโมงหรือเมื่อออกจากระบบ บันทึกบนคลาวด์โดยทั่วไปเก็บไว้ไม่เกิน 30 วัน"] },
           { h: "ผู้ให้บริการ", p: ["เราใช้ Google Cloud (Cloud Run, Vertex AI, Earth Engine, Firestore, Cloud Storage, Cloud Logging) และ Google Maps Platform ผู้ให้บริการเหล่านี้ประมวลผลข้อมูลแทนเราภายใต้ข้อกำหนดของตนเอง"] },
           { h: "ทางเลือกและสิทธิของคุณ", p: ["คุณสามารถขอทราบว่าเราเก็บข้อมูลใดเกี่ยวกับคุณ หรือขอให้ลบ ได้ผ่านปุ่ม \"ส่งความคิดเห็น\" ที่แถบด้านบน เรามุ่งดำเนินการตามพระราชบัญญัติคุ้มครองข้อมูลส่วนบุคคล (PDPA) และกฎหมายที่เกี่ยวข้อง"] },
           { h: "การเปลี่ยนแปลง", p: ["เราจะปรับปรุงหน้านี้เมื่อแนวปฏิบัติเปลี่ยน และแสดงวันที่ไว้ด้านบน"] },
@@ -123,6 +127,7 @@ export const legal: Record<Lang, { updated: string; docs: Record<LegalKind, Lega
               "lw-theme (local storage ของเรา): จำธีมสว่างหรือมืดที่คุณเลือก อยู่ในเบราว์เซอร์ของคุณจนกว่าจะล้าง",
               "Google Maps (Google): แผนที่อาจใช้คุกกี้หรือ local storage ที่ Google ต้องใช้เพื่อส่งภาพแผนที่ ป้องกันการใช้งานผิดปกติ และวัดการใช้งาน ดูนโยบายของ Google",
               "Google Forms (Google): การเปิดแบบฟอร์มความคิดเห็นจะโหลดเนื้อหาจาก google.com ซึ่งอาจตั้งคุกกี้",
+              "ลงชื่อเข้าใช้ด้วย Google (Google): ปุ่มลงชื่อเข้าใช้โหลดสคริปต์จาก accounts.google.com ซึ่งอาจตั้งคุกกี้ หลังลงชื่อเข้าใช้ โทเค็นเซสชันของเราจะเก็บใน local storage ของเบราว์เซอร์ (lw-session) จนกว่าจะหมดอายุใน 12 ชั่วโมงหรือคุณออกจากระบบ",
             ],
           },
           { h: "ทางเลือกของคุณ", p: ["คุณล้างหรือบล็อกคุกกี้และข้อมูลไซต์ได้ในการตั้งค่าเบราว์เซอร์ การบล็อกคุกกี้ของ Google อาจทำให้แผนที่หรือแบบฟอร์มความคิดเห็นใช้งานไม่ได้ การล้าง local storage จะรีเซ็ตธีมกลับไปตามการตั้งค่าของระบบ"] },
@@ -134,7 +139,8 @@ export const legal: Record<Lang, { updated: string; docs: Record<LegalKind, Lega
           { h: "การใช้เครื่องมือนี้", p: ["การใช้ DNext LandslideWatch TH ถือว่าคุณยอมรับข้อกำหนดเหล่านี้ เครื่องมือให้ข้อมูลคัดกรองเบื้องต้นเพื่อช่วยให้สำรวจความเสี่ยงดินถล่ม ให้บริการโดยไม่คิดค่าใช้จ่ายเพื่อข้อมูลและการวางแผน"] },
           { h: "ไม่ใช่การพยากรณ์หรือการเตือนภัยอย่างเป็นทางการ", p: ["ผลลัพธ์ไม่ใช่การพยากรณ์ การเตือนภัย หรือคำแนะนำการอพยพอย่างเป็นทางการ อย่าใช้เป็นเกณฑ์เดียวในการตัดสินใจด้านความปลอดภัย การอพยพ หรือเหตุฉุกเฉิน โปรดติดตามกรมอุตุนิยมวิทยา (tmd.go.th) กรมป้องกันและบรรเทาสาธารณภัย (disaster.go.th) และหน่วยงานท้องถิ่น"] },
           { h: "ความแม่นยำและข้อจำกัด", ul: ["โมเดลเป็นการคัดกรองความอ่อนไหวแบบง่าย ไม่ได้ปรับเทียบสำหรับเนินเขาหรือหมู่บ้านแต่ละแห่ง", "สมมติว่าฝนตกสม่ำเสมอทั่วพื้นที่ ผลลัพธ์เป็นค่าประมาณอย่างหยาบ ครัวเรือนประมาณจากจำนวนประชากร", "ข้อความที่สร้างโดย AI อาจมีข้อผิดพลาด ตัวเลขมาจากผลการคำนวณ แต่ขึ้นอยู่กับคุณภาพของข้อมูลและสมมติฐาน"] },
-          { h: "การใช้งานที่ยอมรับได้", ul: ["ห้ามทำให้บริการทำงานหนักเกินควร ดึงข้อมูลอัตโนมัติ หรือพยายามรบกวนบริการ", "ห้ามใช้เพื่อระบุเป้าหมายหรือสร้างโปรไฟล์รายบุคคล", "ห้ามนำผลลัพธ์ไปอ้างว่าเป็นแหล่งข้อมูลทางการ"] },
+          { h: "การใช้งานที่ยอมรับได้", ul: ["ห้ามทำให้บริการทำงานหนักเกินควร ดึงข้อมูลอัตโนมัติ หรือพยายามรบกวนบริการ", "ห้ามใช้เพื่อระบุเป้าหมายหรือสร้างโปรไฟล์รายบุคคล", "ห้ามแชร์ ขายต่อ หรือใช้บัญชีของคุณแบบอัตโนมัติ และห้ามสร้างบัญชีเพื่อหลีกเลี่ยงขีดจำกัดการใช้งานที่เป็นธรรม", "ห้ามนำผลลัพธ์ไปอ้างว่าเป็นแหล่งข้อมูลทางการ"] },
+          { h: "บัญชีและการใช้งานที่เป็นธรรม", p: ["แชทและการคำนวณสถานการณ์ต้องลงชื่อเข้าใช้ด้วย Google แต่ละบัญชีมีขีดจำกัดรายวันและรายนาที (ปัจจุบัน 30 แชทและ 200 ครั้งของการคำนวณสถานการณ์หรือการพยากรณ์ต่อวัน) ขีดจำกัดรีเซ็ตเวลาเที่ยงคืนตามเวลาประเทศไทยและอาจเปลี่ยนแปลงได้ เราอาจจำกัดการเข้าถึงที่ดูเหมือนเป็นการใช้งานในทางที่ผิด"] },
           { h: "ข้อมูลและบริการของบุคคลที่สาม", p: ["แผนที่ ชุดข้อมูล และบริการเป็นของผู้ให้บริการแต่ละราย และอยู่ภายใต้ข้อกำหนดของผู้ให้บริการนั้น ดู \"ข้อจำกัดความรับผิดและแหล่งข้อมูล\""] },
           { h: "ไม่มีการรับประกันและความรับผิด", p: ["เครื่องมือให้บริการตามสภาพ \"ตามที่เป็น\" และ \"ตามที่มี\" โดยไม่มีการรับประกันใด ๆ ภายใต้ขอบเขตที่กฎหมายอนุญาต เราไม่รับผิดต่อความเสียหายที่เกิดจากการใช้หรือการที่ใช้งานไม่ได้"] },
           { h: "การเปลี่ยนแปลง", p: ["เราอาจเปลี่ยนแปลงเครื่องมือหรือข้อกำหนดนี้ การใช้งานต่อไปถือว่าคุณยอมรับข้อกำหนดที่ปรับปรุงแล้ว"] },

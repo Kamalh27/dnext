@@ -6,6 +6,8 @@ substitutions:
   _MAX_INSTANCES: "5"
   _AGENT_MODEL: gemini-3.5-flash
   _ALLOWED_ORIGINS: "*"      # tightened to the web URL by deploy.sh after the web service exists
+  _AUTH_REQUIRED: "false"    # "true" once GOOGLE_OAUTH_CLIENT_ID is set: chat and scenario/forecast runs then need a Google sign-in
+  _GOOGLE_CLIENT_ID: ""      # Web OAuth client id (public value)
 options:
   logging: CLOUD_LOGGING_ONLY
 steps:
@@ -30,5 +32,5 @@ steps:
       - --cpu-boost
       - --min-instances=${_MIN_INSTANCES}
       - --max-instances=${_MAX_INSTANCES}
-      - --set-env-vars=^@^GEO_BACKEND=ee@EE_PROJECT=$PROJECT_ID@GOOGLE_GENAI_USE_VERTEXAI=true@GOOGLE_CLOUD_PROJECT=$PROJECT_ID@GOOGLE_CLOUD_LOCATION=global@AGENT_MODEL=${_AGENT_MODEL}@ALLOWED_ORIGINS=${_ALLOWED_ORIGINS}
-      - --set-secrets=GOOGLE_MAPS_SERVER_KEY=maps-server-key:latest
+      - --set-env-vars=^@^GEO_BACKEND=ee@EE_PROJECT=$PROJECT_ID@GOOGLE_GENAI_USE_VERTEXAI=true@GOOGLE_CLOUD_PROJECT=$PROJECT_ID@GOOGLE_CLOUD_LOCATION=global@AGENT_MODEL=${_AGENT_MODEL}@ALLOWED_ORIGINS=${_ALLOWED_ORIGINS}@AUTH_REQUIRED=${_AUTH_REQUIRED}@GOOGLE_OAUTH_CLIENT_ID=${_GOOGLE_CLIENT_ID}
+      - --set-secrets=GOOGLE_MAPS_SERVER_KEY=maps-server-key:latest,SESSION_SECRET=session-secret:latest

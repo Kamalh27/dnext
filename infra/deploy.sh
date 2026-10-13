@@ -10,6 +10,10 @@ export CLOUDSDK_CORE_PROJECT="$PROJECT_ID"
 MODE="${1:-all}"
 url() { gcloud run services describe "$1" --region "$REGION" --format='value(status.url)' 2>/dev/null || true; }
 
+gcloud secrets describe session-secret >/dev/null 2>&1 || {
+  echo "Secret session-secret missing: run infra/bootstrap.sh (it generates one) or: openssl rand -base64 48 | gcloud secrets create session-secret --data-file=-"; exit 1; }
+if [ "${AUTH_REQUIRED:-false}" = "true" ] && [ -z "${GOOGLE_OAUTH_CLIENT_ID:-}" ]; then
+  echo "AUTH_REQUIRED=true needs GOOGLE_OAUTH_CLIENT_ID (APIs & Services > Credentials > OAuth client ID > Web)"; exit 1; fi
 gcloud secrets describe maps-server-key >/dev/null 2>&1 || {
   echo "Secret maps-server-key missing: run infra/bootstrap.sh (or: printf %s \$KEY | gcloud secrets create maps-server-key --data-file=-)"; exit 1; }
 gcloud artifacts repositories describe lw --location "$REGION" >/dev/null 2>&1 || { echo "Run infra/setup.sh first (Artifact Registry repo 'lw' missing)"; exit 1; }
@@ -17,7 +21,7 @@ gcloud artifacts repositories describe lw --location "$REGION" >/dev/null 2>&1 |
 if [ "$MODE" != "--web-only" ]; then
   echo "== build + deploy api"
   gcloud builds submit . --config infra/cloudbuild-api.yaml --substitutions=\
-_REGION="$REGION",_MIN_INSTANCES="${MIN_INSTANCES_API:-1}",_MAX_INSTANCES="${MAX_INSTANCES_API:-5}",_AGENT_MODEL="${AGENT_MODEL:-gemini-3.5-flash}",_ALLOWED_ORIGINS="$(url lw-web || true)"
+_REGION="$REGION",_MIN_INSTANCES="${MIN_INSTANCES_API:-1}",_MAX_INSTANCES="${MAX_INSTANCES_API:-5}",_AGENT_MODEL="${AGENT_MODEL:-gemini-3.5-flash}",_ALLOWED_ORIGINS="$(url lw-web || true)",_AUTH_REQUIRED="${AUTH_REQUIRED:-false}",_GOOGLE_CLIENT_ID="${GOOGLE_OAUTH_CLIENT_ID:-}"
 fi
 API_URL="$(url lw-api)"; [ -n "$API_URL" ] || { echo "lw-api not deployed"; exit 1; }
 echo "api: $API_URL"
