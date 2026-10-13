@@ -25,17 +25,16 @@ function MapButton({ label, onClick, children, disabled, pressed, className }: {
 }
 
 /** Zoom, my location, 2D/3D and fullscreen. Must render under <APIProvider> (uses the default map instance). */
-export function MapControls({ lang, onLocate, onGlobe, fullscreenTarget, layers, onLayerChange }: {
+export function MapControls({ lang, onLocate, onGlobe, fullscreenTarget, layers, reference, onLayerChange }: {
   lang: Lang; onLocate: (p: Pt) => void; onGlobe: () => void; fullscreenTarget: HTMLElement | null;
-  layers: MapLayerItem[]; onLayerChange: (id: string, p: LayerPatch) => void;
+  layers: MapLayerItem[]; reference: MapLayerItem[]; onLayerChange: (id: string, p: LayerPatch) => void;
 }) {
   const tr = t(lang);
   const panelId = useId();
   const [layersOpen, setLayersOpen] = useState(false);
   const layersRoot = useRef<HTMLDivElement>(null);
   const layersBtn = useRef<HTMLButtonElement>(null);
-  const hasLayers = layers.length > 0;
-  const showPanel = layersOpen && hasLayers;
+  const showPanel = layersOpen;
 
   // Close on Escape (focus returns to the button) or a pointer press outside.
   useEffect(() => {
@@ -118,25 +117,23 @@ export function MapControls({ lang, onLocate, onGlobe, fullscreenTarget, layers,
         <MapButton label={tr.zoomIn} onClick={() => zoom(1)}><Plus /></MapButton>
         <MapButton label={tr.zoomOut} onClick={() => zoom(-1)}><Minus /></MapButton>
       </div>
-      {hasLayers && (
-        <div ref={layersRoot} className="relative">
-          <div className={cn("overflow-hidden rounded-[4px]", glass)}>
-            <button
-              ref={layersBtn}
-              type="button"
-              aria-label={tr.layersTitle}
-              title={tr.layersTitle}
-              aria-expanded={showPanel}
-              aria-controls={showPanel ? panelId : undefined}
-              onClick={() => setLayersOpen((o) => !o)}
-              className={cn(btn, showPanel && "bg-primary text-primary-foreground hover:bg-primary")}
-            >
-              <Layers />
-            </button>
-          </div>
-          {showPanel && <LayersPanel id={panelId} lang={lang} layers={layers} onChange={onLayerChange} />}
+      <div ref={layersRoot} className="relative">
+        <div className={cn("overflow-hidden rounded-[4px]", glass)}>
+          <button
+            ref={layersBtn}
+            type="button"
+            aria-label={tr.layersTitle}
+            title={tr.layersTitle}
+            aria-expanded={showPanel}
+            aria-controls={showPanel ? panelId : undefined}
+            onClick={() => setLayersOpen((o) => !o)}
+            className={cn(btn, showPanel && "bg-primary text-primary-foreground hover:bg-primary")}
+          >
+            <Layers />
+          </button>
         </div>
-      )}
+        {showPanel && <LayersPanel id={panelId} lang={lang} scenario={layers} reference={reference} onChange={onLayerChange} />}
+      </div>
       <div className={cn("flex flex-col divide-y overflow-hidden rounded-[4px]", glass)}>
         <MapButton label={tr.myLocation} onClick={locate} disabled={locating}>
           {locating ? <LoaderCircle className="animate-spin" /> : <LocateFixed />}

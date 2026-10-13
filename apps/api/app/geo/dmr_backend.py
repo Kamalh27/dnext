@@ -11,7 +11,7 @@ import time
 
 import ee
 
-from app.geo import dmr, rain
+from app.geo import dmr, obs_cache, rain, static_stats
 from app.geo.ee_backend import _aoi, round_people
 from app.geo.ee_init import get_info, init
 from app.settings import assets, load_yaml
@@ -49,7 +49,13 @@ def _area_key(area) -> tuple:
 def _observed(area, region, fc, days: int):
     """(observed image, meta, cached per-tambon observed means)."""
     src = dmr.cfg()["trigger"]["observed_source"]
-    img, meta = rain.observed_image(days, src)
+    data = obs_cache.load()
+    if obs_cache.usable(data, src, days):                     # fast path: daily precompute, no rainfall reduction
+        rows = obs_cache.observed_rows(data, area, days)
+        if rows:
+            img, meta = rain.observed_image(days, src, newest_ms=data["newest_ms"])
+            return img, {**meta, "from_cache": True}, rows
+    img, meta = rain.observed_image(days, src)                # live Earth Engine
     rows = _memo(("obs", _area_key(area), days, src, meta["newest_ms"]), _OBS_TTL_S, lambda: dmr.tambon_mean_rows(fc, img))
     return img, meta, rows
 
@@ -66,13 +72,24 @@ def _compute(area, extra_mm: float, window_obs_days: int, forecast: tuple | None
         add_by_code, rain_img, fmeta = None, obs_img.add(ee.Image(extra_mm)), None
         if forecast:
             f_img, fmeta = rain.gfs_forecast_image(forecast[0])
-            f_rows = dmr.tambon_mean_rows(fc, f_img)
-            add_by_code = {r["adm3_pcode"]: (r["mean"] or 0.0) for r in f_rows}
+            data = obs_cache.load()
+            cached = (obs_cache.forecast_means(data, area, forecast[0])
+                      if data and data.get("forecast", {}).get("model_run_time") == fmeta["model_run_time"] else None)   # same GFS run only
+            if cached:
+                add_by_code = cached
+            else:
+                f_rows = dmr.tambon_mean_rows(fc, f_img)
+                add_by_code = {r["adm3_pcode"]: (r["mean"] or 0.0) for r in f_rows}
             rain_img = obs_img.add(f_img)
         rows = dmr.classify_rows(obs_rows, extra_mm, add_by_code)
         tfc = dmr.with_trigger(fc, rows)
         trig = dmr.trigger_raster(tfc)
-        stats = dmr.tambon_stats(tfc, trig, dmr.worldpop(), region, high_from=_min_high_from(min_class))
+        ss = static_stats.load()
+        if static_stats.covers(ss, rows):        # fast path: histogram precompute, no Earth Engine call
+            r = dmr.cfg()["risk"]
+            stats = static_stats.tambon_stats(ss, rows, r["cutoffs"][_min_high_from(min_class) - 2])
+        else:
+            stats = dmr.tambon_stats(tfc, trig, dmr.worldpop(), region, high_from=_min_high_from(min_class))
         sid = f"{area.admin_code}-{int(extra_mm)}-{window_obs_days}"
         layers = dmr.build_layers(region, rain_img, trig, dmr.risk_image(trig), sid)
         return {"meta": meta, "fmeta": fmeta, "rows": rows, "stats": stats, "layers": layers, "region_days": window_obs_days}

@@ -72,7 +72,11 @@ def thailand_geometry(bbox: list[float] | None = None):
 
 def ee_init(project: str):
     import ee
-    ee.Initialize(project=project)
+    try:   # same credentials as the API: EE_SERVICE_ACCOUNT_KEY file if set, else ADC
+        from app.geo import ee_init as app_ee
+        app_ee.init()
+    except Exception:  # noqa: BLE001 - fall back to plain ADC for the given project
+        ee.Initialize(project=project)
     log.info("Earth Engine initialised (project=%s)", project)
     return ee
 

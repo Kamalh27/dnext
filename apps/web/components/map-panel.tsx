@@ -12,7 +12,7 @@ import { ArrowLeft } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { explain } from "@/lib/api";
 import { t } from "@/lib/i18n";
-import type { Explain, Lang, MapLayer, MapLayerItem, MapLayersEvent, MapMarkers } from "@/lib/types";
+import type { Explain, Lang, MapLayer, MapLayerItem, MapLayersEvent, MapMarkers, StaticLayerItem } from "@/lib/types";
 
 const KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 const MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAP_ID || "DEMO_MAP_ID";
@@ -23,7 +23,12 @@ const KIND_STYLE: Record<string, { glyph: string; bg: string }> = {
   bridge: { glyph: "B", bg: "#4d4d4d" },
 };
 
-interface PanelProps { lang: Lang; layer: MapLayer | null; layers: MapLayersEvent | null; markers: MapMarkers["markers"] }
+interface PanelProps { lang: Lang; layer: MapLayer | null; layers: MapLayersEvent | null; staticLayers: StaticLayerItem[]; markers: MapMarkers["markers"] }
+
+const STATIC_ORDER = ["susceptibility", "vulnerability", "exposure", "population"];
+const STATIC_OPACITY = 0.7;
+/** Static layer tweaks are keyed by `key`, never by id/URL, so refreshed tile URLs keep the user's toggles. */
+const staticId = (key: string) => `static:${key}`;
 
 /** Overlay draw order, bottom to top: list order is priority (first = top), and the risk layer is always on top. */
 function stackBottomUp(ls: MapLayerItem[]) {
@@ -32,7 +37,7 @@ function stackBottomUp(ls: MapLayerItem[]) {
   return i < 0 ? r : [...r.slice(0, i), ...r.slice(i + 1), r[i]];
 }
 
-export function MapPanel({ lang, layer, layers, markers }: PanelProps) {
+export function MapPanel({ lang, layer, layers, staticLayers, markers }: PanelProps) {
   const tr = t(lang);
   if (!KEY) {
     return (
@@ -44,17 +49,19 @@ export function MapPanel({ lang, layer, layers, markers }: PanelProps) {
   }
   return (
     <APIProvider apiKey={KEY}>
-      <MapInner lang={lang} layer={layer} layers={layers} markers={markers} />
+      <MapInner lang={lang} layer={layer} layers={layers} staticLayers={staticLayers} markers={markers} />
     </APIProvider>
   );
 }
 
-function MapInner({ lang, layer, layers, markers }: PanelProps) {
+function MapInner({ lang, layer, layers, staticLayers, markers }: PanelProps) {
   const tr = t(lang);
   const { theme } = useTheme();
   const [mapType, setMapType] = useState<"terrain" | "satellite">("satellite");
   // Per-layer user tweaks (visibility, opacity). Scoped to a scenario so a new result starts from the server defaults.
   const [tweaks, setTweaks] = useState<{ scope: string; byId: Record<string, LayerPatch> }>({ scope: "", byId: {} });
+  // Reference layer tweaks live for the whole session (not scoped to a scenario), keyed by staticId(key).
+  const [staticTweaks, setStaticTweaks] = useState<Record<string, LayerPatch>>({});
   const [overlayInfo, setOverlayInfo] = useState({ count: 0, opacity: "" });
   const [point, setPoint] = useState<{ lat: number; lng: number } | null>(null);
   const [me, setMe] = useState<Pt | null>(null);
@@ -80,19 +87,34 @@ function MapInner({ lang, layer, layers, markers }: PanelProps) {
     const byId = tweaks.scope === scope ? tweaks.byId : {};
     return base.map((l) => ({ ...l, ...byId[l.id] }));
   }, [layers, layer, tweaks, scope]);
+  const staticItems = useMemo<MapLayerItem[]>(
+    () =>
+      [...staticLayers]
+        .sort((a, b) => STATIC_ORDER.indexOf(a.key) - STATIC_ORDER.indexOf(b.key))
+        .map((l) => {
+          const id = staticId(l.key);
+          // Reference layers always start OFF; the user's tweak (by key) wins over server values.
+          return { ...l, id, group: "static" as const, visible: false, opacity: l.opacity ?? STATIC_OPACITY, ...staticTweaks[id] };
+        }),
+    [staticLayers, staticTweaks],
+  );
+  // Draw order, bottom to top: reference layers first, then scenario layers (risk topmost).
+  const drawItems = useMemo(() => [...stackBottomUp(staticItems), ...stackBottomUp(items)], [staticItems, items]);
   const onLayerChange = useCallback(
-    (id: string, p: LayerPatch) =>
+    (id: string, p: LayerPatch) => {
+      if (id.startsWith("static:")) return setStaticTweaks((prev) => ({ ...prev, [id]: { ...prev[id], ...p } }));
       setTweaks((prev) => {
         const byId = prev.scope === scope ? prev.byId : {};
         return { scope, byId: { ...byId, [id]: { ...byId[id], ...p } } };
-      }),
+      });
+    },
     [scope],
   );
   // Legend card follows the top visible layer.
   const top = useMemo(() => {
     const vis = items.filter((l) => l.visible);
-    return vis.find((l) => l.key === "risk") ?? vis[0] ?? null;
-  }, [items]);
+    return vis.find((l) => l.key === "risk") ?? vis[0] ?? staticItems.find((l) => l.visible) ?? null;
+  }, [items, staticItems]);
 
   return (
     <div ref={setWrap} className="relative h-full w-full bg-background" data-overlay-count={overlayInfo.count} data-overlay-opacity={overlayInfo.opacity}>
@@ -107,7 +129,7 @@ function MapInner({ lang, layer, layers, markers }: PanelProps) {
         mapTypeControl={false}
         onClick={(e) => e.detail.latLng && layer && setPoint(e.detail.latLng)}
       >
-        <LayerOverlays items={items} bbox={bbox} scope={scope} onInfo={setOverlayInfo} />
+        <LayerOverlays items={drawItems} bbox={bbox} scope={scope} onInfo={setOverlayInfo} />
         {me && (
           <AdvancedMarker position={me} title={tr.pinMe}>
             <span className="relative flex size-4" data-testid="my-location-dot">
@@ -139,7 +161,7 @@ function MapInner({ lang, layer, layers, markers }: PanelProps) {
       <div className="absolute top-3 left-3 flex flex-col items-start gap-2">
         <MapSearch lang={lang} onPin={setPin} />
       </div>
-      <MapControls lang={lang} onLocate={setMe} onGlobe={() => setGlobe(true)} fullscreenTarget={wrap} layers={items} onLayerChange={onLayerChange} />
+      <MapControls lang={lang} onLocate={setMe} onGlobe={() => setGlobe(true)} fullscreenTarget={wrap} layers={items} reference={staticItems} onLayerChange={onLayerChange} />
 
       {globe && (
         <div className="absolute inset-0 z-10 bg-black">
@@ -192,7 +214,7 @@ function MapInner({ lang, layer, layers, markers }: PanelProps) {
 }
 
 /**
- * Draws every visible layer that has tiles as a stacked ImageMapType in map.overlayMapTypes. Overlay instances are
+ * Draws every visible layer (items arrive in draw order, bottom to top) that has tiles as a stacked ImageMapType in map.overlayMapTypes. Overlay instances are
  * cached per layer+url and the overlay array is patched in place, so toggling one layer or dragging an opacity
  * slider never rebuilds the others. Refits the view when the scenario or bbox changes.
  */
@@ -216,7 +238,7 @@ function LayerOverlays({ items, bbox, scope, onInfo }: {
     if (!map) return;
     const arr = map.overlayMapTypes;
     const store = cache.current;
-    const drawn = stackBottomUp(items).filter((l) => l.visible && l.tile_url);
+    const drawn = items.filter((l) => l.visible && l.tile_url);
     const want = drawn.map((l) => {
       const k = `${l.id}|${l.tile_url}`;
       let imt: google.maps.ImageMapType | undefined = store[k];
