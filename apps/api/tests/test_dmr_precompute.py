@@ -102,3 +102,44 @@ def test_population_legend_matches_breaks_and_palette():
     assert leg[0]["label"].startswith("0.5–2") and leg[-1]["label"].startswith("40+")
     assert [l["color"] for l in leg] == ["#" + p for p in c["palette"]]
     assert all("people/ha" in l["label"] for l in leg)
+
+
+FEATURES = {"tambon": {
+    # prod -> [built_m2, hospitals, schools, road_km]
+    "A": {"h": {"0": [5000.0, 1, 1, 2.0], "50": [1200.0, 0, 1, 1.5], "125": [600.0, 1, 0, 0.5]}},
+    "B": {"h": {"0": [900.0, 0, 0, 0.0]}},
+}}
+
+
+def test_feature_counts_follow_the_same_risk_zone_rule_as_people():
+    # trigger 5, high_value 2 -> prod >= 50 qualifies (5*50/125 = 2); prod 0 (not susceptible) never does
+    s = static_stats.tambon_stats(STATIC, [_row("A", 5), _row("B", 5)], high_value=2.0, features=FEATURES, footprint_m2=60.0)
+    a = s["rows"]["A"]
+    assert a["buildings"] == pytest.approx((1200 + 600) / 60) and a["hospitals"] == 1 and a["schools"] == 1 and a["road_km"] == pytest.approx(2.0)
+    assert s["rows"]["B"]["buildings"] == 0 and s["totals"]["road_km"] == pytest.approx(2.0)
+
+
+def test_feature_counts_shrink_with_a_weaker_trigger_and_vanish_when_untriggered():
+    # trigger 2 -> 2*p/125 >= 2 needs p >= 125: only the top bin counts
+    s2 = static_stats.tambon_stats(STATIC, [_row("A", 2)], high_value=2.0, features=FEATURES)["rows"]["A"]
+    assert s2["hospitals"] == 1 and s2["schools"] == 0 and s2["road_km"] == pytest.approx(0.5)
+    s0 = static_stats.tambon_stats(STATIC, [_row("A", 0)], high_value=2.0, features=FEATURES)
+    assert s0["rows"]["A"]["buildings"] == 0 and s0["totals"] == {"buildings": 0, "hospitals": 0, "schools": 0, "road_km": 0}
+
+
+def test_without_features_the_counts_are_unavailable_not_zero():
+    s = static_stats.tambon_stats(STATIC, [_row("A", 5)], high_value=2.0)
+    assert "totals" not in s and "buildings" not in s["rows"]["A"]
+
+
+def test_exposure_payload_reports_none_without_features_and_numbers_with_them():
+    from app.geo import dmr_backend
+    rows = dmr.classify_rows([{"adm3_pcode": "A", "adm3_name": "T", "adm3_name1": "ต", "adm2_pcode": "x", "adm2_name": "Am", "adm2_name1": "อ",
+                               "adm1_pcode": "TH55", "adm1_name": "Nan", "adm1_name1": "น", "area_sqkm": 1, "center_lat": 1, "center_lon": 1,
+                               "thresholds": [1] * 5, "mean": 300.0}])
+    base = {"meta": {"source": "gsmap", "dataset": "d", "date_of_data": "x"}, "fmeta": None, "rows": rows}
+    no = dmr_backend._exposure_payload({**base, "stats": static_stats.tambon_stats(STATIC, rows, 2.0)}, "High")
+    yes = dmr_backend._exposure_payload({**base, "stats": static_stats.tambon_stats(STATIC, rows, 2.0, features=FEATURES)}, "High")
+    assert no["buildings"] is None and no["hospitals"] is None and no["road_km"] is None
+    assert yes["buildings"] == 30 and yes["hospitals"] == 1 and yes["schools"] == 1 and yes["road_km"] == 2.0     # (1200+600)/60 = 30
+    assert any("OpenStreetMap" in x for x in yes["limitations"]) and not any("not reported in this mode" in x for x in yes["limitations"])

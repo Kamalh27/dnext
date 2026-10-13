@@ -12,7 +12,7 @@ import time
 import ee
 
 from app.geo import dmr, obs_cache, rain, static_stats
-from app.geo.ee_backend import _aoi, round_people
+from app.geo.ee_backend import _aoi, round_buildings, round_people
 from app.geo.ee_init import get_info, init
 from app.settings import assets, load_yaml
 
@@ -87,7 +87,8 @@ def _compute(area, extra_mm: float, window_obs_days: int, forecast: tuple | None
         ss = static_stats.load()
         if static_stats.covers(ss, rows):        # fast path: histogram precompute, no Earth Engine call
             r = dmr.cfg()["risk"]
-            stats = static_stats.tambon_stats(ss, rows, r["cutoffs"][_min_high_from(min_class) - 2])
+            stats = static_stats.tambon_stats(ss, rows, r["cutoffs"][_min_high_from(min_class) - 2], features=static_stats.load_features(),
+                                             footprint_m2=load_yaml("thresholds.yaml")["exposure"].get("avg_footprint_m2", 60.0))
         else:
             stats = dmr.tambon_stats(tfc, trig, dmr.worldpop(), region, high_from=_min_high_from(min_class))
         sid = f"{area.admin_code}-{int(extra_mm)}-{window_obs_days}"
@@ -98,6 +99,13 @@ def _compute(area, extra_mm: float, window_obs_days: int, forecast: tuple | None
 
 
 # ---------------- shaping (pure, unit-tested) ----------------
+NO_FEATURES = "Buildings, roads and facilities are not part of the DMR layers and are not reported in this mode."
+FEATURE_LIMITS = [
+    "Buildings are estimated from the GHSL 2020 built-up surface (100 m) divided by an average footprint of 60 m2; hospitals, schools and main roads "
+    "(motorway to tertiary) come from OpenStreetMap, which can be incomplete. All counts are for the Moderate-or-higher risk zone.",
+]
+
+
 def household_size() -> float:
     return load_yaml("thresholds.yaml")["exposure"]["household_size"]
 
@@ -117,6 +125,11 @@ def tambon_table(rows: list[dict], stats_rows: dict, n: int = RANK_N) -> list[di
             "share_high_pct": None if s.get("share_high") is None else round(100 * s["share_high"], 1),
             "exposure_class": None if s.get("expo_class") is None else round(s["expo_class"], 1),
             "people": None if s.get("people_high") is None else round_people(s["people_high"]),
+            # features in the elevated zone (None when the features precompute is not built)
+            "buildings": None if s.get("buildings") is None else round_buildings(s["buildings"]),
+            "hospitals": None if s.get("hospitals") is None else int(round(s["hospitals"])),
+            "schools": None if s.get("schools") is None else int(round(s["schools"])),
+            "road_km": None if s.get("road_km") is None else round(s["road_km"], 1),
         })
     merged.sort(key=lambda m: (-(m["people"] or 0), -(m["risk_max"] or 0), -(m["rain30_mm"] or 0)))
     return merged[:n]
@@ -175,13 +188,15 @@ def _exposure_payload(b: dict, min_class: str) -> dict:
     total_people = sum((s.get("people_high") or 0) for s in stats.values())
     people = round_people(total_people)
     hs = household_size()
+    tot = b["stats"].get("totals")          # present when the features precompute exists
+    feat = {"buildings": round_buildings(tot["buildings"]), "road_km": round(tot["road_km"], 1), "schools": int(round(tot["schools"])),
+            "hospitals": int(round(tot["hospitals"]))} if tot else {"buildings": None, "road_km": None, "schools": None, "hospitals": None}
     return {
         "model": "dmr", "people": people, "households_est": round_people(total_people / hs), "household_size_assumed": hs,
-        "buildings": None, "building_area_m2": None, "road_km": None, "road_km_by_class": None,
-        "schools": None, "hospitals": None, "shelters": None, "bridges": None,
+        **feat, "building_area_m2": None, "road_km_by_class": None, "shelters": None, "bridges": None,
         "top_admin_units": table, "tambon_table": table, "tambons_ranked": len(rows), "facilities": [],
         "min_class": min_class, **_payload_common(b),
-        "limitations": limitations(b["meta"], ["Buildings, roads and facilities are not part of the DMR layers and are not reported in this mode."]),
+        "limitations": limitations(b["meta"], FEATURE_LIMITS if tot else [NO_FEATURES]),
     }
 
 
