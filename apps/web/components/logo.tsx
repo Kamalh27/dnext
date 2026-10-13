@@ -17,13 +17,16 @@ export function LogoMark({ className, inverted }: { className?: string; inverted
   );
 }
 
+/** Two-line title sized to the 32px logo tile: 20px title line + 12px subtitle line, so the pair aligns top and bottom with the mark. */
 export function Wordmark({ className, inverted }: { className?: string; inverted?: boolean }) {
   return (
-    <span className={cn("flex flex-col leading-none", className)}>
-      <span className="text-[18px] font-semibold tracking-tight">
+    <span className={cn("flex flex-col justify-center", className)}>
+      <span className="text-[19px] leading-[20px] font-semibold tracking-tight">
         D<span className="font-normal">Next</span>
       </span>
-      <span className={cn("mt-1 hidden text-[11px] tracking-wide sm:block", inverted ? "text-primary-foreground/75 dark:text-muted-foreground" : "text-muted-foreground")}>LandslideWatch TH</span>
+      <span className={cn("hidden text-[11px] leading-[12px] font-medium tracking-[0.04em] sm:block", inverted ? "text-primary-foreground/80 dark:text-muted-foreground" : "text-muted-foreground")}>
+        LandslideWatch TH
+      </span>
     </span>
   );
 }
