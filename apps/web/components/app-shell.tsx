@@ -124,6 +124,9 @@ export function AppShell() {
     return () => clearInterval(id);
   }, [playing, series]);
 
+  // A user day change (slider, trend chart) stops playback.
+  const pickOverviewDay = useCallback((d: number) => { setPlaying(false); setOverviewDay(d); }, []);
+
   const clearScenario = useCallback(() => {
     runToken.current++;
     setLayer(null);
@@ -319,13 +322,14 @@ export function AppShell() {
             onForecast={forecast}
             overview={overviewOn && series ? { series, day: overviewDay } : null}
             onPickProvince={selectByCode}
+            onOverviewDay={pickOverviewDay}
           />
           </div>
         </div>
         <div className={cn("min-h-0", tab === "map" ? "block" : "hidden md:block")}>
           <MapPanel lang={lang} layer={layer} layers={layers} staticLayers={staticLayers} markers={allMarkers} provinces={provinces} selected={selected} onSelect={selectProvince}
             overview={overviewOn && series ? { series, day: overviewDay, metric: overviewMetric, playing } : null}
-            onOverviewDay={(d) => { setPlaying(false); setOverviewDay(d); }}
+            onOverviewDay={pickOverviewDay}
             onOverviewMetric={setOverviewMetric}
             onOverviewPlay={() => setPlaying((v) => !v)}
           />
