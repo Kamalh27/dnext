@@ -143,3 +143,16 @@ def test_exposure_payload_reports_none_without_features_and_numbers_with_them():
     assert no["buildings"] is None and no["hospitals"] is None and no["road_km"] is None
     assert yes["buildings"] == 30 and yes["hospitals"] == 1 and yes["schools"] == 1 and yes["road_km"] == 2.0     # (1200+600)/60 = 30
     assert any("OpenStreetMap" in x for x in yes["limitations"]) and not any("not reported in this mode" in x for x in yes["limitations"])
+
+
+def test_by_class_breakdown_adds_up_to_the_row_totals():
+    rows = [_row("A", 5), _row("B", 5)]
+    s = static_stats.tambon_stats(STATIC, rows, high_value=2.0, features=FEATURES, footprint_m2=60.0)
+    bc = s["by_class"]
+    assert [c["class"] for c in bc] == [1, 2, 3, 4, 5]
+    assert sum(c["area_km2"] for c in bc) == pytest.approx(sum(s["class_area_km2"].values()), abs=0.1)
+    # tambon A (trigger 5): prod 50 -> risk 2 -> class 3 (Moderate); prod 125 -> risk 5 -> class 5 (Very high)
+    assert bc[2]["people"] == 20.0 and bc[4]["people"] == 5.0 and bc[2]["road_km"] == pytest.approx(1.5) and bc[4]["hospitals"] == 1
+    # the elevated rows (class >= 3) are exactly the sum of those classes
+    assert s["totals"]["road_km"] == pytest.approx(sum(c["road_km"] for c in bc[2:]))
+

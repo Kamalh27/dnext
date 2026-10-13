@@ -77,3 +77,10 @@ def test_series_endpoint(caches):
     with TestClient(app) as c:
         j = c.get("/overview/series?days=5").json()
         assert len(j["days"]) == 6 and c.get("/overview/series?days=99").status_code == 422
+
+
+def test_overview_series_carries_dashboard_fields(caches):
+    caches["forecast"]["horizons"] = {str(h): 24 * h for h in range(1, 6)}
+    d = overview.series(5)["days"][0]
+    assert len(d["classes"]) == 5 and len(d["trigger_classes"]) == 6 and sum(d["trigger_classes"]) == d["totals"]["tambons_total"]
+    assert "elevated" in d and all("name" in p for p in d["provinces"])
