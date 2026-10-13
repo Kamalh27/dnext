@@ -81,7 +81,7 @@ def run_forecast(area: Area, horizon_days: int = 5) -> dict:
         "duration_h": horizon_days * 24,
         "forecast": fc,
         "hazard": {k: v for k, v in hz.items() if k not in fc},
-        "exposure": b.exposure(area, rain, horizon_days * 24, "High"),
+        "exposure": b.exposure(area, rain, horizon_days * 24, "High", forecast_days=horizon_days),
     }
     cache.put(sid, result, cache.TTL_FORECAST_S)
     return {**result, "cached": False}

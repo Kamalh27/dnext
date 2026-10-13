@@ -56,7 +56,7 @@ def _observed(area, region, fc, days: int):
 
 def _compute(area, extra_mm: float, window_obs_days: int, forecast: tuple | None, min_class: str) -> dict:
     """Everything one scenario needs, computed once and shared by hazard_scenario() and exposure()."""
-    key = ("bundle", _area_key(area), round(extra_mm, 1), window_obs_days, forecast and forecast[0], min_class, time.strftime("%Y%m%d"))
+    key = ("bundle", _area_key(area), round(extra_mm, 1), window_obs_days, forecast and forecast[0], _min_high_from(min_class), time.strftime("%Y%m%d"))
 
     def build():
         init()
@@ -175,7 +175,10 @@ def hazard_scenario(area, rainfall_mm: float, duration_h: float) -> dict:
     return _hazard_payload(b)
 
 
-def exposure(area, rainfall_mm: float, duration_h: float, min_class: str = "High") -> dict:
+def exposure(area, rainfall_mm: float, duration_h: float, min_class: str = "High", forecast_days: int | None = None) -> dict:
+    if forecast_days:        # forecast mode: reuse the SAME computation as forecast_hazard (observed + GFS), never re-add the rain
+        H = int(forecast_days)
+        return _exposure_payload(_compute(area, 0.0, max(0, dmr.cfg()["trigger"]["window_days"] - H), (H,), min_class), min_class)
     d = max(1, math.ceil(duration_h / 24))
     return _exposure_payload(_compute(area, rainfall_mm, max(0, dmr.cfg()["trigger"]["window_days"] - d), None, min_class), min_class)
 

@@ -57,7 +57,7 @@ def _facilities(area: Area, n_school: int, n_hosp: int, n_shelter: int) -> list[
     return out[:200]
 
 
-def exposure(area: Area, rainfall_mm: float, duration_h: float, min_class: str = "High") -> dict:
+def exposure(area: Area, rainfall_mm: float, duration_h: float, min_class: str = "High", forecast_days: int | None = None) -> dict:
     hs = load_yaml("thresholds.yaml")["exposure"]["household_size"]
     tr = trigger_ratio(rainfall_mm, duration_h)
     base = 40_000 * tr * (0.5 + _seed(area.admin_code, "p"))
