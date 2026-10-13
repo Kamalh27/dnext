@@ -10,7 +10,7 @@ import { ScenarioBar } from "./scenario-bar";
 import { SignInDialog } from "./sign-in-dialog";
 import type { RunError, RunKind } from "./scenario-card";
 import { ApiError, fetchOverviewSeries, fetchProvinces, fetchStaticLayers, runForecast as apiForecast, runScenario, streamChat } from "@/lib/api";
-import { burstLeftS, gate, loadAuthConfig, loadGis, requestSignIn, useAuth } from "@/lib/auth";
+import { burstLeftS, gate, loadAuthConfig, requestSignIn } from "@/lib/auth";
 import { t } from "@/lib/i18n";
 import { hasThai } from "@/lib/lang";
 import type { OverviewMetric } from "@/lib/overview";
@@ -58,19 +58,12 @@ export function AppShell() {
   const lastPrompt = useRef("");
   const tr = t(lang);
   const row = useRef<HTMLElement>(null);
-  // Sign in with Google (only when the API says auth is required; otherwise nothing below does anything).
-  const { status: authStatus } = useAuth();
+  // Sign in with Google via Firebase (only when the API says auth is required; otherwise nothing below does anything).
   const sendRef = useRef<(text: string) => boolean>(() => false);
   // Bumped when a chat message that was blocked by sign-in has been re-sent, so the composer can drop the draft it kept.
   const [resent, setResent] = useState<{ n: number; text: string } | null>(null);
 
   useEffect(() => { void loadAuthConfig(); }, []);
-  // Signed out with auth required: warm up Google's script (it is only ever loaded in that case) so the dialog's button appears instantly.
-  useEffect(() => {
-    if (authStatus !== "signed_out") return;
-    const id = setTimeout(() => { loadGis().catch(() => {}); }, 1500);
-    return () => clearTimeout(id);
-  }, [authStatus]);
 
   // On-screen keyboard: where the layout viewport does not shrink by itself (iOS Safari), size the app to the visual viewport.
   useEffect(() => {
@@ -275,7 +268,7 @@ export function AppShell() {
       } catch (err) {
         if ((err as Error).name === "AbortError") return;
         if (err instanceof ApiError && err.isAuthRequired) {
-          // Session expired or refused: take the unanswered turn back and re-send it once after signing in again.
+          // The API refused the sign-in (even after a token refresh): take the unanswered turn back and re-send it once after signing in again.
           setMessages((ms) => ms.slice(0, -2));
           requestSignIn(() => { if (sendRef.current(message)) setResent((r) => ({ n: (r?.n ?? 0) + 1, text: message })); });
         } else if (err instanceof ApiError && (err.isBurst || err.isDaily)) patchAssistant((m) => ({ ...m, limit: err }));
