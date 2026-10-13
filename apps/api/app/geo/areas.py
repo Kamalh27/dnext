@@ -347,6 +347,11 @@ def resolve(query: str) -> Area:
     q = (query or "").strip()
     if not q:
         raise AreaError("Empty place name")
+    if re.fullmatch(r"TH\d{2}(\d{2}(\d{2})?)?", q.upper()):       # exact admin code, e.g. from the province dropdown
+        ents = _entries()
+        by_pcode = {e["pcode"]: e for e in ents}
+        if q.upper() in by_pcode:
+            return _to_area(by_pcode[q.upper()], by_pcode)
     area = _local(q)
     if area:
         return area
