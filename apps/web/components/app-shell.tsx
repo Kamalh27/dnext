@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Banner } from "./banner";
 import { Header } from "./header";
 import { ChatPanel, type Message } from "./chat-panel";
 import { MapPanel } from "./map-panel";
@@ -118,9 +117,8 @@ export function AppShell() {
 
   return (
     <div className="flex h-dvh flex-col">
-      <Header lang={lang} />
-      <Banner lang={lang} />
-      <div role="tablist" aria-label="View" className="flex border-b md:hidden">
+      <Header lang={lang} setLang={setLang} />
+      <div role="tablist" aria-label="View" className="flex border-b bg-background md:hidden">
         {(["chat", "map"] as const).map((k) => (
           <button
             key={k}
@@ -129,7 +127,7 @@ export function AppShell() {
             onClick={() => setTab(k)}
             className={cn(
               "flex-1 py-2 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              tab === k ? "border-b-2 border-primary" : "text-muted-foreground",
+              tab === k ? "border-b-2 border-primary text-foreground" : "text-muted-foreground",
             )}
           >
             {tr[k]}
@@ -137,10 +135,9 @@ export function AppShell() {
         ))}
       </div>
       <main className="grid min-h-0 flex-1 md:grid-cols-[32%_1fr]">
-        <div className={cn("min-h-0 border-r", tab === "chat" ? "block" : "hidden md:block")}>
+        <div className={cn("min-h-0 border-r bg-background", tab === "chat" ? "block" : "hidden md:block")}>
           <ChatPanel
             lang={lang}
-            setLang={setLang}
             messages={messages}
             busy={busy}
             status={status}

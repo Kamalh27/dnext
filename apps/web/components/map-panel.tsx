@@ -3,13 +3,15 @@
 import { useTheme } from "./theme-provider";
 
 import { useEffect, useRef, useState } from "react";
+import { BasemapSwitcher } from "./basemap-switcher";
+import { MapControls, MapSearch, type Pt } from "./map-controls";
+import { ScaleBar } from "./scale-bar";
 import { AdvancedMarker, APIProvider, InfoWindow, Map, Pin, useMap } from "@vis.gl/react-google-maps";
 import { Slider } from "@/components/ui/slider";
 import { Skeleton } from "@/components/ui/skeleton";
 import { explain } from "@/lib/api";
 import { t } from "@/lib/i18n";
 import type { Explain, Lang, MapLayer, MapMarkers } from "@/lib/types";
-import { cn } from "@/lib/utils";
 
 const KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 const MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAP_ID || "DEMO_MAP_ID";
@@ -43,11 +45,14 @@ function MapInner({ lang, layer, markers }: { lang: Lang; layer: MapLayer | null
   const [mapType, setMapType] = useState<"terrain" | "satellite">("terrain");
   const [override, setOverride] = useState<{ id: string; value: number } | null>(null);
   const [point, setPoint] = useState<{ lat: number; lng: number } | null>(null);
+  const [me, setMe] = useState<Pt | null>(null);
+  const [pin, setPin] = useState<(Pt & { label: string }) | null>(null);
+  const [wrap, setWrap] = useState<HTMLDivElement | null>(null);
 
   const opacity = override && layer && override.id === layer.id ? override.value : (layer?.opacity ?? 0.7);
 
   return (
-    <div className="relative h-full w-full">
+    <div ref={setWrap} className="relative h-full w-full bg-background">
       <Map
         mapId={MAP_ID}
         colorScheme={theme === "dark" ? "DARK" : "LIGHT"}
@@ -55,11 +60,21 @@ function MapInner({ lang, layer, markers }: { lang: Lang; layer: MapLayer | null
         defaultCenter={{ lat: 15.5, lng: 101 }}
         defaultZoom={6}
         gestureHandling="greedy"
-        disableDefaultUI={false}
+        disableDefaultUI
         mapTypeControl={false}
         onClick={(e) => e.detail.latLng && layer && setPoint(e.detail.latLng)}
       >
         <HazardOverlay layer={layer} opacity={opacity} />
+        {me && (
+          <AdvancedMarker position={me} title={tr.pinMe}>
+            <span className="block size-4 rounded-full border-2 border-white bg-blue-600 shadow-[0_0_0_6px_rgba(37,99,235,0.25)]" aria-label={tr.pinMe} />
+          </AdvancedMarker>
+        )}
+        {pin && (
+          <AdvancedMarker position={pin} title={pin.label}>
+            <Pin background="#0f766e" borderColor="#fff" glyphColor="#fff" />
+          </AdvancedMarker>
+        )}
         {markers.map((m, i) => {
           const s = KIND_STYLE[m.kind] ?? KIND_STYLE.bridge;
           return (
@@ -75,21 +90,20 @@ function MapInner({ lang, layer, markers }: { lang: Lang; layer: MapLayer | null
         )}
       </Map>
 
-      <div className="absolute top-3 left-3 flex overflow-hidden rounded-lg border bg-background text-xs shadow" role="group" aria-label="Base map">
-        {(["terrain", "satellite"] as const).map((k) => (
-          <button key={k} aria-pressed={mapType === k} onClick={() => setMapType(k)} className={cn("px-3 py-1.5 outline-none focus-visible:ring-2 focus-visible:ring-ring", mapType === k && "bg-primary text-primary-foreground")}>
-            {tr[k]}
-          </button>
-        ))}
+      <div className="absolute top-3 left-3 flex flex-col items-start gap-2">
+        <MapSearch lang={lang} onPin={setPin} />
+        <BasemapSwitcher lang={lang} value={mapType} onChange={setMapType} />
       </div>
+      <MapControls lang={lang} onLocate={setMe} fullscreenTarget={wrap} />
 
+      <div className="absolute bottom-9 left-3 flex flex-col items-start gap-2">
       {layer && (
-        <div className="absolute bottom-6 left-3 w-56 space-y-2 rounded-lg border bg-background/95 p-3 text-xs shadow">
-          <p className="font-medium">{layer.name}</p>
+        <div className="w-60 space-y-2.5 rounded-xl border bg-card/90 p-3.5 text-xs shadow-lg backdrop-blur-md">
+          <p className="text-[13px] font-semibold leading-snug">{layer.name}</p>
           <ul aria-label={tr.legend} className="space-y-1">
             {layer.legend.map((l) => (
               <li key={l.label} className="flex items-center gap-2">
-                <span className="size-3 shrink-0 rounded-sm border border-black/20" style={{ background: l.color }} aria-hidden />
+                <span className="size-3 shrink-0 rounded-full border border-black/20" style={{ background: l.color }} aria-hidden />
                 {l.label}
               </li>
             ))}
@@ -100,6 +114,8 @@ function MapInner({ lang, layer, markers }: { lang: Lang; layer: MapLayer | null
           </div>
         </div>
       )}
+        <ScaleBar />
+      </div>
     </div>
   );
 }

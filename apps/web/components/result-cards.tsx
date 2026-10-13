@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Building2, ChevronDown, GraduationCap, Hospital, House, MapPin, Route, Users, type LucideIcon } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,14 +23,16 @@ export function ResultCards({ lang, kpis, charts, tables, loading }: { lang: Lan
     return loading ? <Skeleton className="h-24 w-full" aria-label="Loading results" /> : null;
   }
 
-  const tiles: { label: string; value: string; est?: boolean }[] = kpis
+  // null = layer not built yet: show "—", never a made-up 0.
+  const num = (v: number | null | undefined, approx = false) => (v == null ? null : `${approx ? "~" : ""}${nf.format(v)}`);
+  const tiles: { label: string; value: string | null; Icon: LucideIcon; est?: boolean }[] = kpis
     ? [
-        { label: tr.kpiPeople, value: `~${nf.format(kpis.people)}`, est: true },
-        { label: tr.kpiHouseholds, value: `~${nf.format(kpis.households_est)}`, est: true },
-        { label: tr.kpiBuildings, value: nf.format(kpis.buildings) },
-        { label: tr.kpiRoads, value: nf.format(kpis.road_km) },
-        { label: tr.kpiSchools, value: nf.format(kpis.schools) },
-        { label: tr.kpiHospitals, value: nf.format(kpis.hospitals) },
+        { label: tr.kpiPeople, value: num(kpis.people, true), Icon: Users, est: true },
+        { label: tr.kpiHouseholds, value: num(kpis.households_est, true), Icon: House, est: true },
+        { label: tr.kpiBuildings, value: num(kpis.buildings), Icon: Building2 },
+        { label: tr.kpiRoads, value: num(kpis.road_km), Icon: Route },
+        { label: tr.kpiSchools, value: num(kpis.schools), Icon: GraduationCap },
+        { label: tr.kpiHospitals, value: num(kpis.hospitals), Icon: Hospital },
       ]
     : [];
 
@@ -44,22 +47,31 @@ export function ResultCards({ lang, kpis, charts, tables, loading }: { lang: Lan
     <div className="space-y-3">
       {kpis && (
         <Card size="sm">
-          <CardHeader><CardTitle>{kpis.area_name}</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-1.5 text-base font-semibold">
+              <MapPin className="size-4 text-primary" aria-hidden />
+              {kpis.area_name}
+            </CardTitle>
+          </CardHeader>
           <CardContent className="space-y-3">
-            <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {tiles.map((k) => (
-                <div key={k.label} className="rounded-lg bg-muted px-3 py-2">
-                  <dt className="text-xs text-muted-foreground">{k.label}</dt>
-                  <dd className="text-lg font-semibold tabular-nums">
-                    {k.value}
-                    {k.est && <span className="ml-1 text-xs font-normal text-muted-foreground">{tr.est}</span>}
+            <dl className="grid grid-cols-2 gap-2">
+              {tiles.map(({ label, value, Icon, est }) => (
+                <div key={label} className="rounded-xl bg-muted/70 px-3 py-2.5">
+                  <dt className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Icon className="size-3.5" aria-hidden />
+                    {label}
+                  </dt>
+                  <dd className="mt-1 flex items-baseline gap-1 text-[22px] leading-none font-semibold tracking-tight tabular-nums">
+                    {value ?? <span className="text-muted-foreground" title={tr.na} aria-label={tr.na}>—</span>}
+                    {est && value && <span className="text-[11px] font-normal tracking-normal text-muted-foreground">{tr.est}</span>}
                   </dd>
                 </div>
               ))}
             </dl>
             <Collapsible>
-              <CollapsibleTrigger className="text-sm font-medium underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring">
+              <CollapsibleTrigger className="group flex items-center gap-1 rounded text-sm font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
                 {tr.about}
+                <ChevronDown className="size-4 transition-transform group-data-[panel-open]:rotate-180" aria-hidden />
               </CollapsibleTrigger>
               <CollapsibleContent className="mt-2 space-y-2 text-xs text-muted-foreground">
                 <p><b>{tr.sources}:</b></p>
@@ -70,7 +82,7 @@ export function ResultCards({ lang, kpis, charts, tables, loading }: { lang: Lan
               </CollapsibleContent>
             </Collapsible>
             <span title={kpis.scenario_id ? undefined : tr.exportNA} className="inline-block">
-              <Button variant="outline" size="sm" disabled={!kpis.scenario_id || exporting} onClick={onExport} aria-label={tr.export}>
+              <Button variant="outline" size="default" disabled={!kpis.scenario_id || exporting} onClick={onExport} aria-label={tr.export}>
                 {tr.export}
               </Button>
             </span>
@@ -81,7 +93,7 @@ export function ResultCards({ lang, kpis, charts, tables, loading }: { lang: Lan
       {charts.filter((c) => c.data.length > 0).map((c) => <BarCard key={c.id} chart={c} />)}
       {tables.map((tb) => (
         <Card size="sm" key={tb.id}>
-          <CardHeader><CardTitle>{tb.title}</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-sm font-semibold">{tb.title}</CardTitle></CardHeader>
           <CardContent className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead><tr>{tb.columns.map((c) => <th key={c} scope="col" className="border-b px-2 py-1 font-medium">{c}</th>)}</tr></thead>
@@ -107,19 +119,29 @@ function BarCard({ chart }: { chart: ChartData }) {
     return acc;
   }, []);
   const keys = series.length ? series : ["value"];
+  const horizontal = series.length === 0;   // single-series rankings read best as horizontal bars
   return (
     <Card size="sm">
-      <CardHeader><CardTitle>{chart.title}</CardTitle></CardHeader>
+      <CardHeader><CardTitle className="text-sm font-semibold">{chart.title}</CardTitle></CardHeader>
       <CardContent>
-        <div role="img" aria-label={chart.title} className="h-52 w-full">
+        <div role="img" aria-label={chart.title} className="w-full" style={{ height: horizontal ? Math.max(150, rows.length * 32 + 24) : 208 }}>
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={rows} margin={{ top: 4, right: 8, bottom: 16, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.3} />
-              <XAxis dataKey="label" tick={{ fontSize: 11 }} label={{ value: chart.x_label, position: "insideBottom", offset: -10, fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} label={{ value: chart.y_label, angle: -90, position: "insideLeft", fontSize: 11 }} />
-              <Tooltip />
+            <BarChart data={rows} layout={horizontal ? "vertical" : "horizontal"} margin={horizontal ? { top: 4, right: 12, bottom: 4, left: 0 } : { top: 4, right: 8, bottom: 16, left: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={horizontal} horizontal={!horizontal} />
+              {horizontal ? (
+                <>
+                  <XAxis type="number" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} stroke="var(--border)" />
+                  <YAxis type="category" dataKey="label" width={104} interval={0} tickLine={false} tick={{ fontSize: 11, fill: "var(--foreground)" }} stroke="var(--border)" />
+                </>
+              ) : (
+                <>
+                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} stroke="var(--border)" label={{ value: chart.x_label, position: "insideBottom", offset: -10, fontSize: 11, fill: "var(--muted-foreground)" }} />
+                  <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} stroke="var(--border)" label={{ value: chart.y_label, angle: -90, position: "insideLeft", fontSize: 11, fill: "var(--muted-foreground)" }} />
+                </>
+              )}
+              <Tooltip cursor={{ fill: "var(--muted)" }} contentStyle={{ background: "var(--popover)", color: "var(--popover-foreground)", border: "1px solid var(--border)", borderRadius: 10, fontSize: 12 }} />
               {series.length > 1 && <Legend verticalAlign="top" height={20} />}
-              {keys.map((k, i) => <Bar key={k} dataKey={k} fill={SERIES_COLORS[i % SERIES_COLORS.length]} radius={[3, 3, 0, 0]} />)}
+              {keys.map((k, i) => <Bar key={k} dataKey={k} fill={series.length ? SERIES_COLORS[i % SERIES_COLORS.length] : "var(--brand)"} radius={horizontal ? [0, 4, 4, 0] : [4, 4, 0, 0]} />)}
             </BarChart>
           </ResponsiveContainer>
         </div>
