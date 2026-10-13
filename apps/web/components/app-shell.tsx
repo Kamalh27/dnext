@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Banner } from "./banner";
+import { Header } from "./header";
 import { ChatPanel, type Message } from "./chat-panel";
 import { MapPanel } from "./map-panel";
 import { runScenario, streamChat } from "@/lib/api";
@@ -117,6 +118,7 @@ export function AppShell() {
 
   return (
     <div className="flex h-dvh flex-col">
+      <Header lang={lang} />
       <Banner lang={lang} />
       <div role="tablist" aria-label="View" className="flex border-b md:hidden">
         {(["chat", "map"] as const).map((k) => (

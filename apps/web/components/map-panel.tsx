@@ -1,5 +1,7 @@
 "use client";
 
+import { useTheme } from "./theme-provider";
+
 import { useEffect, useRef, useState } from "react";
 import { AdvancedMarker, APIProvider, InfoWindow, Map, Pin, useMap } from "@vis.gl/react-google-maps";
 import { Slider } from "@/components/ui/slider";
@@ -37,6 +39,7 @@ export function MapPanel({ lang, layer, markers }: { lang: Lang; layer: MapLayer
 
 function MapInner({ lang, layer, markers }: { lang: Lang; layer: MapLayer | null; markers: MapMarkers["markers"] }) {
   const tr = t(lang);
+  const { theme } = useTheme();
   const [mapType, setMapType] = useState<"terrain" | "satellite">("terrain");
   const [override, setOverride] = useState<{ id: string; value: number } | null>(null);
   const [point, setPoint] = useState<{ lat: number; lng: number } | null>(null);
@@ -47,6 +50,7 @@ function MapInner({ lang, layer, markers }: { lang: Lang; layer: MapLayer | null
     <div className="relative h-full w-full">
       <Map
         mapId={MAP_ID}
+        colorScheme={theme === "dark" ? "DARK" : "LIGHT"}
         mapTypeId={mapType}
         defaultCenter={{ lat: 15.5, lng: 101 }}
         defaultZoom={6}
