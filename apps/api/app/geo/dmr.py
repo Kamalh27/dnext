@@ -213,7 +213,8 @@ def _legend(k: str) -> list[dict]:
         return [{"label": str(i), "color": "#" + col} for i, col in enumerate(c["palette"], start=c["min"])]
     if k == "population":
         p = c["palette"]
-        return [{"label": "Few", "color": "#" + p[1]}, {"label": "Some", "color": "#" + p[2]}, {"label": f"Many ({c['max']}+ per ha)", "color": "#" + p[-1]}]
+        return [{"label": "Few", "color": "#" + p[0]}, {"label": "Some", "color": "#" + p[2]}, {"label": "Many", "color": "#" + p[3]},
+                {"label": f"Dense ({c['max']}+ per ha)", "color": "#" + p[-1]}]
     names = cfg()["risk"]["class_names"]
     return [{"label": names[i - 1], "color": "#" + col} for i, col in enumerate(c["palette"], start=1)]
 
@@ -308,7 +309,8 @@ def thailand_mask() -> ee.Image:
 
 def population_layer() -> ee.Image:
     """WorldPop 2020 people per 100 m pixel, only inside Thailand, zeros masked."""
-    return worldpop().updateMask(thailand_mask()).selfMask()
+    pop = worldpop().updateMask(thailand_mask())
+    return pop.updateMask(pop.gte(cfg()["layers"]["population"].get("min_visible", 0))).selfMask()   # hide specks below ~half a person per ha
 
 
 def worldpop() -> ee.Image:
