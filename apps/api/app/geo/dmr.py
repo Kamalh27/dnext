@@ -212,7 +212,8 @@ def _legend(k: str) -> list[dict]:
     if k == "trigger":
         return [{"label": str(i), "color": "#" + col} for i, col in enumerate(c["palette"], start=c["min"])]
     if k == "population":
-        return [{"label": "Low", "color": "#" + c["palette"][0]}, {"label": f"High ({c['max']}+ people per ha)", "color": "#" + c["palette"][-1]}]
+        p = c["palette"]
+        return [{"label": "Few", "color": "#" + p[1]}, {"label": "Some", "color": "#" + p[2]}, {"label": f"Many ({c['max']}+ per ha)", "color": "#" + p[-1]}]
     names = cfg()["risk"]["class_names"]
     return [{"label": names[i - 1], "color": "#" + col} for i, col in enumerate(c["palette"], start=1)]
 
@@ -243,7 +244,7 @@ def static_layers() -> dict:
         return {"layers": _static_cache["layers"], "expires_in_s": int(_STATIC_TTL_S - (now - _static_cache["t"]))}
     init()
     imgs = {"susceptibility": susceptibility_class(), "vulnerability": vulnerability_class(), "exposure": exposure_class(),
-            "population": worldpop().selfMask()}
+            "population": population_layer()}
     with ThreadPoolExecutor(max_workers=len(imgs)) as ex:
         urls = dict(zip(imgs, ex.map(lambda k: _tile(imgs[k], _vis(k)), imgs)))
     layers = [_layer(k, imgs[k], urls[k], "static", False, "static") for k in imgs]
@@ -297,6 +298,17 @@ def tambon_stats(trig_fc: ee.FeatureCollection, trig: ee.Image, pop: ee.Image, r
         if 0 <= i < len(names):
             areas[names[i]] = round(g["sum"] / 1e6, 1)
     return {"rows": rows, "class_area_km2": areas}
+
+
+def thailand_mask() -> ee.Image:
+    """1 inside Thailand's border (provincial boundaries), masked elsewhere. Painted lazily, cheap at tile time."""
+    fc = ee.FeatureCollection(cfg()["assets"]["thailand_adm1"]).filter(ee.Filter.eq("shapeGroup", "THA"))
+    return ee.Image().byte().paint(fc, 1).selfMask()
+
+
+def population_layer() -> ee.Image:
+    """WorldPop 2020 people per 100 m pixel, only inside Thailand, zeros masked."""
+    return worldpop().updateMask(thailand_mask()).selfMask()
 
 
 def worldpop() -> ee.Image:
