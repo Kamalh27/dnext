@@ -9,6 +9,7 @@ import { ScenarioBar } from "./scenario-bar";
 import type { RunError, RunKind } from "./scenario-card";
 import { fetchProvinces, fetchStaticLayers, runForecast as apiForecast, runScenario, streamChat } from "@/lib/api";
 import { t } from "@/lib/i18n";
+import { hasThai } from "@/lib/lang";
 import type { ChartData, Kpis, Lang, MapLayer, MapLayersEvent, MapMarkers, Province, ScenarioResponse, SseEvent, StaticLayerItem, TableData } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -18,7 +19,7 @@ const upsert = <T extends { id: string }>(list: T[], item: T) =>
 /** The primary (risk) layer of a set, in the single-layer shape other code (explain, bbox) expects. */
 function primaryOf(set: MapLayersEvent): MapLayer | null {
   const p = set.layers.find((l) => l.key === "risk") ?? set.layers[0];
-  return p ? { id: p.id, name: p.name, tile_url: p.tile_url, opacity: p.opacity, bbox: set.bbox, legend: p.legend, scenario_id: set.scenario_id } : null;
+  return p ? { id: p.id, name: p.name, name_th: p.name_th, tile_url: p.tile_url, opacity: p.opacity, bbox: set.bbox, legend: p.legend, scenario_id: set.scenario_id } : null;
 }
 
 const asList = <T,>(v: T | T[] | undefined): T[] => (v === undefined ? [] : Array.isArray(v) ? v : [v]);
@@ -193,6 +194,9 @@ export function AppShell() {
       const message = text.trim();
       if (!message || busy) return;
       lastPrompt.current = message;
+      // A Thai question switches the UI to Thai (once, for this message; the EN/TH toggle can switch back) and asks for a Thai answer.
+      const language: Lang = lang === "th" || hasThai(message) ? "th" : lang;
+      if (language !== lang) setLang(language);
       abort.current = new AbortController();
       setBusy(true);
       setStatus([]);
@@ -201,7 +205,7 @@ export function AppShell() {
       setMarkers([]);
       setMessages((ms) => [...ms, { role: "user", text: message }, { role: "assistant", text: "" }]);
       try {
-        await streamChat({ message, session_id: sessionId.current, language: lang, area: selected?.pcode }, onEvent, abort.current.signal);
+        await streamChat({ message, session_id: sessionId.current, language, area: selected?.pcode }, onEvent, abort.current.signal);
       } catch (err) {
         if ((err as Error).name !== "AbortError") patchAssistant((m) => ({ ...m, error: (err as Error).message }));
       } finally {

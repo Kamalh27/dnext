@@ -1,11 +1,13 @@
 // Types mirror docs/event_contract.md (agent-to-UI SSE contract).
 export type Lang = "en" | "th";
 
-export interface LegendItem { label: string; color: string }
+/** `_th` fields are optional Thai variants of server-built text; the UI falls back to the English field when missing or empty. */
+export interface LegendItem { label: string; label_th?: string; color: string }
 
 export interface MapLayer {
   id: string;
   name: string;
+  name_th?: string;
   tile_url: string;
   opacity: number;
   bbox: [number, number, number, number]; // [w, s, e, n]
@@ -18,6 +20,7 @@ export interface MapLayerItem {
   id: string;
   key: string; // risk | trigger | rain | susceptibility | vulnerability | exposure
   name: string;
+  name_th?: string;
   tile_url: string;
   opacity: number; // 0..1
   visible: boolean;
@@ -52,23 +55,30 @@ export interface MapMarkers {
 export interface TableData {
   id: string;
   title: string;
+  title_th?: string;
   columns: string[];
+  columns_th?: string[];
   rows: (string | number | null)[][];
+  rows_th?: (string | number | null)[][]; // same shape as rows, localized cells
   scenario_id?: string;
 }
 
 export interface ChartData {
   id: string;
   title: string;
+  title_th?: string;
   kind: "bar";
   x_label: string;
+  x_label_th?: string;
   y_label: string;
-  data: { label: string; value: number; series?: string }[];
+  y_label_th?: string;
+  data: { label: string; label_th?: string; value: number; series?: string }[];
 }
 
 export interface Kpis {
   scenario_id: string;
   area_name: string;
+  area_name_th?: string;
   area_code?: string; // province pcode, e.g. "TH55"
   kind?: "what_if" | "forecast";
   rainfall_mm?: number | null;
@@ -86,6 +96,7 @@ export interface Kpis {
   resolution_m: number;
   date_of_data: string;
   limitations: string[];
+  limitations_th?: string[]; // parallel to limitations
   extras?: KpiExtras;
 }
 
@@ -95,7 +106,9 @@ export interface KpiExtras {
   tambons_total?: number | null;
   high_risk_people?: number | null;
   trigger_source?: string;
+  trigger_source_th?: string;
   rain_window?: string;
+  rain_window_th?: string;
 }
 
 export interface Explain {

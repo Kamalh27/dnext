@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { explain } from "@/lib/api";
 import { t } from "@/lib/i18n";
 import { DEFAULT_VIEW, findProvince } from "@/lib/geo";
+import { localLayer } from "@/lib/lang";
 import type { Explain, Lang, MapLayer, MapLayerItem, MapLayersEvent, MapMarkers, Province, StaticLayerItem } from "@/lib/types";
 
 const KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
@@ -95,11 +96,11 @@ function MapInner({ lang, layer, layers, staticLayers, markers, provinces, selec
     const base: MapLayerItem[] = layers
       ? layers.layers
       : layer
-        ? [{ id: layer.id, key: "risk", name: layer.name, tile_url: layer.tile_url, opacity: layer.opacity, visible: true, legend: layer.legend }]
+        ? [{ id: layer.id, key: "risk", name: layer.name, name_th: layer.name_th, tile_url: layer.tile_url, opacity: layer.opacity, visible: true, legend: layer.legend }]
         : [];
     const byId = tweaks.scope === scope ? tweaks.byId : {};
-    return base.map((l) => ({ ...l, ...byId[l.id] }));
-  }, [layers, layer, tweaks, scope]);
+    return base.map((l) => ({ ...localLayer(l, lang), ...byId[l.id] }));
+  }, [layers, layer, tweaks, scope, lang]);
   const staticItems = useMemo<MapLayerItem[]>(
     () =>
       [...staticLayers]
@@ -107,9 +108,9 @@ function MapInner({ lang, layer, layers, staticLayers, markers, provinces, selec
         .map((l) => {
           const id = staticId(l.key);
           // Reference layers always start OFF; the user's tweak (by key) wins over server values.
-          return { ...l, id, group: "static" as const, visible: false, opacity: l.opacity ?? STATIC_OPACITY, ...staticTweaks[id] };
+          return { ...localLayer(l, lang), id, group: "static" as const, visible: false, opacity: l.opacity ?? STATIC_OPACITY, ...staticTweaks[id] };
         }),
-    [staticLayers, staticTweaks],
+    [staticLayers, staticTweaks, lang],
   );
   // Draw order, bottom to top: reference layers first, then scenario layers (risk topmost).
   const drawItems = useMemo(() => [...stackBottomUp(staticItems), ...stackBottomUp(items)], [staticItems, items]);
