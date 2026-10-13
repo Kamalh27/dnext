@@ -5,6 +5,7 @@ substitutions:
   _API_URL: ""
   _MAPS_KEY: ""
   _MAP_ID: ""
+  _FEEDBACK_URL: ""
 options:
   logging: CLOUD_LOGGING_ONLY
 steps:
@@ -16,6 +17,7 @@ steps:
       - --build-arg=NEXT_PUBLIC_API_BASE_URL=${_API_URL}
       - --build-arg=NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${_MAPS_KEY}
       - --build-arg=NEXT_PUBLIC_GOOGLE_MAP_ID=${_MAP_ID}
+      - --build-arg=NEXT_PUBLIC_FEEDBACK_FORM_URL=${_FEEDBACK_URL}
       - apps/web
   - name: gcr.io/cloud-builders/docker
     args: [push, "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/web:$BUILD_ID"]
