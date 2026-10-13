@@ -106,6 +106,18 @@ def sse(event: str, data: dict) -> ServerSentEvent:
     return ServerSentEvent(event=event, raw_data=json.dumps(data, ensure_ascii=False))
 
 
+@app.get("/layers/static")
+async def static_layers():
+    """Reference layers (susceptibility, vulnerability, exposure, population) for the Layers panel; no scenario needed."""
+    if settings().geo_backend == "ee" and settings().hazard_model == "dmr":
+        return await asyncio.to_thread(__import__("app.geo.dmr", fromlist=["static_layers"]).static_layers)
+    from app.geo.mock import legend as _l
+    names = {"susceptibility": "Susceptibility class (1-5)", "vulnerability": "Vulnerability class (1-5)", "exposure": "Exposure class (1-5)",
+             "population": "Population (WorldPop 2020)"}
+    return {"layers": [{"id": f"static-{k}", "key": k, "name": n, "tile_url": "", "opacity": 0.7, "visible": False, "legend": _l(), "group": "static"}
+                       for k, n in names.items()], "expires_in_s": 3600}
+
+
 @app.get("/readyz")
 async def readyz():
     """Deep check: can this identity read every Earth Engine asset the active hazard model needs? (Cloud Run SA vs public assets)"""

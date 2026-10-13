@@ -165,7 +165,7 @@ def _newest_ms(collection: ee.ImageCollection) -> int:
     return int(v)
 
 
-def observed_image(days: int, source: str = "imerg") -> tuple[ee.Image, dict]:
+def observed_image(days: int, source: str = "imerg", newest_ms: int | None = None) -> tuple[ee.Image, dict]:
     """Observed rainfall (mm) over the last `days` days ending at the newest available image.
     Returns (image, meta{newest_ms, date_of_data, days, source, dataset})."""
     init()
@@ -176,7 +176,7 @@ def observed_image(days: int, source: str = "imerg") -> tuple[ee.Image, dict]:
         coll, step_h, ds = _imerg(), IMERG_STEP_H, assets()["imerg"]
     else:
         raise ValueError(f"unknown observed rainfall source: {source}")
-    newest = newest_imerg_ms() if source == "imerg" else _newest_ms(coll)
+    newest = newest_ms or (newest_imerg_ms() if source == "imerg" else _newest_ms(coll))
     if days <= 0:
         return ee.Image(0).rename("observed_mm"), {"newest_ms": newest, "date_of_data": ms_to_date(newest), "days": 0, "source": source, "dataset": ds}
     end = newest + int(step_h * 3_600_000)
@@ -184,21 +184,24 @@ def observed_image(days: int, source: str = "imerg") -> tuple[ee.Image, dict]:
     return img, {"newest_ms": newest, "date_of_data": ms_to_date(newest), "days": days, "source": source, "dataset": ds}
 
 
-def gfs_forecast_image(horizon_days: int) -> tuple[ee.Image, dict]:
+def gfs_forecast_image(horizon_days: int, known: tuple[int, list[int]] | None = None) -> tuple[ee.Image, dict]:
     """Spatially varying GFS accumulated rain (mm) for the next horizon_days, from the latest run."""
     init()
     ds = assets()["gfs"]
     horizon_h = 24 * horizon_days
     now_ms = int(time.time() * 1000)
     coll = ee.ImageCollection(ds).filterDate(now_ms - 10 * DAY_MS, now_ms + 20 * DAY_MS)
-    run = coll.aggregate_max("creation_time")
-    run_coll = coll.filter(ee.Filter.eq("creation_time", run))
-    meta = get_info(ee.Dictionary({"run": run, "fh": run_coll.aggregate_array("forecast_hours")}))
-    if not meta.get("run") or not meta.get("fh"):
-        raise RuntimeError("No GFS forecast images found")
-    chosen = gfs_windows(meta["fh"], horizon_h)
-    if not chosen:
-        raise RuntimeError("GFS run has no forecast_hours in the requested horizon")
+    if known:    # (run_ms, chosen forecast hours) from the daily precompute: skips the metadata round trip
+        meta, chosen = {"run": known[0]}, list(known[1])
+    else:
+        run = coll.aggregate_max("creation_time")
+        run_coll = coll.filter(ee.Filter.eq("creation_time", run))
+        meta = get_info(ee.Dictionary({"run": run, "fh": run_coll.aggregate_array("forecast_hours")}))
+        if not meta.get("run") or not meta.get("fh"):
+            raise RuntimeError("No GFS forecast images found")
+        chosen = gfs_windows(meta["fh"], horizon_h)
+        if not chosen:
+            raise RuntimeError("GFS run has no forecast_hours in the requested horizon")
     img = (coll.filter(ee.Filter.eq("creation_time", int(meta["run"])))
            .filter(ee.Filter.inList("forecast_hours", chosen))
            .select("total_precipitation_surface").sum().rename("forecast_mm"))

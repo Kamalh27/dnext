@@ -203,32 +203,52 @@ def _tile(img: ee.Image, vis: dict) -> str:
     return retry(go)
 
 
-def layer_images(region: ee.Geometry, rain_mm: ee.Image, trig: ee.Image, risk: ee.Image) -> dict[str, ee.Image]:
-    """key -> image (clipped to the AOI), in display order."""
-    return {
-        "risk": risk.clip(region),
-        "trigger": trig.selfMask().clip(region),
-        "rain": rain_mm.clip(region),
-        "susceptibility": susceptibility_class().clip(region),
-        "vulnerability": vulnerability_class().clip(region),
-        "exposure": exposure_class().clip(region),
-    }
+def _legend(k: str) -> list[dict]:
+    c = cfg()["layers"][k]
+    if k == "risk":
+        return risk_legend()
+    if k == "rain":
+        return [{"label": f"{c['min']}", "color": "#" + c["palette"][0]}, {"label": f"{c['max']}+ mm", "color": "#" + c["palette"][-1]}]
+    if k == "trigger":
+        return [{"label": str(i), "color": "#" + col} for i, col in enumerate(c["palette"], start=c["min"])]
+    if k == "population":
+        return [{"label": "Low", "color": "#" + c["palette"][0]}, {"label": f"High ({c['max']}+ people per ha)", "color": "#" + c["palette"][-1]}]
+    names = cfg()["risk"]["class_names"]
+    return [{"label": names[i - 1], "color": "#" + col} for i, col in enumerate(c["palette"], start=1)]
+
+
+def _layer(k: str, img: ee.Image, url: str, sid: str, visible: bool, group: str) -> dict:
+    c = cfg()["layers"][k]
+    return {"id": f"{sid}-{k}", "key": k, "name": c["name"], "tile_url": url, "opacity": 0.75, "visible": visible,
+            "legend": _legend(k), "group": group}
 
 
 def build_layers(region: ee.Geometry, rain_mm: ee.Image, trig: ee.Image, risk: ee.Image, scenario_id: str) -> list[dict]:
-    """Tile URLs for every layer (fetched in parallel). Only `risk` is visible by default."""
-    imgs = layer_images(region, rain_mm, trig, risk)
-    c = cfg()["layers"]
+    """Scenario (dynamic) layers only: risk (visible), trigger, rain. Static reference layers are served by static_layers()."""
+    imgs = {"risk": risk.clip(region), "trigger": trig.selfMask().clip(region), "rain": rain_mm.clip(region)}
     with ThreadPoolExecutor(max_workers=len(imgs)) as ex:
         urls = dict(zip(imgs, ex.map(lambda k: _tile(imgs[k], _vis(k)), imgs)))
-    out = []
-    for k in imgs:
-        legend = risk_legend() if k == "risk" else [{"label": str(i), "color": "#" + col}
-                                                    for i, col in enumerate(c[k]["palette"], start=c[k]["min"])] if k != "rain" else \
-            [{"label": f"{c[k]['min']}", "color": "#" + c[k]["palette"][0]}, {"label": f"{c[k]['max']}+ mm", "color": "#" + c[k]["palette"][-1]}]
-        out.append({"id": f"{scenario_id}-{k}", "key": k, "name": c[k]["name"], "tile_url": urls[k],
-                    "opacity": 0.75, "visible": k == "risk", "legend": legend})
-    return out
+    return [_layer(k, imgs[k], urls[k], scenario_id, k == "risk", "scenario") for k in imgs]
+
+
+_STATIC_TTL_S = 7000          # EE map ids last "a few hours"
+_static_cache: dict = {"t": 0.0, "layers": None}
+
+
+def static_layers() -> dict:
+    """National reference layers (susceptibility, vulnerability, exposure, population), all off by default. Cached ~2 h."""
+    import time
+    now = time.time()
+    if _static_cache["layers"] and now - _static_cache["t"] < _STATIC_TTL_S:
+        return {"layers": _static_cache["layers"], "expires_in_s": int(_STATIC_TTL_S - (now - _static_cache["t"]))}
+    init()
+    imgs = {"susceptibility": susceptibility_class(), "vulnerability": vulnerability_class(), "exposure": exposure_class(),
+            "population": worldpop().selfMask()}
+    with ThreadPoolExecutor(max_workers=len(imgs)) as ex:
+        urls = dict(zip(imgs, ex.map(lambda k: _tile(imgs[k], _vis(k)), imgs)))
+    layers = [_layer(k, imgs[k], urls[k], "static", False, "static") for k in imgs]
+    _static_cache.update(t=now, layers=layers)
+    return {"layers": layers, "expires_in_s": _STATIC_TTL_S}
 
 
 # ---------------- statistics ----------------
@@ -249,7 +269,7 @@ def tambon_stats(trig_fc: ee.FeatureCollection, trig: ee.Image, pop: ee.Image, r
     """Per-tambon risk and exposure rows + AOI area by risk class, in ONE round trip.
     Uses the static stats bands (100 m asset when built) so the heavy 12 m math is not repeated per request."""
     r = cfg()["risk"]
-    high_value = r["cutoffs"][(high_from or r["high_from"]) - 2]   # class >= high_from  <=>  risk value >= high_value
+    high_value = r["cutoffs"][(high_from or r["exposure_from"]) - 2]   # class >= high_from  <=>  risk value >= high_value
     s = static_stats_bands()
     risk = risk_from(trig, s.select("prod"))
     stack = (risk.rename("risk")

@@ -22,6 +22,18 @@ export interface MapLayerItem {
   opacity: number; // 0..1
   visible: boolean;
   legend: LegendItem[];
+  group?: "scenario" | "static"; // missing = scenario
+}
+
+/** One reference layer from `GET /layers/static` (available without a scenario; tile URLs expire). */
+export interface StaticLayerItem extends MapLayerItem {
+  key: "susceptibility" | "vulnerability" | "exposure" | "population";
+  group: "static";
+}
+
+export interface StaticLayersResponse {
+  layers: StaticLayerItem[];
+  expires_in_s: number;
 }
 
 /** A new `map_layers` event REPLACES the previous set. */

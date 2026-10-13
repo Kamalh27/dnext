@@ -1,13 +1,13 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Header } from "./header";
 import { ResizeHandle } from "./resize-handle";
 import { ChatPanel, type Message } from "./chat-panel";
 import { MapPanel } from "./map-panel";
-import { runScenario, streamChat } from "@/lib/api";
+import { fetchStaticLayers, runScenario, streamChat } from "@/lib/api";
 import { t } from "@/lib/i18n";
-import type { ChartData, Kpis, Lang, MapLayer, MapLayersEvent, MapMarkers, SseEvent, TableData } from "@/lib/types";
+import type { ChartData, Kpis, Lang, MapLayer, MapLayersEvent, MapMarkers, SseEvent, StaticLayerItem, TableData } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const upsert = <T extends { id: string }>(list: T[], item: T) =>
@@ -27,6 +27,7 @@ export function AppShell() {
   const [status, setStatus] = useState<string[]>([]);
   const [layer, setLayer] = useState<MapLayer | null>(null);
   const [layers, setLayers] = useState<MapLayersEvent | null>(null);
+  const [staticLayers, setStaticLayers] = useState<StaticLayerItem[]>([]);
   const [markers, setMarkers] = useState<MapMarkers[]>([]);
   const [kpis, setKpis] = useState<Kpis | null>(null);
   const [charts, setCharts] = useState<ChartData[]>([]);
@@ -38,6 +39,31 @@ export function AppShell() {
   const lastPrompt = useRef("");
   const tr = t(lang);
   const row = useRef<HTMLElement>(null);
+
+  // Reference layers load on mount (no scenario needed). Tile URLs expire, so refetch at ~85% of expires_in_s (min 5 min).
+  // A failure never blocks the UI: the list stays as it was and we try again in a minute.
+  useEffect(() => {
+    const ctl = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const load = async () => {
+      let next = 60_000;
+      try {
+        const r = await fetchStaticLayers(ctl.signal);
+        if (ctl.signal.aborted) return;
+        setStaticLayers(Array.isArray(r.layers) ? r.layers : []);
+        next = Math.max(300, (r.expires_in_s || 0) * 0.85) * 1000;
+      } catch (err) {
+        if (ctl.signal.aborted) return;
+        console.warn("Reference layers unavailable:", (err as Error).message);
+      }
+      timer = setTimeout(load, next);
+    };
+    void load();
+    return () => {
+      ctl.abort();
+      clearTimeout(timer);
+    };
+  }, []);
 
   const patchAssistant = (fn: (m: Message) => Message) =>
     setMessages((ms) => ms.map((m, i) => (i === ms.length - 1 && m.role === "assistant" ? fn(m) : m)));
@@ -173,7 +199,7 @@ export function AppShell() {
           />
         </div>
         <div className={cn("min-h-0", tab === "map" ? "block" : "hidden md:block")}>
-          <MapPanel lang={lang} layer={layer} layers={layers} markers={allMarkers} />
+          <MapPanel lang={lang} layer={layer} layers={layers} staticLayers={staticLayers} markers={allMarkers} />
         </div>
         <ResizeHandle row={row} label={tr.resizeChat} />
       </main>

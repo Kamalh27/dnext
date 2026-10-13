@@ -1,5 +1,5 @@
 import { parseSSE } from "./sse";
-import type { Explain, Lang, ScenarioResponse, SseEvent } from "./types";
+import type { Explain, Lang, ScenarioResponse, SseEvent, StaticLayersResponse } from "./types";
 
 export const API_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080").replace(/\/$/, "");
 
@@ -35,6 +35,9 @@ export const runScenario = (b: { area: string; rainfall_mm: number; duration_h: 
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(b),
   }).then((r) => json<ScenarioResponse>(r));
+
+export const fetchStaticLayers = (signal?: AbortSignal) =>
+  fetch(`${API_BASE}/layers/static`, { signal }).then((r) => json<StaticLayersResponse>(r));
 
 export const explain = (lat: number, lng: number, scenarioId: string) =>
   fetch(`${API_BASE}/explain?${new URLSearchParams({ lat: String(lat), lng: String(lng), scenario_id: scenarioId })}`).then(
