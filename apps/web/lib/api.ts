@@ -1,5 +1,5 @@
 import { ApiError, readApiError } from "./api-error";
-import { onAuthRequired, refreshUsage, sessionToken, startBurst } from "./auth";
+import { authStatus, getAuthToken, loadAuthConfig, onAuthRequired, refreshUsage, startBurst } from "./auth";
 import { API_BASE } from "./config";
 import { parseSSE } from "./sse";
 import type { Explain, ForecastResponse, Lang, OverviewSeries, Province, ScenarioResponse, SseEvent, StaticLayersResponse } from "./types";
@@ -8,18 +8,33 @@ export { API_BASE };
 export { ApiError };
 
 /**
- * fetch for the gated endpoints (POST /chat, /scenario, /forecast; GET /explain, /briefing/{id}): adds the Bearer session token,
- * and turns every failure into an ApiError. 401 forgets the session and opens the sign-in dialog; 429 starts the burst countdown
- * (or refreshes the usage numbers for a daily limit). Never retries by itself.
+ * fetch for the gated endpoints (POST /chat, /scenario, /forecast; GET /explain, /briefing/{id}): adds `Authorization: Bearer <Firebase ID
+ * token>` (none in disabled mode), and turns every failure into an ApiError. A 401 gets ONE retry with a force-refreshed token; if that is
+ * refused too, the session is dropped and the sign-in dialog opens. 429 starts the burst countdown (or refreshes the usage numbers for a
+ * daily limit). Never retries anything else by itself.
  */
 async function authFetch(path: string, init: RequestInit = {}): Promise<Response> {
-  const token = sessionToken();
-  const headers = new Headers(init.headers);
-  if (token) headers.set("Authorization", `Bearer ${token}`);
-  const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
-  if (res.ok) return res;
-  const err = await readApiError(res);
-  if (err.isAuthRequired) onAuthRequired();
+  void loadAuthConfig();   // no-op after the first call; makes sure "is sign-in on, and am I signed in?" gets answered
+  const send = async (forceRefresh: boolean) => {
+    const token = await getAuthToken(forceRefresh);
+    if (!token && authStatus() === "signed_out") return { token, res: null };   // sign-in is required and nobody is signed in: no point asking the API
+    const headers = new Headers(init.headers);
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+    return { token, res: await fetch(`${API_BASE}${path}`, { ...init, headers }) };
+  };
+  const first = await send(false);
+  let res = first.res;
+  let err: ApiError | null = res === null ? new ApiError(401, { code: "auth_required", message: "Sign in required" }) : null;
+  if (res && res.status === 401) {
+    err = await readApiError(res);
+    if (first.token && err.isAuthRequired) {
+      res = (await send(true)).res;   // the token may just have expired or been revoked: one retry with a fresh one
+      err = res && !res.ok ? await readApiError(res) : null;
+    }
+  }
+  if (res?.ok) return res;
+  err ??= res ? await readApiError(res) : new ApiError(401, { code: "auth_required" });
+  if (err.isAuthRequired) await onAuthRequired();
   else if (err.isBurst) startBurst(err.retryAfterS ?? 5);
   else if (err.isDaily) refreshUsage(0);
   throw err;

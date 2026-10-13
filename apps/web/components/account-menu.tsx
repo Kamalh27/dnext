@@ -10,12 +10,18 @@ import { Button } from "@/components/ui/button";
 
 const headerBtn = "text-primary-foreground hover:bg-primary-foreground/15 dark:text-foreground dark:hover:bg-accent";
 
-/** Header slot for sign-in: nothing when auth is off, "Sign in" when signed out, an avatar with the usage menu when signed in. */
+/** Header slot for sign-in: nothing when auth is off, a placeholder while restoring, "Sign in" when signed out, an avatar with the usage menu when signed in. */
 export function AuthControls({ lang }: { lang: Lang }) {
   const a = useAuth();
   if (a.status === "disabled") return null;
-  if (a.status === "signed_out") return <SignInButton lang={lang} />;
-  return <AccountMenu lang={lang} user={a.session!.user} usage={a.usage} limits={a.limits} />;
+  if (a.status === "loading") return <LoadingSlot />;
+  if (a.status === "signed_out" || !a.user) return <SignInButton lang={lang} />;
+  return <AccountMenu lang={lang} user={a.user} usage={a.usage} limits={a.limits} />;
+}
+
+/** While a previous session is being restored: a quiet placeholder the size of the avatar (and of the icon-only sign-in button), so nothing flashes or jumps. */
+function LoadingSlot() {
+  return <span data-auth-loading aria-hidden className="size-8 shrink-0 animate-pulse rounded-full bg-primary-foreground/15 motion-reduce:animate-none coarse:size-11 dark:bg-accent" />;
 }
 
 function SignInButton({ lang }: { lang: Lang }) {
