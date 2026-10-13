@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     ee_project: str = ""
     ee_service_account_key: str = ""   # local dev: path to SA JSON; empty = ADC / attached SA
     geo_backend: str = "mock"
+    hazard_model: str = "dmr"          # dmr (DMR/ADPC layers, tambon level) | screening (our weighted overlay)
     agent_model: str = "gemini-3.5-flash"
     briefing_model: str = ""   # empty = deterministic template only (no LLM polish)
     allowed_origins: str = "http://localhost:3000"

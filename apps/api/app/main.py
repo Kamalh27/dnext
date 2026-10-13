@@ -144,7 +144,7 @@ async def chat(request: Request, body: ChatIn):
 
 def _payload(events) -> dict:
     d = dict(events)
-    return {k: d[k] for k in ("map_layer", "kpis", "chart", "map_markers", "table") if k in d}
+    return {k: d[k] for k in ("map_layer", "map_layers", "kpis", "chart", "map_markers", "table") if k in d}
 
 
 @app.post("/scenario")

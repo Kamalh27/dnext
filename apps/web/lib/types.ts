@@ -13,6 +13,24 @@ export interface MapLayer {
   scenario_id: string;
 }
 
+/** One layer of a `map_layers` set. `tile_url` may be "" (mock mode): the layer is listed but nothing is drawn. */
+export interface MapLayerItem {
+  id: string;
+  key: string; // risk | trigger | rain | susceptibility | vulnerability | exposure
+  name: string;
+  tile_url: string;
+  opacity: number; // 0..1
+  visible: boolean;
+  legend: LegendItem[];
+}
+
+/** A new `map_layers` event REPLACES the previous set. */
+export interface MapLayersEvent {
+  scenario_id: string;
+  bbox: [number, number, number, number]; // [w, s, e, n]
+  layers: MapLayerItem[];
+}
+
 export type MarkerKind = "school" | "hospital" | "shelter" | "bridge";
 export interface MapMarkers {
   id: string;
@@ -50,6 +68,16 @@ export interface Kpis {
   resolution_m: number;
   date_of_data: string;
   limitations: string[];
+  extras?: KpiExtras;
+}
+
+/** Optional extra figures; null = not available (never render as 0). */
+export interface KpiExtras {
+  triggered_tambons?: number | null;
+  tambons_total?: number | null;
+  high_risk_people?: number | null;
+  trigger_source?: string;
+  rain_window?: string;
 }
 
 export interface Explain {
@@ -57,12 +85,13 @@ export interface Explain {
   summary: string;
 }
 
-export interface ScenarioResponse { map_layer: MapLayer; kpis: Kpis; chart: ChartData }
+export interface ScenarioResponse { map_layer: MapLayer; map_layers?: MapLayersEvent; kpis: Kpis; chart: ChartData }
 
 export type SseEvent =
   | { event: "status"; data: { stage: string; label: string } }
   | { event: "text_delta"; data: { text: string } }
   | { event: "map_layer"; data: MapLayer }
+  | { event: "map_layers"; data: MapLayersEvent }
   | { event: "map_markers"; data: MapMarkers }
   | { event: "table"; data: TableData }
   | { event: "chart"; data: ChartData }

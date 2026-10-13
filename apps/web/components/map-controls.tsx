@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useMap, useMapsLibrary } from "@vis.gl/react-google-maps";
-import { Box, Globe, LoaderCircle, LocateFixed, Map as MapIcon, Maximize2, Minimize2, Minus, Plus, Search, X } from "lucide-react";
+import { Box, Globe, Layers, LoaderCircle, LocateFixed, Map as MapIcon, Maximize2, Minimize2, Minus, Plus, Search, X } from "lucide-react";
 import { t } from "@/lib/i18n";
-import type { Lang } from "@/lib/types";
+import { LayersPanel, type LayerPatch } from "./layers-panel";
+import type { Lang, MapLayerItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export interface Pt { lat: number; lng: number }
@@ -24,8 +25,31 @@ function MapButton({ label, onClick, children, disabled, pressed, className }: {
 }
 
 /** Zoom, my location, 2D/3D and fullscreen. Must render under <APIProvider> (uses the default map instance). */
-export function MapControls({ lang, onLocate, onGlobe, fullscreenTarget }: { lang: Lang; onLocate: (p: Pt) => void; onGlobe: () => void; fullscreenTarget: HTMLElement | null }) {
+export function MapControls({ lang, onLocate, onGlobe, fullscreenTarget, layers, onLayerChange }: {
+  lang: Lang; onLocate: (p: Pt) => void; onGlobe: () => void; fullscreenTarget: HTMLElement | null;
+  layers: MapLayerItem[]; onLayerChange: (id: string, p: LayerPatch) => void;
+}) {
   const tr = t(lang);
+  const panelId = useId();
+  const [layersOpen, setLayersOpen] = useState(false);
+  const layersRoot = useRef<HTMLDivElement>(null);
+  const layersBtn = useRef<HTMLButtonElement>(null);
+  const hasLayers = layers.length > 0;
+  const showPanel = layersOpen && hasLayers;
+
+  // Close on Escape (focus returns to the button) or a pointer press outside.
+  useEffect(() => {
+    if (!showPanel) return;
+    const away = (e: PointerEvent) => !layersRoot.current?.contains(e.target as Node) && setLayersOpen(false);
+    const esc = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setLayersOpen(false);
+      layersBtn.current?.focus();
+    };
+    document.addEventListener("pointerdown", away);
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("pointerdown", away); document.removeEventListener("keydown", esc); };
+  }, [showPanel]);
   const map = useMap();
   const [is3d, setIs3d] = useState(false);
   const [locating, setLocating] = useState(false);
@@ -94,6 +118,25 @@ export function MapControls({ lang, onLocate, onGlobe, fullscreenTarget }: { lan
         <MapButton label={tr.zoomIn} onClick={() => zoom(1)}><Plus /></MapButton>
         <MapButton label={tr.zoomOut} onClick={() => zoom(-1)}><Minus /></MapButton>
       </div>
+      {hasLayers && (
+        <div ref={layersRoot} className="relative">
+          <div className={cn("overflow-hidden rounded-[4px]", glass)}>
+            <button
+              ref={layersBtn}
+              type="button"
+              aria-label={tr.layersTitle}
+              title={tr.layersTitle}
+              aria-expanded={showPanel}
+              aria-controls={showPanel ? panelId : undefined}
+              onClick={() => setLayersOpen((o) => !o)}
+              className={cn(btn, showPanel && "bg-primary text-primary-foreground hover:bg-primary")}
+            >
+              <Layers />
+            </button>
+          </div>
+          {showPanel && <LayersPanel id={panelId} lang={lang} layers={layers} onChange={onLayerChange} />}
+        </div>
+      )}
       <div className={cn("flex flex-col divide-y overflow-hidden rounded-[4px]", glass)}>
         <MapButton label={tr.myLocation} onClick={locate} disabled={locating}>
           {locating ? <LoaderCircle className="animate-spin" /> : <LocateFixed />}

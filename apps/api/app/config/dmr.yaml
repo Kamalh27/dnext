@@ -34,7 +34,11 @@ risk:
   cutoffs: [1, 2, 3, 4]
   class_names: [Very low, Low, Moderate, High, Very high]
   class_colors: ["#ffffb2", "#fecc5c", "#fd8d3c", "#f03b20", "#bd0026"]
-  high_from: 4                    # class 4+ = risk value >= 3
+  high_from: 4                    # class 4+ = risk value >= 3  ("High")
+  # Exposure statistics count people / area in an "elevated" zone: class >= exposure_from (3 = Moderate and up = risk value >= 2).
+  # Chosen because at national class breaks almost no pixel reaches "High" (Nan peaks at ~2.4 even with 300 mm), so a High-only
+  # count would read as 0 for most provinces.
+  exposure_from: 3
 
 layers:
   rain: {name: "Rainfall, 30-day total (mm)", palette: ["f7fbff", "c6dbef", "9ecae1", "3182bd", "08519c"], min: 0, max: 500}
