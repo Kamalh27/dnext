@@ -1,0 +1,8 @@
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+.local_storage
+tests
+.env*
+!.env.example

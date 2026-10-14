@@ -1,5 +1,7 @@
 # LandslideWatch TH
 
+[![CI](https://github.com/Kamalh27/dnext/actions/workflows/ci.yml/badge.svg)](https://github.com/Kamalh27/dnext/actions/workflows/ci.yml)
+
 **Ask "what if it rains 250 mm in three days in Mae Hong Son?" and get a hazard map plus who and what is exposed, in under 20 seconds.**
 
 Built for the Google Cloud AI Builder Cup 2026 (JAPAC). A Gemini agent (ADK) turns a disaster officer's plain-language question, in English or Thai, into Earth Engine analysis: a landslide hazard map, estimated people, households, buildings, road kilometres and critical facilities in the danger zones, and the top-ranked sub-districts (tambon). Every number comes from a tool call, never from the model's memory.
