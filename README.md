@@ -1,110 +1,139 @@
-# LandslideWatch TH
+# DNext · LandslideWatch TH
 
 [![CI](https://github.com/Kamalh27/dnext/actions/workflows/ci.yml/badge.svg)](https://github.com/Kamalh27/dnext/actions/workflows/ci.yml)
 
-**Ask "what if it rains 250 mm in three days in Mae Hong Son?" and get a hazard map plus who and what is exposed, in under 20 seconds.**
+A landslide risk screening tool for Thailand. It combines Thailand's rainfall (observed and forecast) with the DMR/ADPC landslide risk method to show, at province and tambon (sub-district) level, where rain is likely to trigger landslides and how many people, buildings, hospitals, schools and roads are in the danger zones. You can ask questions in English or Thai ("What if Nan gets 250 mm in three days?"), run what-if rainfall scenarios, and follow a 5-day risk forecast on a map.
 
-Built for the Google Cloud AI Builder Cup 2026 (JAPAC). A Gemini agent (ADK) turns a disaster officer's plain-language question, in English or Thai, into Earth Engine analysis: a landslide hazard map, estimated people, households, buildings, road kilometres and critical facilities in the danger zones, and the top-ranked sub-districts (tambon). Every number comes from a tool call, never from the model's memory.
+> Screening tool, **not an official forecast or warning.** Follow the Thai Meteorological Department (TMD) and the Department of Disaster Prevention and Mitigation (DDPM). See [docs/limitations.md](docs/limitations.md).
 
-> Screening tool, **not an official forecast or warning.** Follow TMD and DDPM. See [docs/limitations.md](docs/limitations.md).
+## What it does
 
-## Features
-- Natural-language what-if scenarios (rainfall mm, duration), compare scenarios (150 vs 300 mm), and "this week" forecast risk using IMERG antecedent rain plus GFS forecast.
-- Place resolution for all 77 provinces, plus districts and sub-districts once the admin index is built; Thai and English, typo tolerant, asks one clarifying question when a name is ambiguous, rejects places outside Thailand.
-- Hazard layer on Google Maps, legend and opacity, click-to-explain a point, facility markers, rainfall slider that re-runs instantly.
-- KPI tiles, top-10 sub-district chart, exportable briefing, data sources and limitations shown with every result.
-- Runs with **zero cloud access** in mock mode; one command to go live.
+- **National overview (default screen):** provinces coloured by landslide risk, a 5-day forecast slider (risk or rainfall), and a dashboard of key figures, trends and top provinces.
+- **Province and tambon detail:** pick a province from a list or by clicking the map, then run a rainfall what-if or a forecast. You get risk, rainfall and trigger layers, a ranked tambon table, and people, buildings, hospitals, schools and main roads in the risk zone.
+- **Reference layers:** susceptibility, vulnerability, exposure, population and province boundaries, each switchable on the map.
+- **Chat assistant (Gemini via Google ADK):** answers in English or Thai. Every number comes from a computed tool result, never from the model's memory.
+- **Optional sign-in (Firebase Authentication, Google) with per-account daily limits**, to protect the Gemini cost of a public deployment.
+- **Responsive and bilingual UI:** phone, tablet, laptop and wide screens; English and Thai; light and dark themes.
 
-## Architecture
+## How it works
+
+- **Method (DMR/ADPC):** `risk = trigger × susceptibility × vulnerability × exposure ÷ 125` (range 0–5). The trigger compares each tambon's 30-day rainfall with that tambon's own DMR percentile thresholds. Susceptibility is ADPC's static map. Details: [docs/dmr_method.md](docs/dmr_method.md).
+- **Rainfall:** JAXA GSMaP (observed) plus NOAA GFS (forecast). A what-if rainfall is added to the observed rain of the preceding days to form the 30-day total.
+- **Speed:** the heavy work is precomputed into small data files (daily rainfall per tambon; a one-off statistics table; a one-off table of buildings, facilities and roads by risk zone). A scenario then needs only a few milliseconds of Python plus map tiles from Earth Engine, so a request takes roughly 1–8 seconds.
+- **Sources:** public Earth Engine assets (DMR/ADPC layers, WorldPop, GHSL built-up area), OpenStreetMap (hospitals, schools, main roads), Google Maps. See [docs/data_sources.md](docs/data_sources.md).
 
 ```mermaid
 flowchart LR
-  U[Officer] --> W[Next.js 16 web<br/>Cloud Run]
-  W -->|SSE| A[FastAPI + ADK agent<br/>Cloud Run]
-  A --> V[Vertex AI Gemini 3.5 Flash]
-  A --> EE[Earth Engine<br/>hazard + exposure]
-  A <--> FS[(Firestore cache)]
-  A --> GCS[(Cloud Storage)]
-  A --> GC[Geocoding API]
+  B[Browser<br/>Next.js UI] -->|SSE chat, REST| A[FastAPI API<br/>Cloud Run]
+  B -->|sign in| F[Firebase Auth]
+  B -->|map tiles| EE[(Earth Engine)]
+  A -->|agent| G[Gemini on Vertex AI<br/>via ADK]
+  A -->|layers, tiles| EE
+  A --> FS[(Firestore<br/>cache, usage counters)]
+  A --> GCS[(Cloud Storage<br/>precomputed data files)]
 ```
 
-Details, request sequence, caching and performance budget: [docs/architecture.md](docs/architecture.md). Method and weights: [docs/method.md](docs/method.md). Data sources with verified IDs: [docs/data_sources.md](docs/data_sources.md).
+## Repository layout
 
-## Quick start (local, mock mode, no cloud)
+| Path | What is in it |
+|---|---|
+| `apps/web` | Next.js 16 UI (React 19, Tailwind 4, Google Maps, Recharts) |
+| `apps/api` | FastAPI service: ADK agent (`app/agent`), geospatial logic (`app/geo`), YAML config (`app/config`), tests |
+| `scripts` | One-off and daily data precompute scripts, secret check |
+| `infra` | Cloud setup, deploy and Cloud Build configs, smoke test |
+| `docs` | Method, data sources, configuration, architecture, limitations |
+| `evals` | Agent evaluation set and test harness |
+| `.github/workflows` | CI (tests, build, secret scan) |
 
-Needs Python 3.12 + [uv](https://docs.astral.sh/uv/) and Node 20+ with pnpm.
+## Setup
+
+### Prerequisites
+
+Python 3.12 with [uv](https://docs.astral.sh/uv/), Node 20+ (CI uses 24) with pnpm 10, and optionally [just](https://github.com/casey/just), the Google Cloud CLI and Docker.
+
+### 1. Run locally, no cloud account needed
 
 ```bash
-cp .env.example .env                      # GEO_BACKEND=mock is the default
-cd apps/api && uv run pytest -q           # tests
-cd apps/api && uv run uvicorn app.main:app --port 8080 --reload
-cd apps/web && pnpm install && pnpm dev   # http://localhost:3000
+just setup      # installs API and web dependencies; creates .env and apps/web/.env.local from the templates
+just dev        # API on :8080 and web on :3000 (mock data backend)
+just test       # API tests
+just web-check  # web type-check and lint
 ```
-Mock mode uses deterministic fixtures for hazard/exposure, so the UI and API contract work offline. The chat agent itself needs Vertex AI credentials; without them use the slider/`POST /scenario` path. Or run everything with `make dev` (docker compose, mounts your ADC).
 
-## Deploy (real Earth Engine + Vertex)
+Without `just`: `cd apps/api && uv sync && uv run uvicorn app.main:app --reload --port 8080`, and `cd apps/web && pnpm install && pnpm dev`.
 
-Follow the ordered **PLUG-IN CHECKLIST** in [docs/config-reference.md](docs/config-reference.md). Short form:
+The default `GEO_BACKEND=mock` serves deterministic fixtures so the UI and API run offline. The chat assistant itself needs Vertex AI access (step 2).
+
+### 2. Connect your Google Cloud project (real data)
+
+1. Choose or create a Google Cloud project with billing, and register it for [Earth Engine](https://code.earthengine.google.com/register).
+2. Create a service account, grant it the roles it needs (`infra/setup.sh` lists them), and save its JSON key as `credentials/ee-sa.json`. That folder is gitignored. Alternatively use `gcloud auth application-default login`.
+3. Create a Google Maps API key (restricted to your site) and a Map ID (choose *Vector* rendering to enable the 3D tilt).
+4. Edit `.env`:
+
+| Variable | Purpose |
+|---|---|
+| `PROJECT_ID`, `EE_PROJECT`, `REGION` | Your Cloud project and region |
+| `GEO_BACKEND` | `mock` (fixtures) or `ee` (real Earth Engine) |
+| `EE_SERVICE_ACCOUNT_KEY` | Path to the key, e.g. `credentials/ee-sa.json` |
+| `AGENT_MODEL`, `GOOGLE_CLOUD_LOCATION` | Gemini model and Vertex location |
+| `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`, `NEXT_PUBLIC_GOOGLE_MAP_ID` | Browser map key and Map ID (in `apps/web/.env.local`) |
+
+All settings are listed in [docs/config-reference.md](docs/config-reference.md).
+
+### 3. Build the data files
+
+Run from `apps/api` (scripts that read OpenStreetMap need `--group scripts`). Outputs go to `apps/api/.local_storage/dmr/`, which is gitignored.
 
 ```bash
-cp infra/config.env.example infra/config.env && cp .env.example .env   # fill PROJECT_ID, EE_PROJECT, Maps key
-gcloud auth application-default login --scopes=https://www.googleapis.com/auth/earthengine,https://www.googleapis.com/auth/cloud-platform
-export MAPS_KEY=<browser key>
-infra/bootstrap.sh                        # prerequisites, APIs, service account, Firestore, bucket, secret
-infra/bootstrap.sh --run-pipeline         # admin upload, OSM, susceptibility + exposure exports (long)
-API_URL=<api url> MAPS_KEY=$MAPS_KEY MAP_ID=<map id> make deploy
-python infra/smoke_test.py https://<api-url>
+# one-off (re-run only if the source layers change)
+uv run python ../../scripts/build_dmr_static.py --project <EE_PROJECT>    # exports a 100 m asset to your Earth Engine project
+uv run python ../../scripts/precompute_dmr_static_stats.py                 # per-tambon risk statistics
+uv run python ../../scripts/build_provinces_geojson.py                     # province outlines for the map
+uv run --group scripts python ../../scripts/precompute_dmr_features.py     # buildings, hospitals, schools, roads (needs the Geofabrik extract, see the script header)
+
+# daily (rainfall)
+uv run python ../../scripts/precompute_dmr_rain.py
 ```
 
-## Demo script (three rehearsed scenarios)
+The daily file must stay fresh. If observed data is more than 3 days old the overview is unavailable; if the forecast run is more than 36 hours old the dashboard shows only the latest observed conditions.
 
-Pre-warm these once after deploy so results are cached.
+### 4. Optional: sign-in and per-account limits
 
-1. **"What happens with 250 mm of rain in 3 days in Mae Hong Son?"** Map draws; KPIs: people and households in High/Very High, buildings, road km, schools and hospitals; top tambon chart. Click a red cell to show the explanation (slope, land cover, stream distance).
-2. **"Compare 150 mm vs 300 mm in Nan."** Compare table and chart; drag the slider to show instant re-run. Point out how exposure grows non-linearly.
-3. **"What is the risk this week in Chiang Mai?"** Agent uses IMERG antecedent rain and the GFS forecast, states the assumptions, and refers to TMD/DDPM for official warnings.
+Add Firebase to your Cloud project, enable the **Google** sign-in provider in Authentication, add your site to the authorised domains, register a Web app, and put its public config in `.env` (`FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN`, `FIREBASE_APP_ID`). Then set `AUTH_REQUIRED=true`. Chat and scenario/forecast runs then need a Google sign-in (default limits: 30 chats and 200 runs per account per day; the map and overview stay public).
 
-Extra beats if asked: Thai prompt ("ฝน 200 มม. ใน 2 วัน ที่ น่าน"), an ambiguous tambon name (agent asks one question), "Tokyo" (politely refused: outside Thailand).
+### 5. Deploy to Cloud Run
 
-## 2-3 minute video script
+```bash
+cp infra/config.env.example infra/config.env    # PROJECT_ID, REGION, EE_PROJECT (gitignored)
+infra/setup.sh                                  # enable APIs, service account, Artifact Registry, Firestore, bucket
+infra/bootstrap.sh                              # stores the Maps keys in Secret Manager
+just deploy                                     # builds and deploys the API, then the web app, then smoke-tests
+```
 
-| Time | Screen | Voice-over |
-|---|---|---|
-| 0:00-0:15 | Photo/clip of a landslide, then the app | "Every monsoon, officers in northern Thailand ask the same question: if this much rain falls, who is at risk? Today that takes days of GIS work." |
-| 0:15-0:35 | Type scenario 1 | "LandslideWatch TH answers in seconds. I ask in plain English: 250 millimetres in three days in Mae Hong Son." |
-| 0:35-1:05 | Status chips, map layer, KPI tiles | "A Gemini agent built with ADK plans the analysis and calls Earth Engine. NASADEM slope, land cover, soils and streams give susceptibility; a rainfall-threshold model turns the scenario into hazard. Exposure from WorldPop, buildings and OpenStreetMap. Every number you see came from a tool call." |
-| 1:05-1:30 | Click map point, explain | "Click anywhere to see why it is red: steep slope, bare ground, close to a stream." |
-| 1:30-1:55 | Scenario 2: compare, slider | "Planning? Compare 150 against 300 millimetres, or drag the slider and re-run instantly." |
-| 1:55-2:20 | Scenario 3 + Thai toggle | "This week's risk uses satellite rainfall from the past fortnight and the GFS forecast. It works in Thai too, and always points to TMD and DDPM for official warnings." |
-| 2:20-2:45 | Limitations panel, architecture slide | "We are upfront: screening level, uniform rainfall, estimated households. Runs on Cloud Run, Vertex AI, Earth Engine and Firestore. Built to be handed to the people who need it." |
+The API runs as an attached service account, with no key file in the image. In production the data files from step 3 must be in the project's Cloud Storage bucket (`<project>-lw/dmr/`), because the container does not contain them. Automating the daily rainfall job (for example a Cloud Run job on a schedule) is not set up yet.
 
-## Prize categories
+## Tests and CI
 
-| Category | How we fit |
-|---|---|
-| **Best Use of Google Cloud AI Tools** | ADK agent on Gemini 3.5 Flash (Vertex AI) with typed tools and streamed events; Earth Engine does all geospatial compute; Firestore, Cloud Run, Cloud Build, Secret Manager, Geocoding and Maps in one coherent stack. |
-| **Most Impactful** | Turns a days-long GIS task into seconds for provincial disaster staff in a landslide-prone country; transparent method; extensible to other hazards and countries; built on open data. |
-| **Social Choice** | Relatable, high-stakes question ("will my district be hit?"), bilingual Thai/English, shareable briefing. |
-| **Best UI/UX** | Chat plus map split view, tool-progress chips, KPI tiles, slider re-run, colour-blind safe ramp, dark/light, mobile tabs, clear empty/error states, persistent honesty banner. |
+- `just test` (API), `just web-check` (web), `just test-ee` (cloud integration tests, needs credentials), `just eval` (agent evals, needs Gemini).
+- GitHub Actions (`.github/workflows/ci.yml`) runs on every push and pull request: API tests, web type-check, lint, unit test and production build, infra script checks, Docker image builds, and a secret scan of files and history.
 
-## Screenshots
+## Secrets
 
-_Placeholders; add after the first deploy._
+`.env`, `credentials/`, service-account keys, `.local_storage/` and generated project config are gitignored and must never be committed. `scripts/check-secrets.sh` fails CI if a secret or credential file appears in any file or commit. To run it before each local commit, enable the hook once per clone:
 
-| | |
-|---|---|
-| `docs/img/hero.png` Chat + hazard map (Mae Hong Son) | `docs/img/compare.png` 150 vs 300 mm compare |
-| `docs/img/explain.png` Click-to-explain popover | `docs/img/mobile.png` Mobile tabs |
+```bash
+git config core.hooksPath .githooks
+```
+
+## Documentation
+
+[DMR method](docs/dmr_method.md) · [Data sources](docs/data_sources.md) · [Configuration reference](docs/config-reference.md) · [Limitations](docs/limitations.md) · [Architecture](docs/architecture.md) · [Event contract](docs/event_contract.md) · [Screening model (alternative)](docs/method.md)
 
 ## Safety and honesty
 
-- **Not an official warning.** A persistent banner links to TMD and DDPM; the agent refers users there for decisions.
-- **Numbers only from tools.** The system prompt forbids figures from memory; people are rounded; households are labelled estimates (people / 2.5).
-- **Assumptions are always shown**: uniform rainfall, 100 m resolution, no soil depth or lithology, global rainfall threshold not calibrated to Thailand.
-- **Data caveats are visible** in each result (`data_sources`, `limitations`), see [docs/data_sources.md](docs/data_sources.md).
-- **Validation is reported, not claimed.** `scripts/validate_susceptibility.py` computes AUC against NASA GLC; quote only what it outputs.
-- Out-of-scope requests (places outside Thailand, absurd rainfall) are refused with an explanation.
-
-## Layout
-
-`apps/web` Next.js UI, `apps/api` FastAPI + ADK + geo (`app/geo`, `app/agent`, `app/config`), `scripts` one-time data pipeline, `infra` setup/bootstrap/smoke test, `docs`, `evals`, `infra/cloudbuild-*.yaml`, `docker-compose.yml`, `Makefile`.
+- Results are screening estimates, not official forecasts or warnings.
+- Numbers shown come from computed results. People and buildings are rounded estimates, and building counts come from satellite built-up area.
+- Risk classes are national and relative, not probabilities.
+- OpenStreetMap hospital, school and road data can be incomplete.
+- Requests for places outside Thailand, or absurd rainfall values, are declined with an explanation.
