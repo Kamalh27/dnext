@@ -1,0 +1,113 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api:
+    name: API (pytest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: apps/api/uv.lock
+      - name: Install (Python 3.12 from .python-version, locked deps)
+        run: uv sync --frozen
+      - name: "Tests (mock backend, no cloud credentials; cloud integration tests are deselected)"
+        run: uv run pytest -q
+
+  web:
+    name: Web (types, lint, unit test, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4          # version comes from packageManager in package.json
+        with:
+          package_json_file: apps/web/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: apps/web/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - name: Type check
+        run: pnpm exec tsc --noEmit
+      - name: Lint
+        run: pnpm lint
+      - name: Unit tests (language helpers)
+        run: node --test lib/lang.test.ts
+      - name: Production build
+        run: pnpm build
+        env:
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:8080
+          NEXT_TELEMETRY_DISABLED: "1"
+
+  infra:
+    name: Infra scripts and configs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Shell syntax
+        run: |
+          for f in infra/*.sh; do echo "bash -n $f"; bash -n "$f"; done
+      - name: Config files parse
+        run: |
+          python3 -m pip install --quiet pyyaml
+          python3 - <<'PY'
+          import glob, yaml, json, sys
+          bad = 0
+          for f in glob.glob("infra/*.yaml") + glob.glob("apps/api/app/config/*.yaml") + ["docker-compose.yml"]:
+              try:
+                  yaml.safe_load(open(f)); print("ok", f)
+              except Exception as e:
+                  bad += 1; print("FAIL", f, e)
+          for f in ["apps/web/public/provinces.json", "apps/api/app/config/admin_index.json"]:
+              try:
+                  json.load(open(f)); print("ok", f)
+              except Exception as e:
+                  bad += 1; print("FAIL", f, e)
+          sys.exit(1 if bad else 0)
+          PY
+      - name: Python scripts compile
+        run: python3 -m compileall -q scripts apps/api/app
+
+  docker:
+    name: Docker images build (no push)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build API image
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/api
+          push: false
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+      - name: Build web image
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/web
+          push: false
+          build-args: |
+            NEXT_PUBLIC_API_BASE_URL=http://localhost:8080
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
