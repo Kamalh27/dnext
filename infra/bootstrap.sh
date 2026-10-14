@@ -68,7 +68,7 @@ put_secret() {  # name value
   fi
   # runtime account reads only these secrets (no project-wide secretAccessor)
   gcloud secrets add-iam-policy-binding "$1" --project "$PROJECT_ID" \
-    --member "serviceAccount:landslide-api@$PROJECT_ID.iam.gserviceaccount.com" --role roles/secretmanager.secretAccessor -q >/dev/null
+    --member "serviceAccount:${RUNTIME_SA:-landslide-api@$PROJECT_ID.iam.gserviceaccount.com}" --role roles/secretmanager.secretAccessor -q >/dev/null
 }
 echo "== Maps keys -> Secret Manager"
 put_secret maps-key "$MAPS_KEY"                       # browser key (referrer-restricted)
