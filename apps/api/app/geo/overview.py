@@ -1,12 +1,12 @@
 """National 'current conditions' overview from the two daily precomputes (no Earth Engine call).
 
-Observed 30-day rainfall per tambon (GSMaP) vs the tambon's DMR thresholds -> trigger class; with the static histogram that gives
+Observed 30-day rainfall per tambon (GSMaP) vs the tambon's rainfall thresholds -> trigger class; with the static histogram that gives
 risk, people in the elevated zone and class areas per tambon, aggregated to provinces. horizon_days > 0 swaps the last
 `horizon_days` observed days for the GFS forecast of the next `horizon_days` days (same rule as the forecast scenario).
 """
 import time
 
-from app.geo import dmr, obs_cache, static_stats
+from app.geo import tambon_risk, obs_cache, static_stats
 from app.settings import load_yaml
 
 _memo: dict = {}
@@ -20,7 +20,7 @@ class OverviewUnavailable(RuntimeError):
 def _rows(data: dict, horizon: int) -> list[dict]:
     rows = []
     for code, t in data["tambon"].items():
-        d = t["d"][: dmr.cfg()["trigger"]["window_days"] - horizon]
+        d = t["d"][: tambon_risk.cfg()["trigger"]["window_days"] - horizon]
         if any(v is None for v in d):
             rain = None
         else:
@@ -28,7 +28,7 @@ def _rows(data: dict, horizon: int) -> list[dict]:
             if horizon:
                 f = t.get("f") or []
                 rain = rain + float(f[horizon - 1] or 0.0) if len(f) >= horizon else None
-        rows.append({"adm3_pcode": code, "rain30_mm": rain, "trigger_class": dmr.trigger_class(rain, t["thr"]), "pc": t["pc"], "p": t["p"], "pt": t["pt"],
+        rows.append({"adm3_pcode": code, "rain30_mm": rain, "trigger_class": tambon_risk.trigger_class(rain, t["thr"]), "pc": t["pc"], "p": t["p"], "pt": t["pt"],
                      "day_rain_mm": _day_rain(t, horizon)})
     return rows
 
@@ -50,10 +50,10 @@ def national(horizon_days: int = 0) -> dict:
     hit = _memo.get(key)
     if hit and time.time() - hit[0] < _TTL_S and hit[2] == id(obs_cache.load()):
         return hit[1]
-    src = dmr.cfg()["trigger"]["observed_source"]
+    src = tambon_risk.cfg()["trigger"]["observed_source"]
     data, ss = obs_cache.load(), static_stats.load()
-    if not obs_cache.usable(data, src, dmr.cfg()["trigger"]["window_days"]) or not ss:
-        raise OverviewUnavailable("Daily rainfall precompute is missing or stale; run scripts/precompute_dmr_rain.py")
+    if not obs_cache.usable(data, src, tambon_risk.cfg()["trigger"]["window_days"]) or not ss:
+        raise OverviewUnavailable("Daily rainfall precompute is missing or stale; run scripts/precompute_rain.py")
     f = (data.get("forecast") or {})
     if horizon_days and (str(horizon_days) not in {str(k) for k in f.get("horizons", {})} or time.time() * 1000 - f.get("run_ms", 0) > obs_cache.MAX_FORECAST_AGE_MS):
         raise OverviewUnavailable("No fresh GFS forecast in the precompute for this horizon")
@@ -88,8 +88,8 @@ def national(horizon_days: int = 0) -> dict:
                                                                            int(round(p["schools"])), round(p["road_km"], 1))
         n = p.pop("_rain_n", 0)
         p["rain_mm"] = round(p.pop("_rain_sum", 0.0) / n, 1) if n else None      # province-mean rain for the slider day
-        # 0 = nothing triggered (or no susceptible ground); 1..5 = the DMR risk class of the province's peak risk. Drives the map colours.
-        p["risk_class"] = dmr.risk_class(p["risk_max"], dmr.cfg()["risk"]["cutoffs"]) if p["triggered"] and p["risk_max"] > 0 else 0
+        # 0 = nothing triggered (or no susceptible ground); 1..5 = the risk class of the province's peak risk. Drives the map colours.
+        p["risk_class"] = tambon_risk.risk_class(p["risk_max"], tambon_risk.cfg()["risk"]["cutoffs"]) if p["triggered"] and p["risk_max"] > 0 else 0
         provinces.append(p)
     # Rank by RISK, not rainfall alone: flat lowland provinces can exceed their local rain thresholds with almost no landslide-prone ground.
     provinces.sort(key=lambda p: (-p["risk_max"], -p["people_elevated"], -p["triggered_share"], p["name"]))
@@ -104,15 +104,15 @@ def national(horizon_days: int = 0) -> dict:
         "elevated": ({k: (int(round(sum(p[k] for p in provinces), -2)) if k == "buildings" else
                           round(sum(p[k] for p in provinces), 1) if k == "road_km" else int(sum(p[k] for p in provinces)))
                       for k in ("buildings", "hospitals", "schools", "road_km")} if feats else None),
-        # people / buildings / ... on susceptible ground in tambons above trigger, by DMR risk class (1 Very low .. 5 Very high)
+        # people / buildings / ... on susceptible ground in tambons above trigger, by risk class (1 Very low .. 5 Very high)
         "classes": [{**c, "area_km2": round(c["area_km2"], 1), "people": int(round(c["people"], -2)),
                      **({k: (int(round(c[k], -1)) if k == "buildings" else round(c[k], 1) if k == "road_km" else int(round(c[k])))
                          for k in ("buildings", "hospitals", "schools", "road_km")} if feats else {})} for c in res["by_class"]],
         "trigger_classes": [sum(1 for r in rows if r["trigger_class"] == i) for i in range(6)],
         "provinces": provinces, "top": [p for p in provinces if p["risk_class"] > 0][:5],
-        "limitations": ["Observed rainfall (GSMaP, last 30 days) compared with each tambon's DMR thresholds; a screening estimate, not a forecast."
+        "limitations": ["Observed rainfall (GSMaP, last 30 days) compared with each tambon's rainfall thresholds; a screening estimate, not a forecast."
                         if not horizon_days else
-                        "Observed rainfall plus GFS forecast compared with each tambon's DMR thresholds; a screening estimate."],
+                        "Observed rainfall plus GFS forecast compared with each tambon's rainfall thresholds; a screening estimate."],
     }
     _memo[key] = (time.time(), out, id(data))
     return out
@@ -150,7 +150,7 @@ def series(max_days: int = 5) -> dict:
     f = cur.get("forecast", {})
     out = {"date_of_data": cur["date_of_data"], "source": cur["source"], "model_run_time": f.get("model_run_time"), "max_days": max_days,
            "days": days, "forecast_available": forecast_note is None, "forecast_note": forecast_note,
-           "limitations": ["Observed rainfall (GSMaP) plus GFS forecast compared with each tambon's DMR thresholds. Forecast skill falls with lead time; "
+           "limitations": ["Observed rainfall (GSMaP) plus GFS forecast compared with each tambon's rainfall thresholds. Forecast skill falls with lead time; "
                            "this is a screening estimate, not a forecast."]}
     _memo[key] = (time.time(), out, id(cur))
     return out

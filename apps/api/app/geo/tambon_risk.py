@@ -1,10 +1,10 @@
-"""DMR / ADPC landslide-risk method on Earth Engine.
+"""Tambon-level landslide-risk method on Earth Engine.
 
 Risk = Trigger x Susceptibility x Vulnerability x Exposure / 125   (each factor a 1..5 class; trigger 0..5) -> 0..5
  - Trigger: tambon 30-day rainfall vs the tambon's own percentile thresholds (P60/70/80/90/95 -> classes 1..5, below P60 -> 0).
- - Susceptibility: ADPC CNN map (0..100); pixels >= threshold only, classed by the z-score ("Standardize") method.
+ - Susceptibility: CNN map (0..100); pixels >= threshold only, classed by the z-score ("Standardize") method.
  - Vulnerability / Exposure: continuous 0..1 indices scaled to classes 1..5.
-Config lives in config/dmr.yaml. Pure helpers (no EE) are unit-tested; EE builders return lazy images.
+Config lives in config/tambon_risk.yaml. Pure helpers (no EE) are unit-tested; EE builders return lazy images.
 Known deviation from the reference script: a tambon with a missing threshold gets trigger class 0 (the script's safeNum would
 turn a null threshold into 0 and give class 5).
 """
@@ -24,9 +24,9 @@ TOP_TAMBON = 10
 
 
 def cfg() -> dict:
-    """dmr.yaml plus the project-specific layer paths from dmr_assets.local.yaml (gitignored; see its .example)."""
-    c = load_yaml("dmr.yaml")
-    local = CONFIG_DIR / "dmr_assets.local.yaml"
+    """tambon_risk.yaml plus the project-specific layer paths from risk_layers.local.yaml (gitignored; see its .example)."""
+    c = load_yaml("tambon_risk.yaml")
+    local = CONFIG_DIR / "risk_layers.local.yaml"
     if local.is_file():
         c["assets"].update({k: v for k, v in ((yaml.safe_load(local.read_text()) or {}).get("assets") or {}).items() if v})
     return c
@@ -75,7 +75,7 @@ def risk_legend() -> list[dict]:
 def _a(key: str) -> str:
     path = cfg()["assets"].get(key)
     if not path:
-        raise RuntimeError(f"DMR layer '{key}' is not configured: copy app/config/dmr_assets.local.yaml.example to dmr_assets.local.yaml and fill it in.")
+        raise RuntimeError(f"Layer '{key}' is not configured: copy app/config/risk_layers.local.yaml.example to risk_layers.local.yaml and fill it in.")
     return path
 
 
@@ -173,9 +173,9 @@ def static_product() -> ee.Image:
 
 def static_stats_bands() -> ee.Image:
     """Bands for tambon statistics: prod, expo_class, expo. Uses the precomputed 100 m asset when built (assets.local.yaml
-    -> dmr_static_asset, see scripts/build_dmr_static.py), otherwise computes from the 12 m sources."""
+    -> risk_static_asset, see scripts/build_risk_layer.py), otherwise computes from the 12 m sources."""
     from app.settings import assets
-    asset = assets().get("dmr_static_asset")
+    asset = assets().get("risk_static_asset")
     if asset:
         return ee.Image(asset)
     return ee.Image.cat([static_product(), exposure_class().rename("expo_class"), exposure_index().rename("expo")])

@@ -1,6 +1,28 @@
 # Data sources
 
-IDs and caveats verified **2026-10-12** (Earth Engine catalog, Vertex AI docs, dataset pages). All Earth Engine IDs live in `apps/api/app/config/datasets.yaml`; nothing is hard-coded elsewhere. Re-verify before the demo; the catalog changes (dataset versions, deprecations).
+## Default method (tambon-level risk)
+
+| Use | Data | Notes |
+|---|---|---|
+| Susceptibility | Landslide susceptibility map from ADPC | Band `b1`, values 0 to 100, 12 m |
+| Vulnerability | Combined vulnerability index from ADPC | 0 to 0.50 across the country |
+| Exposure | Combined exposure index from ADPC | 0.07 to 0.82 across the country |
+| Rainfall thresholds and tambon boundaries | ADPC table of 7,425 tambon polygons | English and Thai names and codes, and the thresholds `P60max` to `P95max` (30-day rainfall in mm). These polygons are also the tambon boundary layer, so no separate administrative shapefile is needed for tambon ranking |
+| Country boundary | Thailand with a 10 km buffer | |
+| Observed rainfall | JAXA GSMaP (`JAXA/GPM_L3/GSMaP/v6/operational`) | NASA IMERG can be selected instead. The newest image is about a day old |
+| Forecast rainfall | NOAA GFS (`NOAA/GFS0P25`) | Observed products have no forecast |
+| Population | WorldPop 2020, 100 m (`WorldPop/GP/100m/pop`) | A modelled estimate, not a census count |
+| Built-up area | GHSL built-up surface | Building counts are estimated from built-up area and an average footprint (`avg_footprint_m2` in `thresholds.yaml`) |
+| Hospitals, schools, main roads | OpenStreetMap, from a Geofabrik Thailand extract | Only as complete as the OSM mapping, which is uneven in remote areas |
+| Base map and place search | Google Maps Platform | |
+
+The ADPC layers are read from Google Earth Engine. Their asset paths are project-specific. They are not stored in the repository. Put them in `apps/api/app/config/risk_layers.local.yaml`, using `risk_layers.local.yaml.example` as the template. The method is described in [risk_method.md](risk_method.md).
+
+The agent model is `gemini-3.5-flash` on Vertex AI. An optional briefing model (`BRIEFING_MODEL`) is off by default, and briefings then come from a fixed template.
+
+## Alternative screening method
+
+These datasets are used only when `HAZARD_MODEL=screening`. Earth Engine IDs for them are in `apps/api/app/config/datasets.yaml`.
 
 | Use | ID / value | Band(s) | Native resolution | Latency / vintage | Licence | Notes |
 |---|---|---|---|---|---|---|
@@ -18,34 +40,18 @@ IDs and caveats verified **2026-10-12** (Earth Engine catalog, Vertex AI docs, d
 | Admin boundaries | HDX `cod-ab-tha` ADM1-3 (77 / 928 / 7,425) | polygons | vector | HDX release | CC BY-IGO | Uploaded as our own EE asset by `scripts/upload_admin.py` (EE has **no ADM3**). Fallback geoBoundaries ADM1/2. |
 | Roads / facilities | Geofabrik Thailand extract `thailand-latest.osm.pbf` | highways; school / hospital / shelter / bridge | vector, rasterised to 100 m | daily | ODbL | BigQuery `geo_openstreetmap` is **stale (Nov 2021)** so it is not used. Roads are rasterised as metres per pixel per class. |
 | Validation | NASA Global Landslide Catalog (CSV, to 2016); LHASA global 1 km GeoTIFF | - | points / 1 km | static | NASA open data | - |
-| Household size | 2.5 persons/household | - | national | 2025 census preliminary, news-reported | - | Config value `exposure.household_size`; always labelled "estimate". **Confirm the NSO source before publishing.** |
+| Household size | 2.5 persons/household | - | national | 2025 census preliminary, news-reported | - | Config value `exposure.household_size`; always labelled "estimate". The source still needs to be confirmed. |
 | Agent LLM | `gemini-3.5-flash` (Vertex AI, `asia-southeast1`, fallback `global`) | - | - | - | Google Cloud terms | Gemini 2.5 models retire 2026-10-20: not used. |
 | Briefing LLM (optional) | `gemini-3.1-pro-preview` (`global` only, preview) | - | - | - | Google Cloud terms | Off by default (`BRIEFING_MODEL` empty = deterministic template). |
 | Agent framework | `google-adk==2.11.*` | - | - | - | Apache 2.0 | `LlmAgent`, `Runner`, SSE streaming. |
 
-## Known gaps and fallbacks
+### Known gaps
 
 - **CHIRPS lag.** CHIRPS daily arrives 1-2 months late. Current-conditions wetness uses IMERG V07 (about 1 day lag); CHIRPS is only for replaying past events.
 - **IMERG is coarse (about 10 km).** Antecedent wetness is therefore smooth; it can miss very local storms.
 - **Open Buildings in Thailand is unverified.** The exposure script tests coverage and uses GHSL built-up surface otherwise; building *counts* then derive from an average footprint (`exposure` config) and are rougher.
 - **OSM freshness.** BigQuery OSM is frozen at Nov 2021, so the Geofabrik extract is downloaded and processed offline. Roads and facilities are only as complete as OSM mapping, which is uneven in remote mountain areas.
-- **No ADM3 in Earth Engine.** Tambon polygons come from HDX and are uploaded to our own asset; tambon rankings depend on that upload having run.
+- **No ADM3 in Earth Engine.** Tambon polygons come from HDX and are uploaded to our own asset.
 - **Household size.** 2.5 comes from preliminary, news-reported 2025 census figures. We divide people by it and call the result an estimate.
 - **No soil depth, no lithology.** Two of the strongest controls on landslide initiation are absent from open global data in EE. Susceptibility is therefore weaker than a site-investigated map, and this is stated in the tool output.
 - **Single threshold.** The rainfall threshold defaults to the global Caine (1980) curve; it is not calibrated for Thailand (swappable in `thresholds.yaml`).
-
-
-## DMR / ADPC layers (default hazard model)
-The Earth Engine paths of these layers are project-specific and are kept out of the repository: put them in `apps/api/app/config/dmr_assets.local.yaml` (gitignored; template `dmr_assets.local.yaml.example`).
-
-| Use | Content | Notes |
-|---|---|---|
-| Susceptibility | ADPC landslide susceptibility map | band `b1`, 0-100, 12 m |
-| Vulnerability | Combined vulnerability index | 0-0.50 nationally |
-| Exposure | Combined exposure index | 0.07-0.82 nationally |
-| Rainfall thresholds and tambon boundaries | 7,425 tambon polygons | EN/TH names and codes; `P60max`..`P95max` (30-day mm) |
-| Boundary | Thailand boundary with 10 km buffer | |
-| Observed rain | JAXA GSMaP (`JAXA/GPM_L3/GSMaP/v6/operational`); NASA IMERG selectable | newest image about 1 day old |
-| Forecast rain | NOAA GFS (`NOAA/GFS0P25`) | observed products have no forecast |
-
-See `docs/dmr_method.md`. The tambon thresholds table also gives us the tambon boundary layer, so no separate administrative shapefile is needed for tambon ranking.

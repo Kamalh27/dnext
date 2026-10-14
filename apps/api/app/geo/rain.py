@@ -154,7 +154,7 @@ def historical_rain(start: str, end: str, region: ee.Geometry) -> dict:
     return {"rain_mm": region_mean(total, region, 5566), "start": start, "end": end, "dataset": ds}
 
 
-# ---------------- DMR method inputs: spatially varying images (mm) ----------------
+# ---------------- tambon method inputs: spatially varying images (mm) ----------------
 GSMAP = "JAXA/GPM_L3/GSMaP/v6/operational"   # hourlyPrecipRate (mm/h), hourly steps, ~11 km, ~1 day latency
 
 

@@ -3,7 +3,7 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
-from app.geo import dmr, obs_cache, static_stats
+from app.geo import tambon_risk, obs_cache, static_stats
 from app.main import app
 
 
@@ -92,12 +92,12 @@ def test_static_layers_endpoint_in_mock_mode():
 
 def test_every_layer_key_has_a_legend():
     keys = ("risk", "trigger", "rain", "susceptibility", "vulnerability", "exposure", "population")
-    assert all(dmr._legend(k) for k in keys)
+    assert all(tambon_risk._legend(k) for k in keys)
 
 
 def test_population_legend_matches_breaks_and_palette():
-    c = dmr.cfg()["layers"]["population"]
-    leg = dmr.population_legend()
+    c = tambon_risk.cfg()["layers"]["population"]
+    leg = tambon_risk.population_legend()
     assert len(leg) == len(c["breaks"]) == len(c["palette"])
     assert leg[0]["label"].startswith("0.5–2") and leg[-1]["label"].startswith("40+")
     assert [l["color"] for l in leg] == ["#" + p for p in c["palette"]]
@@ -133,13 +133,13 @@ def test_without_features_the_counts_are_unavailable_not_zero():
 
 
 def test_exposure_payload_reports_none_without_features_and_numbers_with_them():
-    from app.geo import dmr_backend
-    rows = dmr.classify_rows([{"adm3_pcode": "A", "adm3_name": "T", "adm3_name1": "ต", "adm2_pcode": "x", "adm2_name": "Am", "adm2_name1": "อ",
+    from app.geo import tambon_backend
+    rows = tambon_risk.classify_rows([{"adm3_pcode": "A", "adm3_name": "T", "adm3_name1": "ต", "adm2_pcode": "x", "adm2_name": "Am", "adm2_name1": "อ",
                                "adm1_pcode": "TH55", "adm1_name": "Nan", "adm1_name1": "น", "area_sqkm": 1, "center_lat": 1, "center_lon": 1,
                                "thresholds": [1] * 5, "mean": 300.0}])
     base = {"meta": {"source": "gsmap", "dataset": "d", "date_of_data": "x"}, "fmeta": None, "rows": rows}
-    no = dmr_backend._exposure_payload({**base, "stats": static_stats.tambon_stats(STATIC, rows, 2.0)}, "High")
-    yes = dmr_backend._exposure_payload({**base, "stats": static_stats.tambon_stats(STATIC, rows, 2.0, features=FEATURES)}, "High")
+    no = tambon_backend._exposure_payload({**base, "stats": static_stats.tambon_stats(STATIC, rows, 2.0)}, "High")
+    yes = tambon_backend._exposure_payload({**base, "stats": static_stats.tambon_stats(STATIC, rows, 2.0, features=FEATURES)}, "High")
     assert no["buildings"] is None and no["hospitals"] is None and no["road_km"] is None
     assert yes["buildings"] == 30 and yes["hospitals"] == 1 and yes["schools"] == 1 and yes["road_km"] == 2.0     # (1200+600)/60 = 30
     assert any("OpenStreetMap" in x for x in yes["limitations"]) and not any("not reported in this mode" in x for x in yes["limitations"])

@@ -1,4 +1,4 @@
-# Copy to dmr_assets.local.yaml and fill in the Earth Engine asset paths you were given. The real file is gitignored.
+# Copy to risk_layers.local.yaml and fill in the Earth Engine asset paths you were given. The real file is gitignored.
 assets:
   boundary: projects/<project>/assets/<country boundary with buffer>
   thresholds: projects/<project>/assets/<tambon polygons with P60max..P95max rainfall thresholds>

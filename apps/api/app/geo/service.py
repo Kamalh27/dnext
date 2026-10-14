@@ -29,14 +29,14 @@ def forecast_id(area: Area, horizon_days: int) -> str:
 
 def _model_part() -> list[str]:
     """Cache-key part so results from different hazard models never mix (keeps old ids stable for screening)."""
-    return ["dmr"] if settings().geo_backend == "ee" and settings().hazard_model == "dmr" else []
+    return ["tambon"] if settings().geo_backend == "ee" and settings().hazard_model == "tambon" else []
 
 
 def _backend():
     if settings().geo_backend == "ee":
-        if settings().hazard_model == "dmr":
-            from app.geo import dmr_backend  # lazy: needs EE auth
-            return dmr_backend
+        if settings().hazard_model == "tambon":
+            from app.geo import tambon_backend  # lazy: needs EE auth
+            return tambon_backend
         from app.geo import ee_backend
         return ee_backend
     return mock

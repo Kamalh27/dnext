@@ -128,7 +128,7 @@ export interface Province {
 /** GET /overview/series: national current conditions (h=0, observed) and cumulative forecast days (h=1..5). */
 export interface OverviewProvinceDay {
   pcode: string;
-  risk_class: number; // 0 = nothing triggered / no susceptible ground, 1..5 = DMR classes Very low .. Very high
+  risk_class: number; // 0 = nothing triggered / no susceptible ground, 1..5 = risk classes Very low .. Very high
   risk_max: number;
   triggered: number;
   tambons: number;
@@ -156,7 +156,7 @@ export interface OverviewTop {
 }
 /** Exposure inside the Moderate-or-higher risk zone nationally. null (on the day) = features precompute missing. */
 export interface OverviewElevated { buildings: number; hospitals: number; schools: number; road_km: number }
-/** One DMR risk class on susceptible ground in tambons above their trigger. Feature fields are absent when not computed. */
+/** One risk class on susceptible ground in tambons above their trigger. Feature fields are absent when not computed. */
 export interface OverviewClass {
   class: number; // 1..5
   name: string;

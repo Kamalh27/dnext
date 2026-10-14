@@ -1,12 +1,12 @@
 from app import i18n_th
 from app.agent.events import forecast_events, scenario_events
-from app.geo import dmr
+from app.geo import tambon_risk
 
 
 def test_known_limitations_translate_and_unknown_fall_back():
-    from app.geo import dmr_backend
-    for s in dmr_backend.limitations({"source": "imerg"}, ["Buildings, roads and facilities are not part of the DMR layers and are not reported in this mode."]):
-        assert i18n_th.limitation(s) != s, s                       # every sentence the DMR backend emits has a Thai version
+    from app.geo import tambon_backend
+    for s in tambon_backend.limitations({"source": "imerg"}, ["Buildings, roads and facilities are not part of the risk layers and are not reported in this mode."]):
+        assert i18n_th.limitation(s) != s, s                       # every sentence the tambon backend emits has a Thai version
     assert i18n_th.limitation("Something new") == "Something new"   # never a made-up translation
     assert "96" in i18n_th.limitation("GFS run covers only 96 h of the requested 120 h.")
 
@@ -17,20 +17,20 @@ def test_thai_text_never_calls_results_a_warning():
 
 
 def test_legends_and_layer_names_have_thai():
-    for l in dmr.risk_legend() + dmr.population_legend() + dmr._legend("exposure") + dmr._legend("rain"):
+    for l in tambon_risk.risk_legend() + tambon_risk.population_legend() + tambon_risk._legend("exposure") + tambon_risk._legend("rain"):
         assert l["label_th"]
-    for k, v in dmr.cfg()["layers"].items():
+    for k, v in tambon_risk.cfg()["layers"].items():
         assert v.get("name_th"), k
 
 
 def _result(kind="what_if"):
-    leg = dmr.risk_legend()
+    leg = tambon_risk.risk_legend()
     tt = [{"name": "Na Thanung", "name_th": "นาทะนุง", "amphoe": "Na Muen", "amphoe_th": "นาหมื่น", "trigger_class": 5, "rain30_mm": 365,
            "risk_max": 2.0, "share_high_pct": 0, "exposure_class": 1.1, "people": 100}]
     r = {"scenario_id": "s", "kind": kind, "rainfall_mm": 250, "duration_h": 72,
          "area": {"name": "Nan", "name_th": "น่าน", "bbox": [1, 2, 3, 4], "admin_code": "TH55"},
-         "hazard": {"model": "dmr", "tile_url": "", "legend": leg, "layers": [], "triggered_tambons": 74, "tambons_total": 99, "antecedent_days": 27,
-                    "data_sources": ["a"], "resolution_m": 100, "date_of_data": "d", "limitations": ["Screening-level estimate of rainfall-triggered landslide risk using the DMR/ADPC method; not a forecast."]},
+         "hazard": {"model": "tambon", "tile_url": "", "legend": leg, "layers": [], "triggered_tambons": 74, "tambons_total": 99, "antecedent_days": 27,
+                    "data_sources": ["a"], "resolution_m": 100, "date_of_data": "d", "limitations": ["Screening-level estimate of rainfall-triggered landslide risk at tambon level; not a forecast."]},
          "exposure": {"people": 100, "households_est": 100, "buildings": None, "road_km": None, "schools": None, "hospitals": None,
                       "top_admin_units": tt, "tambon_table": tt, "tambons_ranked": 99, "data_sources": ["b"], "limitations": [], "facilities": []}}
     if kind == "forecast":

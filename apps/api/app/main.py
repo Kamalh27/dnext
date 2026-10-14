@@ -135,8 +135,8 @@ async def overview_series(days: int = 5):
 @app.get("/layers/static")
 async def static_layers():
     """Reference layers (susceptibility, vulnerability, exposure, population) for the Layers panel; no scenario needed."""
-    if settings().geo_backend == "ee" and settings().hazard_model == "dmr":
-        return await asyncio.to_thread(__import__("app.geo.dmr", fromlist=["static_layers"]).static_layers)
+    if settings().geo_backend == "ee" and settings().hazard_model == "tambon":
+        return await asyncio.to_thread(__import__("app.geo.tambon_risk", fromlist=["static_layers"]).static_layers)
     from app.geo.mock import legend as _l
     names = {"susceptibility": "Susceptibility class (1-5)", "vulnerability": "Vulnerability class (1-5)", "exposure": "Exposure class (1-5)",
              "population": "Population (WorldPop 2020)"}
@@ -151,11 +151,11 @@ async def readyz():
         return {"ok": True, "backend": settings().geo_backend, "assets": {}}
 
     def check() -> dict:
-        from app.geo import dmr
+        from app.geo import tambon_risk
         from app.geo.ee_init import init
         import ee
         init()
-        wanted = dict(dmr.cfg()["assets"]) if settings().hazard_model == "dmr" else {}
+        wanted = dict(tambon_risk.cfg()["assets"]) if settings().hazard_model == "tambon" else {}
         out = {}
         for k, a in wanted.items():   # report readability only: asset paths and error details stay out of the public response
             try:

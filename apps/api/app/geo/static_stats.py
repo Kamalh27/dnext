@@ -3,7 +3,7 @@
 For a tambon with trigger class t (a single number per tambon) and static product p (1..125 per pixel):
     risk = t * p / 125.
 Per tambon we have area (km2) and population per p, so risk mean/max, the share of the tambon and the people above any risk
-cutoff, and the area per risk class are exact sums over that histogram.  Written by scripts/precompute_dmr_static_stats.py.
+cutoff, and the area per risk class are exact sums over that histogram.  Written by scripts/precompute_static_stats.py.
 """
 import json
 import logging
@@ -12,21 +12,21 @@ import threading
 import time
 from pathlib import Path
 
-from app.geo import dmr
+from app.geo import tambon_risk
 from app.settings import settings
 
 log = logging.getLogger(__name__)
-LOCAL = Path(".local_storage/dmr/static_stats.json")
-GCS_BLOB = "dmr/static_stats.json"
-FEATURES_LOCAL = Path(".local_storage/dmr/static_features.json")
-FEATURES_GCS_BLOB = "dmr/static_features.json"
+LOCAL = Path(".local_storage/risk/static_stats.json")
+GCS_BLOB = "risk/static_stats.json"
+FEATURES_LOCAL = Path(".local_storage/risk/static_features.json")
+FEATURES_GCS_BLOB = "risk/static_features.json"
 _lock = threading.Lock()
 _mem: dict = {"t": 0.0, "data": None}
 _TTL_S = 3600
 
 
 def _read() -> dict | None:
-    p = os.environ.get("DMR_STATIC_STATS_PATH")
+    p = os.environ.get("RISK_STATIC_STATS_PATH")
     for path in ([Path(p)] if p else []) + [LOCAL]:
         if path.is_file():
             return json.loads(path.read_text())
@@ -68,7 +68,7 @@ def load_features() -> dict | None:
         if now - _fmem["t"] < _TTL_S:
             return _fmem["data"]
     data = None
-    p = os.environ.get("DMR_STATIC_FEATURES_PATH")
+    p = os.environ.get("RISK_STATIC_FEATURES_PATH")
     for path in ([Path(p)] if p else []) + [FEATURES_LOCAL]:
         if path.is_file():
             data = json.loads(path.read_text())
@@ -93,9 +93,9 @@ def covers(data: dict | None, rows: list[dict]) -> bool:
 
 def tambon_stats(data: dict, rows: list[dict], high_value: float | None = None, features: dict | None = None,
                  footprint_m2: float = 60.0) -> dict:
-    """Same shape as dmr.tambon_stats(): {"rows": {pcode: {...}}, "class_area_km2": {...}}.
+    """Same shape as tambon_risk.tambon_stats(): {"rows": {pcode: {...}}, "class_area_km2": {...}}.
     With `features`, rows also carry buildings (est.), hospitals, schools and road_km inside the elevated zone, and "totals" sums them."""
-    r = dmr.cfg()["risk"]
+    r = tambon_risk.cfg()["risk"]
     hv = high_value if high_value is not None else r["cutoffs"][r["exposure_from"] - 2]
     divisor, cutoffs, names = r["divisor"], r["cutoffs"], r["class_names"]
     areas = {n: 0.0 for n in names}
@@ -120,7 +120,7 @@ def tambon_stats(data: dict, rows: list[dict], high_value: float | None = None, 
             rec["share_high"] = (sum(v[0] for _, v in hi) / total) if total > 0 else 0.0
             rec["people_high"] = sum(v[1] for _, v in hi)
             for p, v in valid.items():
-                ci = dmr.risk_class(t * p / divisor, cutoffs) - 1
+                ci = tambon_risk.risk_class(t * p / divisor, cutoffs) - 1
                 areas[names[ci]] += v[0]
                 by_class[ci]["area_km2"] += v[0]
                 by_class[ci]["people"] += v[1]
@@ -128,7 +128,7 @@ def tambon_stats(data: dict, rows: list[dict], high_value: float | None = None, 
                 for p, f in (features["tambon"].get(code, {}).get("h") or {}).items():       # same classes for the features
                     p = int(p)
                     if p >= 1:
-                        b = by_class[dmr.risk_class(t * p / divisor, cutoffs) - 1]
+                        b = by_class[tambon_risk.risk_class(t * p / divisor, cutoffs) - 1]
                         b["buildings"] += f[0] / footprint_m2
                         b["hospitals"] += f[1]
                         b["schools"] += f[2]

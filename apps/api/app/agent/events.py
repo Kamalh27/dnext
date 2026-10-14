@@ -18,11 +18,11 @@ def status_for(tool: str) -> dict:
 
 
 def _extras(h: dict, x: dict) -> dict:
-    """DMR-mode KPIs: only present when the backend supplied them (never a made-up 0)."""
-    if h.get("model") != "dmr":
+    """Tambon-mode KPIs: only present when the backend supplied them (never a made-up 0)."""
+    if h.get("model") != "tambon":
         return {}
     return {"extras": {"triggered_tambons": h.get("triggered_tambons"), "tambons_total": h.get("tambons_total"),
-                       "high_risk_people": x.get("people"), "trigger_source": "DMR tambon percentile thresholds",
+                       "high_risk_people": x.get("people"), "trigger_source": "Tambon percentile rainfall thresholds",
                        "trigger_source_th": th.TRIGGER_SOURCE,
                        "rain_window": f"{h.get('antecedent_days', '?')} d observed + scenario",
                        "rain_window_th": th.rain_window(h.get("antecedent_days", "?"))}}

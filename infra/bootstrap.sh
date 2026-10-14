@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # One-command orchestration once infra/config.env is filled.
 #   infra/bootstrap.sh                 check prerequisites, run infra/setup.sh, store Maps key, print next commands
-#   infra/bootstrap.sh --run-pipeline  also run the long data scripts (admin upload, susceptibility, exposure)
-#   infra/bootstrap.sh --deploy        also run `make deploy`
+#   infra/bootstrap.sh --run-pipeline  also run the data scripts that build the precomputed files (see README, step 3)
+#   infra/bootstrap.sh --deploy        also run infra/deploy.sh
 # Idempotent: safe to re-run. Maps key comes from env MAPS_KEY (or NEXT_PUBLIC_GOOGLE_MAPS_API_KEY in .env).
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -78,11 +78,12 @@ put_secret maps-server-key "${MAPS_SERVER_KEY:-$MAPS_KEY}"
 BUCKET="${PROJECT_ID}-dnext"
 RUN="uv run --group scripts python ../../scripts"
 PIPE=(
-  "$RUN/upload_admin.py --zip \"\${HDX_ZIP:?download HDX cod-ab-tha shapefile zip, export HDX_ZIP=path}\" --bucket $BUCKET   # ADM1-3 -> EE asset + app/config/admin_index.json"
-  "$RUN/fetch_osm.py --bucket $BUCKET                 # Geofabrik roads + facilities (needs osmium-tool)"
-  "$RUN/precompute_susceptibility.py --region nan     # fast test export; omit --region for all Thailand"
-  "$RUN/build_exposure_stack.py --region nan          # fast test; omit --region for all Thailand"
-  "$RUN/validate_susceptibility.py                    # GLC AUC -> scripts/out/validation.md"
+  "$RUN/build_risk_layer.py --project $EE_PROJECT            # one-off: 100 m static layer as an Earth Engine asset"
+  "$RUN/precompute_static_stats.py --bucket $BUCKET          # one-off: per-tambon statistics"
+  "$RUN/build_provinces_geojson.py                           # one-off: province outlines for the map"
+  "$RUN/precompute_features.py                               # one-off: buildings, hospitals, schools, roads (needs the Geofabrik extract)"
+  "gcloud storage cp .local_storage/risk/static_features.json gs://$BUCKET/risk/   # upload the features file"
+  "$RUN/precompute_rain.py --bucket $BUCKET                  # daily: rainfall per tambon"
 )
 echo
 if [ "$RUN_PIPELINE" = 1 ]; then
@@ -94,11 +95,9 @@ else
 fi
 
 if [ "$DEPLOY" = 1 ]; then
-  echo "== make deploy"
-  : "${API_URL:=}"; export API_URL MAPS_KEY MAP_ID="${MAP_ID:-${NEXT_PUBLIC_GOOGLE_MAP_ID:-}}"
-  [ -n "$API_URL" ] || echo "  note: API_URL empty (first deploy). After the api deploys, set API_URL=<url> and run 'make deploy' again so the web build points at it."
-  make deploy
+  echo "== deploy"
+  bash infra/deploy.sh
 else
-  echo; echo "Deploy when ready: API_URL=<api url or empty on first run> MAPS_KEY=\$MAPS_KEY MAP_ID=<map id> make deploy"
-  echo "Smoke test:       python infra/smoke_test.py https://<api-url>"
+  echo; echo "Deploy when ready: just deploy   (or bash infra/deploy.sh)"
+  echo "Smoke test:        python infra/smoke_test.py https://<api-url>"
 fi

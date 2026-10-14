@@ -52,14 +52,17 @@ test-ee:
 
 # Needs Vertex credentials
 eval:
-    make eval
+    cd apps/api && uv run adk eval app/agent ../../evals/evalset.json --config_file_path ../../evals/test_config.json
+
+test-evals:
+    cd apps/api && uv run pytest ../../evals -q
 
 # --- docker / deploy (needs infra/config.env) ---
 docker:
     docker compose up --build
 
 setup-gcp:
-    make setup
+    set -a && . infra/config.env && set +a && bash infra/setup.sh
 
 deploy:
     bash infra/deploy.sh

@@ -3,4 +3,4 @@ susceptibility_asset: ""
 exposure_stack_asset: ""
 tambon_asset: ""
 facilities_asset: ""
-dmr_static_asset: ""        # e.g. projects/<your-project-id>/assets/landslidewatch/dmr_static
+risk_static_asset: ""        # e.g. projects/<your-project-id>/assets/landslidewatch/risk_static

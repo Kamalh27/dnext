@@ -1,6 +1,6 @@
-"""DMR landslide-risk backend: same public functions as ee_backend (hazard_scenario, exposure, forecast_hazard, explain).
+"""Tambon-level landslide-risk backend: same public functions as ee_backend (hazard_scenario, exposure, forecast_hazard, explain).
 
-Scenario rainfall semantics (confirm with DMR): a what-if of X mm over D hours is ADDED to the observed rainfall of the
+Scenario rainfall semantics (to be confirmed): a what-if of X mm over D hours is ADDED to the observed rainfall of the
 preceding (30 - ceil(D/24)) days, giving the 30-day total that the tambon thresholds are defined on.
 Forecast: observed (30 - H) days + GFS accumulated forecast for the next H days.
 """
@@ -11,7 +11,7 @@ import time
 
 import ee
 
-from app.geo import dmr, obs_cache, rain, static_stats
+from app.geo import tambon_risk, obs_cache, rain, static_stats
 from app.geo.ee_backend import _aoi, round_buildings, round_people
 from app.geo.ee_init import get_info, init
 from app.settings import assets, load_yaml
@@ -37,9 +37,9 @@ def _memo(key, ttl, fn):
 
 
 def _min_high_from(min_class: str) -> int:
-    """Risk class from which people/area are counted. DMR classes are national and relative, so the generic min_class ('High'
+    """Risk class from which people/area are counted. Risk classes are national and relative, so the generic min_class ('High'
     by default) is mapped to the configured 'elevated' class (risk >= 2) unless the caller asks for 'Very High'."""
-    return 5 if min_class == "Very High" else dmr.cfg()["risk"]["exposure_from"]
+    return 5 if min_class == "Very High" else tambon_risk.cfg()["risk"]["exposure_from"]
 
 
 def _area_key(area) -> tuple:
@@ -48,7 +48,7 @@ def _area_key(area) -> tuple:
 
 def _observed(area, region, fc, days: int):
     """(observed image, meta, cached per-tambon observed means)."""
-    src = dmr.cfg()["trigger"]["observed_source"]
+    src = tambon_risk.cfg()["trigger"]["observed_source"]
     data = obs_cache.load()
     if obs_cache.usable(data, src, days):                     # fast path: daily precompute, no rainfall reduction
         rows = obs_cache.observed_rows(data, area, days)
@@ -56,7 +56,7 @@ def _observed(area, region, fc, days: int):
             img, meta = rain.observed_image(days, src, newest_ms=data["newest_ms"])
             return img, {**meta, "from_cache": True}, rows
     img, meta = rain.observed_image(days, src)                # live Earth Engine
-    rows = _memo(("obs", _area_key(area), days, src, meta["newest_ms"]), _OBS_TTL_S, lambda: dmr.tambon_mean_rows(fc, img))
+    rows = _memo(("obs", _area_key(area), days, src, meta["newest_ms"]), _OBS_TTL_S, lambda: tambon_risk.tambon_mean_rows(fc, img))
     return img, meta, rows
 
 
@@ -67,7 +67,7 @@ def _compute(area, extra_mm: float, window_obs_days: int, forecast: tuple | None
     def build():
         init()
         region = _aoi(area)
-        fc = dmr.tambons(region, area)
+        fc = tambon_risk.tambons(region, area)
         obs_img, meta, obs_rows = _observed(area, region, fc, window_obs_days)
         add_by_code, rain_img, fmeta = None, obs_img.add(ee.Image(extra_mm)), None
         if forecast:
@@ -78,28 +78,28 @@ def _compute(area, extra_mm: float, window_obs_days: int, forecast: tuple | None
             if cached:
                 add_by_code = cached
             else:
-                f_rows = dmr.tambon_mean_rows(fc, f_img)
+                f_rows = tambon_risk.tambon_mean_rows(fc, f_img)
                 add_by_code = {r["adm3_pcode"]: (r["mean"] or 0.0) for r in f_rows}
             rain_img = obs_img.add(f_img)
-        rows = dmr.classify_rows(obs_rows, extra_mm, add_by_code)
-        tfc = dmr.with_trigger(fc, rows)
-        trig = dmr.trigger_raster(tfc)
+        rows = tambon_risk.classify_rows(obs_rows, extra_mm, add_by_code)
+        tfc = tambon_risk.with_trigger(fc, rows)
+        trig = tambon_risk.trigger_raster(tfc)
         ss = static_stats.load()
         if static_stats.covers(ss, rows):        # fast path: histogram precompute, no Earth Engine call
-            r = dmr.cfg()["risk"]
+            r = tambon_risk.cfg()["risk"]
             stats = static_stats.tambon_stats(ss, rows, r["cutoffs"][_min_high_from(min_class) - 2], features=static_stats.load_features(),
                                              footprint_m2=load_yaml("thresholds.yaml")["exposure"].get("avg_footprint_m2", 60.0))
         else:
-            stats = dmr.tambon_stats(tfc, trig, dmr.worldpop(), region, high_from=_min_high_from(min_class))
+            stats = tambon_risk.tambon_stats(tfc, trig, tambon_risk.worldpop(), region, high_from=_min_high_from(min_class))
         sid = f"{area.admin_code}-{int(extra_mm)}-{window_obs_days}"
-        layers = dmr.build_layers(region, rain_img, trig, dmr.risk_image(trig), sid)
+        layers = tambon_risk.build_layers(region, rain_img, trig, tambon_risk.risk_image(trig), sid)
         return {"meta": meta, "fmeta": fmeta, "rows": rows, "stats": stats, "layers": layers, "region_days": window_obs_days}
 
     return _memo(key, _BUNDLE_TTL_S, build)
 
 
 # ---------------- shaping (pure, unit-tested) ----------------
-NO_FEATURES = "Buildings, roads and facilities are not part of the DMR layers and are not reported in this mode."
+NO_FEATURES = "Buildings, roads and facilities are not part of the risk layers and are not reported in this mode."
 FEATURE_LIMITS = [
     "Buildings are estimated from the GHSL 2020 built-up surface (100 m) divided by an average footprint of 60 m2; hospitals, schools and main roads "
     "(motorway to tertiary) come from OpenStreetMap, which can be incomplete. All counts are for the Moderate-or-higher risk zone.",
@@ -136,21 +136,21 @@ def tambon_table(rows: list[dict], stats_rows: dict, n: int = RANK_N) -> list[di
 
 
 def _sources(extra: list[str] | None = None) -> list[str]:
-    c = dmr.cfg()["assets"]
+    c = tambon_risk.cfg()["assets"]
     return [c["susceptibility"], c["vulnerability"], c["exposure"], c["thresholds"], "WorldPop/GP/100m/pop (2020)"] + (extra or [])
 
 
 def limitations(meta: dict, extra: list[str] | None = None) -> list[str]:
-    t = dmr.cfg()["trigger"]
+    t = tambon_risk.cfg()["trigger"]
     out = [
-        "Screening-level estimate of rainfall-triggered landslide risk using the DMR/ADPC method; not a forecast.",
+        "Screening-level estimate of rainfall-triggered landslide risk at tambon level; not a forecast.",
         "Risk = trigger x susceptibility x vulnerability x exposure / 125, on 1-5 classes; classes are relative, not probabilities.",
-        f"Trigger compares each tambon's 30-day rainfall with its own DMR percentile thresholds (P60-P95); rainfall is assumed uniform within a what-if scenario.",
-        "Susceptibility is ADPC's static CNN map (12 m); vulnerability and exposure are DMR indices. Tambon statistics are computed at ~100 m.",
+        f"Trigger compares each tambon's 30-day rainfall with its own percentile thresholds (P60-P95); rainfall is assumed uniform within a what-if scenario.",
+        "Susceptibility is a static 12 m map; vulnerability and exposure are national indices. Tambon statistics are computed at ~100 m.",
         "People are WorldPop 2020 living where the risk class is Moderate or higher (risk >= 2; rounded); households are an estimate.",
     ]
     if meta.get("source") == "imerg":
-        out.append("Observed rainfall is NASA IMERG; the DMR thresholds were derived from JAXA GSMaP, so classes may be biased slightly high or low.")
+        out.append("Observed rainfall is NASA IMERG; the rainfall thresholds were derived from JAXA GSMaP, so classes may be biased slightly high or low.")
     return out + (extra or [])
 
 
@@ -166,7 +166,7 @@ def _hazard_payload(b: dict, extra: dict | None = None) -> dict:
     triggered = sum(1 for r in rows if r["trigger_class"] > 0)
     risk_layer = next(l for l in b["layers"] if l["key"] == "risk")
     out = {
-        "model": "dmr",
+        "model": "tambon",
         "trigger_ratio": None,
         "class_area_km2": b["stats"]["class_area_km2"],
         "tile_url": risk_layer["tile_url"],
@@ -192,7 +192,7 @@ def _exposure_payload(b: dict, min_class: str) -> dict:
     feat = {"buildings": round_buildings(tot["buildings"]), "road_km": round(tot["road_km"], 1), "schools": int(round(tot["schools"])),
             "hospitals": int(round(tot["hospitals"]))} if tot else {"buildings": None, "road_km": None, "schools": None, "hospitals": None}
     return {
-        "model": "dmr", "people": people, "households_est": round_people(total_people / hs), "household_size_assumed": hs,
+        "model": "tambon", "people": people, "households_est": round_people(total_people / hs), "household_size_assumed": hs,
         **feat, "building_area_m2": None, "road_km_by_class": None, "shelters": None, "bridges": None,
         "top_admin_units": table, "tambon_table": table, "tambons_ranked": len(rows), "facilities": [],
         "min_class": min_class, **_payload_common(b),
@@ -203,21 +203,21 @@ def _exposure_payload(b: dict, min_class: str) -> dict:
 # ---------------- public API (same shape as ee_backend) ----------------
 def hazard_scenario(area, rainfall_mm: float, duration_h: float) -> dict:
     d = max(1, math.ceil(duration_h / 24))
-    b = _compute(area, rainfall_mm, max(0, dmr.cfg()["trigger"]["window_days"] - d), None, "High")
+    b = _compute(area, rainfall_mm, max(0, tambon_risk.cfg()["trigger"]["window_days"] - d), None, "High")
     return _hazard_payload(b)
 
 
 def exposure(area, rainfall_mm: float, duration_h: float, min_class: str = "High", forecast_days: int | None = None) -> dict:
     if forecast_days:        # forecast mode: reuse the SAME computation as forecast_hazard (observed + GFS), never re-add the rain
         H = int(forecast_days)
-        return _exposure_payload(_compute(area, 0.0, max(0, dmr.cfg()["trigger"]["window_days"] - H), (H,), min_class), min_class)
+        return _exposure_payload(_compute(area, 0.0, max(0, tambon_risk.cfg()["trigger"]["window_days"] - H), (H,), min_class), min_class)
     d = max(1, math.ceil(duration_h / 24))
-    return _exposure_payload(_compute(area, rainfall_mm, max(0, dmr.cfg()["trigger"]["window_days"] - d), None, min_class), min_class)
+    return _exposure_payload(_compute(area, rainfall_mm, max(0, tambon_risk.cfg()["trigger"]["window_days"] - d), None, min_class), min_class)
 
 
 def forecast_hazard(area, horizon_days: int = 5) -> dict:
     H = int(horizon_days)
-    b = _compute(area, 0.0, max(0, dmr.cfg()["trigger"]["window_days"] - H), (H,), "High")
+    b = _compute(area, 0.0, max(0, tambon_risk.cfg()["trigger"]["window_days"] - H), (H,), "High")
     fm = b["fmeta"]
     cover = [f"GFS run covers only {fm['covered_hours']} h of the requested {fm['horizon_h']} h."] if fm["covered_hours"] < fm["horizon_h"] else []
     f_mean = _mean_forecast(b)
@@ -239,9 +239,9 @@ def _mean_forecast(b: dict) -> float:
 def explain(lat: float, lng: float) -> dict:
     init()
     pt = ee.Geometry.Point([lng, lat])
-    c = dmr.cfg()
-    bands = ee.Image.cat([dmr.susceptibility(), dmr.susceptibility_class(), dmr.vulnerability_index(), dmr.vulnerability_class(),
-                          dmr.exposure_index(), dmr.exposure_class()])
+    c = tambon_risk.cfg()
+    bands = ee.Image.cat([tambon_risk.susceptibility(), tambon_risk.susceptibility_class(), tambon_risk.vulnerability_index(), tambon_risk.vulnerability_class(),
+                          tambon_risk.exposure_index(), tambon_risk.exposure_class()])
     vals = get_info(bands.reduceRegion(ee.Reducer.first(), pt, 12, maxPixels=1e6))
     tam = get_info(ee.FeatureCollection(c["assets"]["thresholds"]).filterBounds(pt).first().toDictionary(
         ["adm3_name", "adm2_name", "adm1_name"] + c["trigger"]["columns"]))

@@ -1,7 +1,7 @@
 """Daily precomputed per-tambon rainfall (observed daily GSMaP + GFS forecast), so a request needs no rainfall reduction.
 
-Written by scripts/precompute_dmr_rain.py (run daily). Read from, in order: $DMR_OBS_PATH, ./.local_storage/dmr/obs_daily.json,
-gs://$PROJECT_ID-dnext/dmr/obs_daily.json. Falls back to live Earth Engine when absent, for another source than configured, or stale.
+Written by scripts/precompute_rain.py (run daily). Read from, in order: $RISK_OBS_PATH, ./.local_storage/risk/obs_daily.json,
+gs://$PROJECT_ID-dnext/risk/obs_daily.json. Falls back to live Earth Engine when absent, for another source than configured, or stale.
 Observed day i (d[i]) covers [end - (i+1) d, end - i d) where end = newest image + 1 step, matching rain.observed_image().
 """
 import json
@@ -14,8 +14,8 @@ from pathlib import Path
 from app.settings import settings
 
 log = logging.getLogger(__name__)
-LOCAL = Path(".local_storage/dmr/obs_daily.json")
-GCS_BLOB = "dmr/obs_daily.json"
+LOCAL = Path(".local_storage/risk/obs_daily.json")
+GCS_BLOB = "risk/obs_daily.json"
 MAX_AGE_MS = 3 * 86_400_000          # GSMaP is ~1 day behind; the job runs daily
 MAX_FORECAST_AGE_MS = 36 * 3_600_000      # a daily job leaves the newest run up to ~31 h old just before the next one; the run time is always shown
 _lock = threading.Lock()
@@ -24,7 +24,7 @@ _TTL_S = 600
 
 
 def _read() -> dict | None:
-    p = os.environ.get("DMR_OBS_PATH")
+    p = os.environ.get("RISK_OBS_PATH")
     for path in ([Path(p)] if p else []) + [LOCAL]:
         if path.is_file():
             return json.loads(path.read_text())
@@ -76,7 +76,7 @@ def _row(code: str, t: dict, mean) -> dict:
 
 
 def observed_rows(data: dict, area, days: int) -> list[dict] | None:
-    """Per-tambon observed rainfall over the last `days` days (same row shape as dmr.tambon_mean_rows). None if the area is unknown."""
+    """Per-tambon observed rainfall over the last `days` days (same row shape as tambon_risk.tambon_mean_rows). None if the area is unknown."""
     rows = []
     for code, t in data["tambon"].items():
         t = {**t, "code": code}
