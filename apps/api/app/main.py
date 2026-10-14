@@ -51,6 +51,9 @@ limiter = Limiter(key_func=get_remote_address, default_limits=[settings().rate_l
 async def lifespan(app: FastAPI):
     app.state.sessions = InMemorySessionService()
     app.state.runner = Runner(agent=build_agent(), app_name=APP_NAME, session_service=app.state.sessions)
+    if settings().geo_backend == "ee" and settings().hazard_model == "tambon":
+        from app.geo import overview
+        asyncio.create_task(asyncio.to_thread(overview.warm))   # first visitor after a restart should not wait for the national numbers
     yield
 
 

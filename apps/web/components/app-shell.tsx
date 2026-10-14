@@ -28,6 +28,8 @@ function primaryOf(set: MapLayersEvent): MapLayer | null {
 
 const asList = <T,>(v: T | T[] | undefined): T[] => (v === undefined ? [] : Array.isArray(v) ? v : [v]);
 
+const OVERVIEW_RETRY_DELAYS_MS = [1500, 4000, 8000, 15000];
+
 export function AppShell() {
   const [lang, setLang] = useState<Lang>("en");
   const [tab, setTab] = useState<"chat" | "map">("chat");
@@ -124,14 +126,24 @@ export function AppShell() {
 
   useEffect(() => {
     const ctl = new AbortController();
-    fetchOverviewSeries(ctl.signal)
-      .then((r) => {
-        if (Array.isArray(r?.days) && r.days.length > 0) setSeries(r);
-      })
-      .catch((err) => {
-        if (!ctl.signal.aborted) console.info("National overview unavailable:", (err as Error).message);
-      });
-    return () => ctl.abort();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    // After a quiet period the first call can be slow or fail while the services wake up, so try a few times before giving up.
+    const attempt = (n: number) => {
+      fetchOverviewSeries(ctl.signal)
+        .then((r) => {
+          if (Array.isArray(r?.days) && r.days.length > 0) setSeries(r);
+        })
+        .catch((err) => {
+          if (ctl.signal.aborted) return;
+          console.info("National overview unavailable:", (err as Error).message);
+          if (n < OVERVIEW_RETRY_DELAYS_MS.length) timer = setTimeout(() => attempt(n + 1), OVERVIEW_RETRY_DELAYS_MS[n]);
+        });
+    };
+    attempt(0);
+    return () => {
+      ctl.abort();
+      clearTimeout(timer);
+    };
   }, []);
 
   const hasResults = !!(layer || layers || kpis || charts.length || tables.length || markers.length);
