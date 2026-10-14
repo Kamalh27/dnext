@@ -1,75 +1,59 @@
 # Architecture
 
+DNext has two Cloud Run services and a handful of managed Google services.
+
 ```mermaid
 flowchart LR
-  U[Officer browser] -->|HTTPS| W[Next.js 16 web<br/>Cloud Run]
-  W -->|SSE /chat, POST /scenario, GET /explain| A[FastAPI api<br/>Cloud Run, attached SA]
-  A --> AG[ADK LlmAgent<br/>LandslideAnalyst + tools]
-  AG -->|generate| V[Vertex AI<br/>Gemini 3.5 Flash]
-  AG -->|tool calls| G[geo service]
-  G -->|reduceRegions, tiles| EE[Earth Engine<br/>susceptibility + exposure assets]
-  G -->|place fallback| GC[Geocoding API]
-  G <-->|scenario cache by id| FS[(Firestore)]
-  G -->|briefings, tables| GCS[(Cloud Storage)]
-  W -->|tiles| EE
-  U -.->|Maps JS| M[Google Maps]
-  P[Precompute scripts] -->|Export.image.toAsset| EE
-  P -->|OSM, HDX| GCS
+  U[Browser] -->|HTTPS| W[Web app<br/>Next.js]
+  W -->|REST and SSE| A[API<br/>FastAPI]
+  W -->|sign-in| F[Firebase Authentication]
+  W -->|map tiles| EE[(Earth Engine)]
+  A -->|agent| G[Gemini on Vertex AI<br/>through ADK]
+  A -->|tile URLs, layers| EE
+  A --> FS[(Firestore)]
+  A --> GCS[(Cloud Storage<br/>precomputed files)]
 ```
 
-## What-if request sequence
+- **Web app** (`apps/web`): the map, the chat panel and the national dashboard. It talks to the API over REST and, for chat, Server-Sent Events.
+- **API** (`apps/api`): FastAPI service. It runs the chat agent, computes scenarios and forecasts, and serves the dashboard data.
+- **Earth Engine** draws the map layers. The API asks it for tile URLs and the browser loads the tiles directly.
+- **Firestore** holds cached scenario results (`scenarios`) and the per-account usage counters (`usage`). Both collections have a TTL on `expires_at`.
+- **Cloud Storage** holds the precomputed data files described below.
+- **Firebase Authentication** (Google provider) handles sign-in. The API only checks the ID token.
 
-```mermaid
-sequenceDiagram
-  participant B as Browser
-  participant API as FastAPI /chat
-  participant AG as ADK agent
-  participant LLM as Gemini 3.5 Flash
-  participant G as geo service
-  participant EE as Earth Engine
-  participant FS as Firestore
-  B->>API: POST /chat "250 mm in 3 days in Mae Hong Son"
-  API->>AG: Runner.run_async (SSE streaming)
-  AG->>LLM: prompt + tools
-  LLM-->>AG: call resolve_area("Mae Hong Son")
-  AG->>G: resolve (admin_index.json, fuzzy)
-  API-->>B: status resolving_place
-  LLM-->>AG: call get_hazard_scenario(area, 250, 72)
-  AG->>G: run_scenario
-  G->>FS: lookup sha256(area, rain, duration, date)
-  alt cache miss
-    G->>EE: H = f(S, TR, W); one grouped reduceRegions over tambon
-    EE-->>G: class areas, people, buildings, roads, facilities
-    G->>FS: store result by scenario_id
-  end
-  G-->>AG: result + map tile URL
-  API-->>B: map_layer, kpis, table, chart
-  AG->>LLM: tool results
-  LLM-->>AG: summary text (numbers from tools only)
-  API-->>B: text_delta ... final
-  Note over B,API: slider re-run: POST /scenario directly, then agent summary
-```
+## Where the speed comes from
 
-The UI never parses prose: `app/agent/stream.py` maps ADK events to typed SSE events (see `docs/event_contract.md`).
+Computing statistics straight from the 12 m source layers took 34 to 81 seconds per request, so the expensive parts are done ahead of time.
 
-## Caching strategy
-1. **Precomputed static stack (the big win).** `precompute_susceptibility.py` and `build_exposure_stack.py` export 100 m EE assets once. A scenario is cheap pixel math on S plus one grouped `reduceRegions`. If the assets are absent the API computes S on the fly for the area at 250 m (slower, coarser).
-2. **Scenario cache.** Key = `sha256(area, rainfall, duration, date)`; value stored in Firestore (collection `scenarios`, TTL field `expires_at`; forecast results 24 h, what-if 30 days). In-memory fallback when Firestore is unavailable or in mock mode. Any Cloud Run instance can serve follow-ups for a `scenario_id`.
-3. **Warm demo provinces.** Nan, Chiang Rai, Mae Hong Son pre-run before the demo; `--min-instances=1` and `--cpu-boost` avoid cold starts.
-4. **Newest-IMERG lookup** is memoised for 30 minutes.
+| File | Produced by | Contents | Refreshed |
+|---|---|---|---|
+| `obs_daily.json` | `scripts/precompute_rain.py` | Daily observed and forecast rainfall per tambon | Daily |
+| `static_stats.json` | `scripts/precompute_static_stats.py` | Area and population per tambon for each value of the static risk product | Once |
+| `static_features.json` | `scripts/precompute_features.py` | Built-up area, hospitals, schools and road length per tambon and risk product | Once |
 
-## Performance budget (deployed, target)
+The static risk product is the rain-independent part of the risk (susceptibility class × vulnerability class × exposure class). It is also exported once as a 100 m Earth Engine asset (`scripts/build_risk_layer.py`).
 
-| Step | Budget |
-|---|---|
-| Place resolution (local index) | < 50 ms |
-| Cache hit scenario | < 1 s |
-| Cache miss: hazard + grouped reduceRegions (province) | 5-12 s |
-| Gemini tool-call round trips (2) | 2-4 s |
-| Map tile first paint | < 2 s |
-| End-to-end demo scenario | **< 20 s** (checked by `infra/smoke_test.py`) |
+A scenario then only has to work out each tambon's trigger class from its rainfall, which is arithmetic on the daily file, and look up the matching rows in the static files. Only the map layer comes from Earth Engine, so requests finish in roughly 1 to 8 seconds.
 
-These are design targets; measure them with the smoke test after deploy and update this table with real numbers.
+The API reads the files from `apps/api/.local_storage/risk/` when they exist there, and otherwise from `gs://<project>-dnext/risk/`. On Cloud Run the container has no local copy, so the files must be in the bucket.
 
-## Trust boundaries
-Cloud Run services use an attached service account (`dnext-api`) with least-privilege roles (`infra/setup.sh`); no keys in the image. The Maps browser key is restricted by HTTP referrer; the server Geocoding key (if used) by API and kept in Secret Manager. CORS from `ALLOWED_ORIGINS`, rate limit via slowapi, request size capped.
+## What happens on a chat question
+
+1. The browser posts the message to `POST /chat`.
+2. The ADK agent (Gemini) decides which tools to call: `resolve_area`, `get_hazard_scenario`, `get_forecast_hazard`, `get_exposure`, `compare_scenarios`, `explain_cell_or_village` or `generate_briefing`.
+3. The geo service runs the tool. A scenario result is cached in Firestore under a hash of the area, rainfall, duration and date. Forecasts are kept for 24 hours and what-if scenarios for 30 days.
+4. The API turns each tool result into typed SSE events (status, map layers, table, chart, KPIs). The UI draws these directly and never parses the model's text. See [event_contract.md](event_contract.md).
+5. The model writes a short summary from the tool results. The prompt forbids numbers that did not come from a tool.
+
+The rainfall slider, the forecast and the dashboard call REST endpoints directly (`/scenario`, `/forecast`, `/overview`, `/overview/series`) and skip the model.
+
+## Sign-in and limits
+
+When `AUTH_REQUIRED=true`, chat, scenarios and forecasts need a Google sign-in. Each account has a daily budget (30 chats and 200 runs by default) and a per-minute burst limit. Counters live in Firestore under a hashed account ID and reset at midnight Thailand time. The map, the overview and the layer endpoints stay public.
+
+## Security
+
+- On Cloud Run the API uses an attached service account, so no key file is baked into the image.
+- The Maps browser key is limited by HTTP referrer. The server-side geocoding key lives in Secret Manager.
+- CORS is limited to `ALLOWED_ORIGINS`, request bodies are capped, and requests time out after 60 seconds (chat streams excepted).
+- Project-specific Earth Engine layer paths and credentials stay out of git. See [config-reference.md](config-reference.md).

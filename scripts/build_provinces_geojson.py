@@ -1,4 +1,4 @@
-"""Build simplified province outlines (77) from the DMR tambon table, so map-click selection uses the same pcodes/names as the backend.
+"""Build simplified province outlines (77) from the tambon table, so map-click selection uses the same pcodes/names as the backend.
 
 Output: apps/web/public/provinces.json  [{pcode, name, name_th, bbox:[w,s,e,n], geometry:{GeoJSON}}]  (~0.5-1 MB)
   cd apps/api && uv run python ../../scripts/build_provinces_geojson.py
@@ -21,10 +21,10 @@ def main(argv=None) -> int:
     a = p.parse_args(argv)
     c.ee_init("")
     import ee
-    from app.geo import dmr
+    from app.geo import tambon_risk
     from app.geo.ee_init import get_info
 
-    thr = ee.FeatureCollection(dmr.cfg()["assets"]["thresholds"])
+    thr = ee.FeatureCollection(tambon_risk.cfg()["assets"]["thresholds"])
     pcodes = sorted(get_info(thr.aggregate_array("adm1_pcode").distinct()))
 
     def one(pc: str) -> dict:

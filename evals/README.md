@@ -8,7 +8,7 @@ for an evacuation order.
   (ADK `EvalSet` format). `$SID` = scenario_id placeholder for briefing steps.
 - `test_tool_calls.py`: deterministic, no Gemini. Runs the expected tools on the mock backend, checks ok/error
   status, and that every figure in `generate_briefing` output exists in the tool results.
-  Run: `make test-evals` (or `cd apps/api && uv run pytest ../../evals -q`).
+  Run: `just test-evals` (or `cd apps/api && uv run pytest ../../evals -q`).
 - `test_config.json`: ADK criteria (tool trajectory, IN_ORDER, threshold 0.75).
 
 ## Real Gemini eval (needs credentials)
@@ -16,7 +16,7 @@ for an evacuation order.
 ```bash
 gcloud auth application-default login
 export PROJECT_ID=... REGION=global GOOGLE_GENAI_USE_VERTEXAI=1 GOOGLE_CLOUD_PROJECT=$PROJECT_ID GOOGLE_CLOUD_LOCATION=global
-make eval          # adk eval apps/api/app/agent evals/evalset.json --config_file_path evals/test_config.json
+just eval          # adk eval apps/api/app/agent evals/evalset.json --config_file_path evals/test_config.json
 ```
 
 Notes: ADK compares tool args exactly, so `scenario_id` args (briefing steps) and model-chosen area spellings

@@ -11,7 +11,7 @@ export const runLabel = (s: string) => {
   return m ? `${m[1]} ${m[2]}Z` : s;
 };
 
-/** DMR classes 1..5 (index 0 = class 1). Class 0 means nothing triggered / no susceptible ground. */
+/** Risk classes 1..5 (index 0 = class 1). Class 0 means nothing triggered / no susceptible ground. */
 export const RISK_COLORS = ["#ffffb2", "#fecc5c", "#fd8d3c", "#f03b20", "#bd0026"] as const;
 const RISK_NAMES = {
   en: ["Very low", "Low", "Moderate", "High", "Very high"],
@@ -129,7 +129,7 @@ export const fmtKm = (km: number, lang: Lang, compact = false) =>
 
 type ClassKey = "people" | "buildings" | "road_km" | "hospitals" | "schools";
 
-/** Sum of a per-class field over the 5 DMR classes; null when classes or the field are missing. */
+/** Sum of a per-class field over the 5 risk classes; null when classes or the field are missing. */
 export function sumClasses(d: OverviewDay, key: ClassKey): number | null {
   const cl = d.classes;
   if (!cl || cl.length === 0 || cl.some((c) => typeof c[key] !== "number")) return null;

@@ -73,7 +73,7 @@ export const legal: Record<Lang, { updated: string; docs: Record<LegalKind, Lega
           {
             h: "Data sources",
             ul: [
-              "Susceptibility, vulnerability, exposure and rainfall thresholds: ADPC and the Department of Mineral Resources (DMR), Thailand",
+              "Landslide susceptibility, vulnerability, exposure and tambon rainfall thresholds: ADPC, accessed through Google Earth Engine",
               "Rainfall: JAXA GSMaP (observed), NOAA GFS (forecast)",
               "Population: WorldPop",
               "Buildings: GHSL built-up surface (European Commission JRC)",
@@ -148,7 +148,7 @@ export const legal: Record<Lang, { updated: string; docs: Record<LegalKind, Lega
           {
             h: "แหล่งข้อมูล",
             ul: [
-              "ความอ่อนไหว ความเปราะบาง การรับสัมผัส และเกณฑ์ปริมาณฝน: ADPC และกรมทรัพยากรธรณี (DMR)",
+              "ความอ่อนไหวต่อดินถล่ม ความเปราะบาง การรับสัมผัส และเกณฑ์ปริมาณฝนระดับตำบล: ADPC เข้าถึงผ่าน Google Earth Engine",
               "ปริมาณฝน: JAXA GSMaP (ตรวจวัด), NOAA GFS (พยากรณ์)",
               "ประชากร: WorldPop",
               "อาคาร: พื้นที่ก่อสร้าง GHSL (คณะกรรมาธิการยุโรป JRC)",

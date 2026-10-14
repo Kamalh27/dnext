@@ -1,5 +1,5 @@
-# DMR landslide-risk method (ADPC / DMR). Risk = Trigger x Susceptibility x Vulnerability x Exposure / 125  -> 0..5
-# Layer paths are project-specific and live in dmr_assets.local.yaml (gitignored; template: dmr_assets.local.yaml.example).
+# Tambon-level landslide-risk method. Risk = Trigger x Susceptibility x Vulnerability x Exposure / 125  -> 0..5
+# Layer paths are project-specific and live in risk_layers.local.yaml (gitignored; template: risk_layers.local.yaml.example).
 assets:
   boundary: ""
   thresholds: ""
@@ -11,7 +11,7 @@ assets:
 susceptibility_threshold: 10      # pixels below this are "not susceptible" (masked)
 
 # Susceptibility classes: z-score ("Standardize") method on pixels >= threshold.
-# mean/stddev are NATIONAL stats of susceptibility >= 10 (computed 2026-10-13 at 1 km; rerun scripts/dmr_stats.py if the map is updated).
+# mean/stddev are NATIONAL stats of susceptibility >= 10 (computed 2026-10-13 at 1 km; recompute them if the susceptibility map is updated).
 susceptibility_zscore:
   mean: 41.379
   stddev: 19.861
@@ -26,7 +26,7 @@ trigger:
   window_days: 30
   # Tambon thresholds (30-day rainfall, mm). Trigger class = highest threshold exceeded (P60->1 ... P95->5); below P60 -> 0.
   columns: [P60max, P70max, P80max, P90max, P95max]
-  observed_source: gsmap          # gsmap | imerg. The DMR thresholds were derived from GSMaP, so gsmap is the consistent choice.
+  observed_source: gsmap          # gsmap | imerg. The rainfall thresholds were derived from GSMaP, so gsmap is the consistent choice.
   forecast_source: gfs            # NOAA/GFS0P25 (IMERG is observation-only, no forecast)
 
 risk:

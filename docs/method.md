@@ -1,4 +1,6 @@
-# Method
+# Alternative screening method
+
+This page describes the weighted-overlay model that runs when `HAZARD_MODEL=screening`. The default method is described in [risk_method.md](risk_method.md).
 
 Screening-level landslide hazard and exposure for Thailand. Every parameter below is read from `apps/api/app/config/`; change the YAML, not the code. Pixel math is implemented twice and kept in sync: `app/geo/ee_model.py` (Earth Engine) and `app/geo/hazard_math.py` (pure Python, used in tests).
 
@@ -51,11 +53,11 @@ Exposure: for each tambon the Earth Engine call sums, grouped by hazard class, p
 2. **LHASA cross-check**: Spearman rank correlation of S with the LHASA global 1 km susceptibility raster.
 3. **Face validity**: known past events from local records should fall in high-S areas; flat delta plains should be near zero.
 
-## 6. Honest limitations
+## 6. Limitations
 
 - Screening level, 100 m: not slope-by-slope or village-by-village engineering assessment.
 - Uniform rainfall over the area; real storms are patchy.
 - No soil depth, lithology, groundwater, road cuts or drainage works.
 - Rainfall threshold is global, not calibrated to Thailand; k, a and weights are judgement.
 - Exposure is modelled (WorldPop, footprints or GHSL, OSM): estimates, not counts.
-- A screening estimate, not a forecast. See `docs/limitations.md`.
+- See [limitations.md](limitations.md).

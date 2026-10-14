@@ -1,38 +1,33 @@
-# Data pipeline scripts (one-time)
+# Data scripts
 
-All scripts: `cd apps/api && uv run --group scripts python ../../scripts/<script>.py [opts]`.
-Common flags: `--project` (default env `EE_PROJECT`), `--dry-run` (print plan, no EE/GCS calls), `--overwrite`.
-Each script is idempotent (skips if its asset exists), prints `ASSET <key> = <id>` and updates
-`apps/api/app/config/assets.local.yaml` (other keys and comments preserved). Assets live in
-`projects/<EE_PROJECT>/assets/landslidewatch/`.
+Run from `apps/api`: `uv run [--group scripts] python ../../scripts/<script>.py [options]`. Scripts that read OpenStreetMap or build GeoJSON need `--group scripts`. Most take `--project` (default: the `EE_PROJECT` environment variable) and report what they do on the console.
 
-## Run order
+## Tambon-level risk (default method)
 
-| # | Step | Command | Writes key | Runtime (est.) |
-|---|------|---------|-----------|----------------|
-| 1 | Infra | `infra/setup.sh` (APIs, SA, bucket `$PROJECT_ID-dnext`) | - | minutes |
-| 2 | Admin boundaries | `upload_admin.py --zip tha_admin_boundaries.shp.zip` (or `--fallback geoboundaries`) | `tambon_asset`, `admin_index.json` | 5-15 min |
-| 3 | OSM | `fetch_osm.py --bucket $PROJECT_ID-dnext` | `facilities_asset`, `osm_date` | download ~400 MB + 10-30 min extract + ingest |
-| 4 | Susceptibility | `precompute_susceptibility.py --region nan` (test), then no `--region` | `susceptibility_asset` | test: ~5-15 min; full TH: ~1-3 h |
-| 5 | Exposure stack | `build_exposure_stack.py --region nan` (test), then full | `exposure_stack_asset`, `building_source` | ~1-4 h (Open Buildings is heavy) |
-| 6 | Validation | `validate_susceptibility.py [--lhasa lhasa.tif]` | - (writes `scripts/out/validation.md`) | ~2-5 min |
+| Script | When | What it does | Output |
+|---|---|---|---|
+| `build_risk_layer.py` | Once | Exports the rain-independent part of the risk (susceptibility × vulnerability × exposure classes) as a 100 m Earth Engine asset. Add `--no-wait` to start the task and return | `risk_static_asset` in `assets.local.yaml` |
+| `precompute_static_stats.py` | Once | Per-tambon area and population for each value of the static risk product. `--bucket` also uploads it | `.local_storage/risk/static_stats.json` |
+| `precompute_features.py` | Once | Built-up area, hospitals, schools and main roads per tambon and risk product. Needs `scripts/out/osm/thailand-latest.osm.pbf` from Geofabrik. Runs in cached steps: `geoms, osm, sample, ghsl, merge` | `.local_storage/risk/static_features.json` |
+| `build_provinces_geojson.py` | Once | Simplified outlines of the 77 provinces, built from the tambon table, for map clicks | `apps/web/public/provinces.json` |
+| `precompute_rain.py` | Daily | Observed (GSMaP) and forecast (GFS) rainfall per tambon. `--bucket` also uploads it | `.local_storage/risk/obs_daily.json` |
 
-Test exports for `--region nan|chiang_rai|mae_hong_son` go to `*_test_<region>` assets and are NOT recorded in assets.local.yaml.
-EE runtimes depend on the shared queue; use `--no-wait` for 4/5 and re-run later to record the asset.
+Re-run the one-off scripts only when the susceptibility, vulnerability or exposure layers change. For production, upload the three JSON files to `gs://<project>-dnext/risk/`. Details are in [docs/risk_method.md](../docs/risk_method.md).
 
-## Manual data
+## Alternative screening method
 
-- HDX admin boundaries (cod-ab-tha, ADM1-3, 77/928/7425): https://data.humdata.org/dataset/cod-ab-tha ->
-  `tha_admin_boundaries.shp.zip` (or pass `--url`).
-- LHASA global GeoTIFF (optional, for rank correlation): NASA LHASA download page.
-- Needs `osmium` CLI (`brew install osmium-tool`) for step 3; otherwise `pip install pyrosm` is used (more RAM).
-- Needs `gcloud auth application-default login` and `earthengine` registration of the project.
+These scripts support `HAZARD_MODEL=screening`. They write asset IDs to `apps/api/app/config/assets.local.yaml`, keep other keys and comments, and skip work whose asset already exists. Assets go under `projects/<EE_PROJECT>/assets/landslidewatch/`. Test exports (`--region nan`, `chiang_rai` or `mae_hong_son`) go to separate `*_test_<region>` assets that are not recorded.
 
-## Notes / limitations
+| Script | What it does | Writes |
+|---|---|---|
+| `upload_admin.py --zip tha_admin_boundaries.shp.zip` | Uploads the administrative boundaries (HDX `cod-ab-tha`) as an Earth Engine asset. `--fallback geoboundaries` is the alternative | `tambon_asset`, `admin_index.json` |
+| `fetch_osm.py --bucket <bucket>` | Downloads the Geofabrik extract and builds road and facility tables. Needs `osmium` (`brew install osmium-tool`) | `facilities_asset`, `osm_date` |
+| `precompute_susceptibility.py` | Static susceptibility (about 1 to 3 hours for all of Thailand) | `susceptibility_asset` |
+| `build_exposure_stack.py` | Population, buildings and roads as one image. Uses Open Buildings if the coverage check passes and GHSL otherwise | `exposure_stack_asset`, `building_source` |
+| `validate_susceptibility.py [--lhasa lhasa.tif]` | Checks the susceptibility against the NASA landslide catalogue | `scripts/out/validation.md` |
 
-- Roads are rasterised from ~100 m piece midpoints (CSV tables `roads_<class>` with `len_m`), so metres-per-pixel is
-  accurate to within one piece; classes: primary (motorway/trunk/primary), secondary, tertiary, local
-  (unclassified/residential/service), track.
-- Building source: Open Buildings v3 (confidence >= 0.7) if the coverage check over Nan finds buildings; else GHSL
-  `GHS_BUILT_S` 2020 with count = area / 60 m2. Recorded in image property `building_source`.
-- Tests: `cd apps/api && uv run pytest tests/test_scripts_pure.py` (pure logic only).
+## Notes
+
+- You need `gcloud auth application-default login` (or a service-account key) and a project registered for Earth Engine.
+- Roads are rasterised from pieces of about 100 m, so the metres per pixel are accurate to within one piece. Road classes are primary, secondary, tertiary, local and track.
+- Pure-logic tests for the scripts: `cd apps/api && uv run pytest tests/test_scripts_pure.py`.

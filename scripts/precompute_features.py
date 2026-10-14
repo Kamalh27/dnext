@@ -6,8 +6,8 @@ Because a scenario only supplies ONE trigger number per tambon, the numbers insi
 Python (see app/geo/static_stats.py) with no Earth Engine or OSM call.
 
 Steps (cached under scripts/out/features/, rerunnable): geoms -> osm -> sample -> ghsl -> merge
-  cd apps/api && uv run --group scripts python ../../scripts/precompute_dmr_features.py --steps geoms,osm,sample,ghsl,merge
-Needs: dmr_static_asset (scripts/build_dmr_static.py) and the Geofabrik extract scripts/out/osm/thailand-latest.osm.pbf
+  cd apps/api && uv run --group scripts python ../../scripts/precompute_features.py --steps geoms,osm,sample,ghsl,merge
+Needs: risk_static_asset (scripts/build_risk_layer.py) and the Geofabrik extract scripts/out/osm/thailand-latest.osm.pbf
 (https://download.geofabrik.de/asia/thailand-latest.osm.pbf).  OSM data (c) OpenStreetMap contributors, ODbL.
 """
 import argparse
@@ -31,9 +31,9 @@ CHUNK = 4000
 # ---------------------------------------------------------------- step 1: simplified tambon polygons (local lookup)
 def step_geoms() -> None:
     import ee
-    from app.geo import dmr
+    from app.geo import tambon_risk
     from app.geo.ee_init import get_info
-    thr = ee.FeatureCollection(dmr.cfg()["assets"]["thresholds"])
+    thr = ee.FeatureCollection(tambon_risk.cfg()["assets"]["thresholds"])
     provinces = sorted(get_info(thr.aggregate_array("adm1_pcode").distinct()))
 
     def one(pc: str) -> list:
@@ -123,7 +123,7 @@ def step_sample() -> None:
     import numpy as np
     from shapely import STRtree, points
     from shapely.geometry import shape
-    from app.geo import dmr
+    from app.geo import tambon_risk
     from app.geo.ee_init import get_info
 
     geoms = json.loads((OUT / "tambon_geoms.json").read_text())
@@ -142,12 +142,12 @@ def step_sample() -> None:
     inside = sorted(first)
     c.log.info("%d of %d points fall inside a tambon", len(inside), len(pts))
 
-    s = dmr.static_stats_bands().select("prod").unmask(0).toInt()
+    s = tambon_risk.static_stats_bands().select("prod").unmask(0).toInt()
     chunks = [inside[i:i + CHUNK] for i in range(0, len(inside), CHUNK)]
 
     def sample(chunk):
         feats = [ee.Feature(ee.Geometry.Point([float(arr[i, 0]), float(arr[i, 1])]), {"i": int(i)}) for i in chunk]
-        res = get_info(s.sampleRegions(collection=ee.FeatureCollection(feats), properties=["i"], scale=dmr.STATS_SCALE_M, tileScale=4))
+        res = get_info(s.sampleRegions(collection=ee.FeatureCollection(feats), properties=["i"], scale=tambon_risk.STATS_SCALE_M, tileScale=4))
         return {int(f["properties"]["i"]): int(f["properties"]["prod"]) for f in res["features"]} if isinstance(res, dict) else \
             {int(f["properties"]["i"]): int(f["properties"]["prod"]) for f in res}
 
@@ -171,16 +171,16 @@ def step_sample() -> None:
 # ---------------------------------------------------------------- step 4: GHSL built-up histogram
 def step_ghsl() -> None:
     import ee
-    from app.geo import dmr
+    from app.geo import tambon_risk
     from app.geo.ee_init import get_info
-    thr = ee.FeatureCollection(dmr.cfg()["assets"]["thresholds"])
+    thr = ee.FeatureCollection(tambon_risk.cfg()["assets"]["thresholds"])
     provinces = sorted(get_info(thr.aggregate_array("adm1_pcode").distinct()))
     ghsl = ee.ImageCollection("JRC/GHSL/P2023A/GHS_BUILT_S").filter(ee.Filter.eq("system:index", "2020")).first().select("built_surface")
-    img = ee.Image.cat([ghsl.unmask(0).rename("built"), dmr.static_stats_bands().select("prod").unmask(0).toInt().rename("prod")])
+    img = ee.Image.cat([ghsl.unmask(0).rename("built"), tambon_risk.static_stats_bands().select("prod").unmask(0).toInt().rename("prod")])
 
     def one(pc: str) -> dict:
         fc = thr.filter(ee.Filter.eq("adm1_pcode", pc))
-        red = img.reduceRegions(collection=fc, reducer=ee.Reducer.sum().group(groupField=1, groupName="prod"), scale=dmr.STATS_SCALE_M, tileScale=4)
+        red = img.reduceRegions(collection=fc, reducer=ee.Reducer.sum().group(groupField=1, groupName="prod"), scale=tambon_risk.STATS_SCALE_M, tileScale=4)
         rows = get_info(red.select(["adm3_pcode", "groups"], retainGeometry=False).toList(10000))
         c.log.info("  ghsl %s: %d tambons", pc, len(rows))
         return {r["properties"]["adm3_pcode"]: {str(int(g["prod"])): round(g["sum"], 1) for g in (r["properties"].get("groups") or [])} for r in rows}
@@ -223,7 +223,7 @@ def main(argv=None) -> int:
     c.setup_logging()
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--steps", default="geoms,osm,sample,ghsl,merge")
-    p.add_argument("--out", default=".local_storage/dmr/static_features.json")
+    p.add_argument("--out", default=".local_storage/risk/static_features.json")
     a = p.parse_args(argv)
     steps = a.steps.split(",")
     if set(steps) & {"geoms", "sample", "ghsl"}:

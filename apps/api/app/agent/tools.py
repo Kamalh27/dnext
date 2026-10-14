@@ -29,7 +29,7 @@ def resolve_area(query: str) -> dict:
 
 
 def get_hazard_scenario(area: str, rainfall_mm: float, duration_h: float = 72) -> dict:
-    """Compute landslide risk for a what-if rainfall over an area: DMR trigger/risk layers, the tambon-level risk and
+    """Compute landslide risk for a what-if rainfall over an area: trigger and risk layers, the tambon-level risk and
     exposure table, and people (estimate) living where risk is Moderate or higher. The scenario rainfall is added to the observed
     rainfall of the preceding days to form the 30-day total that the tambon thresholds use.
 

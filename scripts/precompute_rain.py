@@ -1,10 +1,10 @@
 """Daily precompute: per-tambon observed daily rainfall (GSMaP, last 30 days) and GFS forecast accumulations (1..10 days).
 
-Output JSON (read by app/geo/obs_cache.py): .local_storage/dmr/obs_daily.json, and gs://<bucket>/dmr/obs_daily.json with --bucket.
+Output JSON (read by app/geo/obs_cache.py): .local_storage/risk/obs_daily.json, and gs://<bucket>/risk/obs_daily.json with --bucket.
 Run once a day (Cloud Scheduler -> Cloud Run job, or cron). ~77 province-sized reductions in parallel; a few minutes.
 
-  cd apps/api && uv run python ../../scripts/precompute_dmr_rain.py
-  cd apps/api && uv run python ../../scripts/precompute_dmr_rain.py --bucket <your-project-id>-dnext     # also upload to GCS
+  cd apps/api && uv run python ../../scripts/precompute_rain.py
+  cd apps/api && uv run python ../../scripts/precompute_rain.py --bucket <your-project-id>-dnext     # also upload to GCS
 """
 import argparse
 import json
@@ -23,18 +23,18 @@ HORIZONS = range(1, 11)
 def main(argv=None) -> int:
     c.setup_logging()
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--bucket", default="", help="also upload to gs://BUCKET/dmr/obs_daily.json")
-    p.add_argument("--out", default=".local_storage/dmr/obs_daily.json")
+    p.add_argument("--bucket", default="", help="also upload to gs://BUCKET/risk/obs_daily.json")
+    p.add_argument("--out", default=".local_storage/risk/obs_daily.json")
     p.add_argument("--workers", type=int, default=6)
     p.add_argument("--no-forecast", action="store_true")
     a = p.parse_args(argv)
     c.ee_init("")
     import ee
-    from app.geo import dmr, rain
+    from app.geo import tambon_risk, rain
     from app.geo.ee_init import get_info
     from app.geo.obs_cache import GCS_BLOB
 
-    src = dmr.cfg()["trigger"]["observed_source"]
+    src = tambon_risk.cfg()["trigger"]["observed_source"]
     coll_img, meta = rain.observed_image(1, src)          # just to learn newest + dataset
     newest, ds = meta["newest_ms"], meta["dataset"]
     step_h = 1.0 if src == "gsmap" else 0.5
@@ -59,16 +59,16 @@ def main(argv=None) -> int:
             fmeta.update(model_run_time=fm["model_run_time"], dataset=fm["dataset"])
         if fimgs:
             stack = stack.addBands(ee.Image.cat(fimgs))
-    thr = ee.FeatureCollection(dmr.cfg()["assets"]["thresholds"])
-    cols = dmr.cfg()["trigger"]["columns"]
-    keep = dmr.TAMBON_KEEP + cols
+    thr = ee.FeatureCollection(tambon_risk.cfg()["assets"]["thresholds"])
+    cols = tambon_risk.cfg()["trigger"]["columns"]
+    keep = tambon_risk.TAMBON_KEEP + cols
     provinces = sorted(get_info(thr.aggregate_array("adm1_pcode").distinct()))
     names = [f"d{i}" for i in range(DAYS)] + [f"f{h}" for h in HORIZONS if str(h) in fmeta["horizons"]]
     c.log.info("source=%s newest=%s provinces=%d bands=%d", src, rain.ms_to_date(newest), len(provinces), len(names))
 
     def one(pc: str):
         fc = thr.filter(ee.Filter.eq("adm1_pcode", pc))
-        red = stack.reduceRegions(collection=fc, reducer=ee.Reducer.mean(), scale=dmr.RAIN_SCALE_M, tileScale=4)
+        red = stack.reduceRegions(collection=fc, reducer=ee.Reducer.mean(), scale=tambon_risk.RAIN_SCALE_M, tileScale=4)
         rows = get_info(red.select(keep + names, retainGeometry=False).toList(10000))
         c.log.info("  %s: %d tambons", pc, len(rows))
         return rows

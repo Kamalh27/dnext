@@ -232,7 +232,7 @@ const dict = {
     aboutIntro: "Ask a what-if question such as \"What happens if Nan gets 250 mm of rain in 3 days?\" and get a hazard map plus an estimate of the people, households, buildings, roads and critical facilities that could be exposed.",
     aboutHowTitle: "How it works",
     aboutHow: [
-      "Risk = rainfall trigger × susceptibility × vulnerability × exposure, using the DMR/ADPC method at tambon (sub-district) level.",
+      "Risk = rainfall trigger × susceptibility × vulnerability × exposure, at tambon (sub-district) level.",
       "The rainfall trigger compares each tambon's 30-day rainfall (satellite-observed GSMaP plus the GFS forecast, or your what-if amount) with that tambon's own historical rainfall thresholds.",
       "People, buildings, hospitals, schools and main roads are counted inside the moderate-or-higher risk zones.",
       "Every figure shown comes from a computed result, never from the language model's memory.",
@@ -476,7 +476,7 @@ const dict = {
     aboutIntro: "ลองถามสถานการณ์สมมติ เช่น \"ถ้าน่านมีฝน 250 มม. ใน 3 วัน จะเกิดอะไรขึ้น\" แล้วรับแผนที่ความเสี่ยงพร้อมประมาณการจำนวนประชากร ครัวเรือน อาคาร ถนน และสถานที่สำคัญที่อาจได้รับผลกระทบ",
     aboutHowTitle: "ทำงานอย่างไร",
     aboutHow: [
-      "ความเสี่ยง = ตัวกระตุ้นจากฝน × ความอ่อนไหว × ความเปราะบาง × การรับสัมผัส ตามวิธี DMR/ADPC ในระดับตำบล",
+      "ความเสี่ยง = ตัวกระตุ้นจากฝน × ความอ่อนไหว × ความเปราะบาง × การรับสัมผัส ในระดับตำบล",
       "ตัวกระตุ้นจากฝนเปรียบเทียบปริมาณฝนสะสม 30 วันของแต่ละตำบล (ข้อมูลดาวเทียม GSMaP ร่วมกับพยากรณ์ GFS หรือปริมาณฝนสมมติของคุณ) กับเกณฑ์ปริมาณฝนในอดีตของตำบลนั้น",
       "นับประชากร อาคาร โรงพยาบาล โรงเรียน และถนนสายหลักในพื้นที่เสี่ยงระดับปานกลางขึ้นไป",
       "ตัวเลขทุกค่ามาจากผลการคำนวณ ไม่ได้มาจากความจำของโมเดลภาษา",
