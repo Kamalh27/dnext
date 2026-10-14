@@ -18,9 +18,9 @@ All assets are public and cleared for use. `GET /readyz` checks that the running
 
 ## Rainfall
 * What-if (X mm over D hours): the 30-day total = observed rainfall of the preceding `30 - ceil(D/24)` days + X, applied uniformly. **Needs confirmation by DMR.**
-* Forecast (H days): observed preceding `30 - H` days + NOAA GFS accumulated forecast for the next H days. IMERG itself is observation-only, so GFS supplies the forecast.
-* Observed source: NASA IMERG (as requested). **The DMR thresholds were derived from JAXA GSMaP**, so IMERG-based classes can be biased; set `trigger.observed_source: gsmap` to match the thresholds exactly.
-* The observed per-tambon means are cached; scenario rainfall is added in Python, so changing the slider does not repeat the observed-rain computation.
+* Forecast (H days): observed preceding `30 - H` days + NOAA GFS accumulated forecast for the next H days. Observed products have no forecast, so GFS supplies it.
+* Observed source: **JAXA GSMaP** (`trigger.observed_source: gsmap`, the default), because the DMR thresholds were derived from GSMaP. NASA IMERG is still selectable (`imerg`) but is biased relative to those thresholds: in a comparison it triggered 74 tambons against 91 for GSMaP.
+* Daily per-tambon observed and GFS rainfall is precomputed by `scripts/precompute_dmr_rain.py` into `obs_daily.json`; scenario rainfall is added in Python, so changing the slider does not repeat any rainfall computation.
 
 ## Outputs
 * Layers (event `map_layers`): risk (default visible), trigger class, 30-day rainfall, susceptibility, vulnerability, exposure.
@@ -33,10 +33,13 @@ All assets are public and cleared for use. `GET /readyz` checks that the running
 * Class breaks come from stored national statistics, not a per-request reduction (the script's per-request statistics would take minutes).
 * Trigger classes are computed once and fed to the rasters as a lookup, so the rainfall reduction is not repeated downstream.
 
-## Performance (Nan, real Earth Engine)
-First what-if ~34 s; slider change ~24 s; 5-day forecast ~39 s. Most of the time is the tambon statistics over the 12 m source rasters.
-Build the precomputed 100 m static layer to cut this: `cd apps/api && uv run python ../../scripts/build_dmr_static.py` (creates an Earth Engine asset in `EE_PROJECT`; records `dmr_static_asset`).
+## Performance
+Per-tambon statistics (area, people, buildings, hospitals, schools, roads by risk product) are read from precomputed files, so a what-if or forecast takes about 1-8 s (the map tiles are the only Earth Engine work per request). Before precomputing it took 34-81 s because every request reduced the 12 m source rasters.
+Precompute (see README, "Build the data files"):
+* `build_dmr_static.py` (one-off): 100 m static layer as an Earth Engine asset in `EE_PROJECT`; records `dmr_static_asset`.
+* `precompute_dmr_static_stats.py`, `precompute_dmr_features.py` (one-off): `static_stats.json`, `static_features.json`.
+* `precompute_dmr_rain.py` (daily): `obs_daily.json`. Observed data older than 3 days makes the overview unavailable; a forecast older than 36 h degrades it to observed-only.
 
 ## Open items
 * DMR to confirm the what-if semantics and the elevated-risk threshold.
-* Daily precompute of the national trigger table (for a default "current conditions" view).
+* Scheduling the daily precompute in production (not yet automated).
