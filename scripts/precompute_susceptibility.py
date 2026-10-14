@@ -35,7 +35,7 @@ def main(argv=None):
         return 0
     img = build_image().set({"run_date": c.today(), "region": a.region, "scale_m": 100})
     task = ee.batch.Export.image.toAsset(
-        image=img, description=f"lw_susceptibility_{a.region}", assetId=asset_id,
+        image=img, description=f"dnext_susceptibility_{a.region}", assetId=asset_id,
         region=c.thailand_geometry(bbox), scale=100, crs="EPSG:4326", maxPixels=int(1e13),
         pyramidingPolicy={".default": "mean"})
     if a.no_wait:

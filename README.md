@@ -111,7 +111,7 @@ infra/bootstrap.sh                              # stores the Maps keys in Secret
 just deploy                                     # builds and deploys the API, then the web app, then smoke-tests
 ```
 
-The API runs as an attached service account, with no key file in the image. In production the data files from step 3 must be in the project's Cloud Storage bucket (`<project>-lw/dmr/`), because the container does not contain them. Automating the daily rainfall job (for example a Cloud Run job on a schedule) is not set up yet.
+The API runs as an attached service account, with no key file in the image. In production the data files from step 3 must be in the project's Cloud Storage bucket (`<project>-dnext/dmr/`), because the container does not contain them. Automating the daily rainfall job (for example a Cloud Run job on a schedule) is not set up yet.
 
 ## Tests and CI
 

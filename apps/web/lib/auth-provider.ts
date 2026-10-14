@@ -24,7 +24,7 @@ export interface AuthProvider {
 declare global {
   interface Window {
     /** DEV/TEST ONLY hook, see loadProvider(). */
-    __lwAuthStub?: AuthProvider;
+    __dnextAuthStub?: AuthProvider;
   }
 }
 
@@ -42,10 +42,10 @@ export const errorCode = (e: unknown): string | undefined => {
 
 export async function loadProvider(): Promise<AuthProvider> {
   // DEV/TEST HOOK: Firebase popups cannot be driven by a headless browser, so in NON-production builds a page may install
-  // `window.__lwAuthStub` (an object with this same interface, e.g. via Playwright's addInitScript) before the app loads and it
+  // `window.__dnextAuthStub` (an object with this same interface, e.g. via Playwright's addInitScript) before the app loads and it
   // replaces Firebase entirely. The condition is inline on process.env.NODE_ENV on purpose: in a production build the bundler
   // replaces it with `false` and drops the whole branch, so the hook does not exist there.
-  if (process.env.NODE_ENV !== "production" && typeof window !== "undefined" && window.__lwAuthStub) return window.__lwAuthStub;
+  if (process.env.NODE_ENV !== "production" && typeof window !== "undefined" && window.__dnextAuthStub) return window.__dnextAuthStub;
   const { createFirebaseProvider } = await import("./auth-firebase");
   return createFirebaseProvider();
 }

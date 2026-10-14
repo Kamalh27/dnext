@@ -44,7 +44,7 @@ export const legal: Record<Lang, { updated: string; docs: Record<LegalKind, Lega
           {
             h: "What is stored",
             ul: [
-              "lw-theme (local storage, ours): remembers your light or dark theme choice. It stays in your browser until you clear it.",
+              "dnext-theme (local storage, ours): remembers your light or dark theme choice. It stays in your browser until you clear it.",
               "Google Maps (Google): the map may use cookies or local storage that Google needs to deliver map tiles, prevent abuse and measure usage. See Google's policies.",
               "Google Forms (Google): opening the feedback form loads content from google.com, which may set cookies.",
               "Sign in with Google (Firebase Authentication, Google): signing in opens a Google window, and Google or Firebase may set cookies. After you sign in, Firebase keeps your session in your browser's storage (IndexedDB / local storage, keys starting with firebase:) until you sign out.",
@@ -124,7 +124,7 @@ export const legal: Record<Lang, { updated: string; docs: Record<LegalKind, Lega
           {
             h: "สิ่งที่ถูกจัดเก็บ",
             ul: [
-              "lw-theme (local storage ของเรา): จำธีมสว่างหรือมืดที่คุณเลือก อยู่ในเบราว์เซอร์ของคุณจนกว่าจะล้าง",
+              "dnext-theme (local storage ของเรา): จำธีมสว่างหรือมืดที่คุณเลือก อยู่ในเบราว์เซอร์ของคุณจนกว่าจะล้าง",
               "Google Maps (Google): แผนที่อาจใช้คุกกี้หรือ local storage ที่ Google ต้องใช้เพื่อส่งภาพแผนที่ ป้องกันการใช้งานผิดปกติ และวัดการใช้งาน ดูนโยบายของ Google",
               "Google Forms (Google): การเปิดแบบฟอร์มความคิดเห็นจะโหลดเนื้อหาจาก google.com ซึ่งอาจตั้งคุกกี้",
               "ลงชื่อเข้าใช้ด้วย Google (Firebase Authentication, Google): การลงชื่อเข้าใช้จะเปิดหน้าต่างของ Google ซึ่ง Google หรือ Firebase อาจตั้งคุกกี้ หลังลงชื่อเข้าใช้ Firebase จะเก็บเซสชันของคุณในที่เก็บข้อมูลของเบราว์เซอร์ (IndexedDB / local storage คีย์ที่ขึ้นต้นด้วย firebase:) จนกว่าคุณจะออกจากระบบ",

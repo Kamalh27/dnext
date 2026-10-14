@@ -1,4 +1,4 @@
-"""Blob storage for briefings: gs://$PROJECT_ID-lw/briefings/. No-op locally (writes ./.local_storage)."""
+"""Blob storage for briefings: gs://$PROJECT_ID-dnext/briefings/. No-op locally (writes ./.local_storage)."""
 import logging
 from pathlib import Path
 
@@ -25,7 +25,7 @@ def upload(name: str, content: str | bytes, content_type: str = "text/markdown; 
         if s.geo_backend == "mock" or not s.project_id:
             return _local(name, data)
         from google.cloud import storage
-        bucket = f"{s.project_id}-lw"
+        bucket = f"{s.project_id}-dnext"
         storage.Client(project=s.project_id).bucket(bucket).blob(f"briefings/{name}") \
             .upload_from_string(data, content_type=content_type)
         return f"gs://{bucket}/briefings/{name}"

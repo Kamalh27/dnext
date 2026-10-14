@@ -72,4 +72,4 @@ The UI never parses prose: `app/agent/stream.py` maps ADK events to typed SSE ev
 These are design targets; measure them with the smoke test after deploy and update this table with real numbers.
 
 ## Trust boundaries
-Cloud Run services use an attached service account (`landslide-api`) with least-privilege roles (`infra/setup.sh`); no keys in the image. The Maps browser key is restricted by HTTP referrer; the server Geocoding key (if used) by API and kept in Secret Manager. CORS from `ALLOWED_ORIGINS`, rate limit via slowapi, request size capped.
+Cloud Run services use an attached service account (`dnext-api`) with least-privilege roles (`infra/setup.sh`); no keys in the image. The Maps browser key is restricted by HTTP referrer; the server Geocoding key (if used) by API and kept in Secret Manager. CORS from `ALLOWED_ORIGINS`, rate limit via slowapi, request size capped.

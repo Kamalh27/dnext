@@ -2,7 +2,7 @@
 substitutions:
   _WEB_SA: ""                # web runtime service account email; deploy.sh passes it
   _REGION: asia-southeast1
-  _REPO: lw
+  _REPO: dnext
   _API_URL: ""
   _MAPS_KEY: ""
   _MAP_ID: ""
@@ -24,5 +24,5 @@ steps:
     args: [push, "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/web:$BUILD_ID"]
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
     entrypoint: gcloud
-    args: [run, deploy, lw-web, "--image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/web:$BUILD_ID",
+    args: [run, deploy, dnext-web, "--image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/web:$BUILD_ID",
            "--region=${_REGION}", "--service-account=${_WEB_SA}", --allow-unauthenticated, --cpu=1, --memory=512Mi, --max-instances=5]

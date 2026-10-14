@@ -2,7 +2,7 @@
 
 Primary source: HDX cod-ab-tha shapefile zip (download manually:
   https://data.humdata.org/dataset/cod-ab-tha  -> "tha_admin_boundaries.shp.zip") or pass --url.
-  cd apps/api && uv run --group scripts python ../../scripts/upload_admin.py --zip ~/Downloads/tha_admin_boundaries.shp.zip --bucket $PROJECT_ID-lw
+  cd apps/api && uv run --group scripts python ../../scripts/upload_admin.py --zip ~/Downloads/tha_admin_boundaries.shp.zip --bucket $PROJECT_ID-dnext
 Fallback (no HDX file): --fallback geoboundaries  (ADM1+ADM2 only; records 'tambon level unavailable').
 """
 import json
@@ -107,7 +107,7 @@ def main(argv=None):
     p = c.base_parser(__doc__)
     p.add_argument("--zip", type=Path, help="HDX cod-ab-tha shapefile zip")
     p.add_argument("--url", help="download the HDX zip from this URL")
-    p.add_argument("--bucket", help="GCS bucket for the GeoJSON staging file (default $PROJECT_ID-lw)")
+    p.add_argument("--bucket", help="GCS bucket for the GeoJSON staging file (default $PROJECT_ID-dnext)")
     p.add_argument("--fallback", choices=["geoboundaries"], help="use EE geoBoundaries ADM1/2 (no tambon)")
     a = p.parse_args(argv)
     project = c.require_project(a.project, a.dry_run)
@@ -151,7 +151,7 @@ def main(argv=None):
         return 0
     import os
     from google.cloud import storage
-    bucket = a.bucket or f"{os.environ.get('PROJECT_ID', project)}-lw"
+    bucket = a.bucket or f"{os.environ.get('PROJECT_ID', project)}-dnext"
     blob = storage.Client().bucket(bucket).blob("admin/tambon.geojson")
     blob.upload_from_filename(str(gj))
     c.ingest_table_and_wait(asset_id, [f"gs://{bucket}/admin/tambon.geojson"])
@@ -181,7 +181,7 @@ def run_fallback(a, project, asset_id):
     c.log.info("wrote %s", INDEX_PATH)
     if c.delete_asset_if(asset_id, a.overwrite):
         fc = adm2_fc.map(lambda f: f.select(["shapeID", "shapeName"], ["ADM2_PCODE", "name_en"]))
-        c.start_export_and_wait(ee.batch.Export.table.toAsset(fc, "lw_admin_fallback", asset_id))
+        c.start_export_and_wait(ee.batch.Export.table.toAsset(fc, "dnext_admin_fallback", asset_id))
     c.record_asset("tambon_asset", asset_id)
     c.update_assets_local("admin_limitation", "tambon level unavailable (geoBoundaries ADM2 used)")
     return 0

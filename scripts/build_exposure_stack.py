@@ -85,7 +85,7 @@ def main(argv=None):
                                                       else "JRC GHSL P2023A built_surface 2020") + "; OpenStreetMap (Geofabrik)",
                  "run_date": c.today(), "osm_date": osm_date, "building_source": source,
                  "avg_footprint_m2": footprint_m2()}))
-    task = ee.batch.Export.image.toAsset(image=img, description=f"lw_exposure_{a.region}", assetId=asset_id,
+    task = ee.batch.Export.image.toAsset(image=img, description=f"dnext_exposure_{a.region}", assetId=asset_id,
                                          region=geom, scale=100, crs="EPSG:4326", maxPixels=int(1e13),
                                          pyramidingPolicy={".default": "sum"})
     if a.no_wait:
