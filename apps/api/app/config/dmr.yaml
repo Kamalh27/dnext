@@ -1,11 +1,11 @@
 # DMR landslide-risk method (ADPC / DMR). Risk = Trigger x Susceptibility x Vulnerability x Exposure / 125  -> 0..5
-# All assets are public/cleared for use (confirmed by the data owners). Static susceptibility is ADPC's CNN map.
+# Layer paths are project-specific and live in dmr_assets.local.yaml (gitignored; template: dmr_assets.local.yaml.example).
 assets:
-  boundary: projects/<project>/assets/<asset>
-  thresholds: projects/<project>/assets/<asset>   # 7,425 tambon polygons with 30-day rainfall percentile thresholds
-  susceptibility: projects/<project>/assets/<asset>   # band b1, 0-100, 12 m
-  vulnerability: projects/<project>/assets/<asset>   # 0-0.50 nationally, 12 m
-  exposure: projects/<project>/assets/<asset>                        # 0.07-0.82 nationally, 12 m
+  boundary: ""
+  thresholds: ""
+  susceptibility: ""
+  vulnerability: ""
+  exposure: ""
   thailand_adm1: WM/geoLab/geoBoundaries/600/ADM1   # filtered to shapeGroup THA: border mask for layers whose source covers neighbouring countries
 
 susceptibility_threshold: 10      # pixels below this are "not susceptible" (masked)

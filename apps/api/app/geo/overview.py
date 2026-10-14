@@ -110,9 +110,9 @@ def national(horizon_days: int = 0) -> dict:
                          for k in ("buildings", "hospitals", "schools", "road_km")} if feats else {})} for c in res["by_class"]],
         "trigger_classes": [sum(1 for r in rows if r["trigger_class"] == i) for i in range(6)],
         "provinces": provinces, "top": [p for p in provinces if p["risk_class"] > 0][:5],
-        "limitations": ["Observed rainfall (GSMaP, last 30 days) compared with each tambon's DMR thresholds; not an official warning or forecast."
+        "limitations": ["Observed rainfall (GSMaP, last 30 days) compared with each tambon's DMR thresholds; a screening estimate, not a forecast."
                         if not horizon_days else
-                        "Observed rainfall plus GFS forecast compared with each tambon's DMR thresholds; not an official warning."],
+                        "Observed rainfall plus GFS forecast compared with each tambon's DMR thresholds; a screening estimate."],
     }
     _memo[key] = (time.time(), out, id(data))
     return out
@@ -151,7 +151,7 @@ def series(max_days: int = 5) -> dict:
     out = {"date_of_data": cur["date_of_data"], "source": cur["source"], "model_run_time": f.get("model_run_time"), "max_days": max_days,
            "days": days, "forecast_available": forecast_note is None, "forecast_note": forecast_note,
            "limitations": ["Observed rainfall (GSMaP) plus GFS forecast compared with each tambon's DMR thresholds. Forecast skill falls with lead time; "
-                           "this is not an official warning or forecast."]}
+                           "this is a screening estimate, not a forecast."]}
     _memo[key] = (time.time(), out, id(cur))
     return out
 

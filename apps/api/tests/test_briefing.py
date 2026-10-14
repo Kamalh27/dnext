@@ -10,7 +10,7 @@ def _r():
 def test_en_briefing_sections_and_numbers():
     r = _r()
     md = briefing.build_briefing(r, "en")
-    for s in ("Headline estimates", "Top 10", "Assumptions", "Limitations", "Data sources", "tmd.go.th", "disaster.go.th"):
+    for s in ("Headline estimates", "Top 10", "Assumptions", "Limitations", "Data sources"):
         assert s in md
     assert f"~{r['exposure']['people']:,.0f}" in md
     assert md.count("\n| ") >= 11 and "MOCK" in md.upper()

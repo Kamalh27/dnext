@@ -13,7 +13,7 @@ def test_known_limitations_translate_and_unknown_fall_back():
 
 def test_thai_text_never_calls_results_a_warning():
     text = " ".join(i18n_th.LIMITATIONS.values()) + i18n_th.TRIGGER_SOURCE + " ".join(i18n_th.TAMBON_COLUMNS)
-    assert "เตือนภัย" not in text.replace("การเตือนภัยอย่างเป็นทางการ", "")   # only the 'not an official warning' disclaimer may use the word
+    assert "เตือนภัย" not in text
 
 
 def test_legends_and_layer_names_have_thai():
@@ -30,7 +30,7 @@ def _result(kind="what_if"):
     r = {"scenario_id": "s", "kind": kind, "rainfall_mm": 250, "duration_h": 72,
          "area": {"name": "Nan", "name_th": "น่าน", "bbox": [1, 2, 3, 4], "admin_code": "TH55"},
          "hazard": {"model": "dmr", "tile_url": "", "legend": leg, "layers": [], "triggered_tambons": 74, "tambons_total": 99, "antecedent_days": 27,
-                    "data_sources": ["a"], "resolution_m": 100, "date_of_data": "d", "limitations": ["Screening-level estimate of rainfall-triggered landslide risk using the DMR/ADPC method; not an official forecast or warning."]},
+                    "data_sources": ["a"], "resolution_m": 100, "date_of_data": "d", "limitations": ["Screening-level estimate of rainfall-triggered landslide risk using the DMR/ADPC method; not a forecast."]},
          "exposure": {"people": 100, "households_est": 100, "buildings": None, "road_km": None, "schools": None, "hospitals": None,
                       "top_admin_units": tt, "tambon_table": tt, "tambons_ranked": 99, "data_sources": ["b"], "limitations": [], "facilities": []}}
     if kind == "forecast":

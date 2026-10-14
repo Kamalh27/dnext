@@ -1,6 +1,6 @@
 # What this tool can and cannot tell you (for officers and planners)
 
-**LandslideWatch TH is a screening tool. It is not an official warning or forecast.** For warnings follow the **Thai Meteorological Department (TMD)** and the **Department of Disaster Prevention and Mitigation (DDPM; hotline 1784, confirm before printing)**, and follow your provincial disaster prevention office.
+**DNext is a screening tool for planning and situational awareness. It is not a forecast or warning service.** Confirm results with local authorities and local conditions before acting.
 
 ## How to read the results
 - **It answers "what if?"** Given a rainfall amount and duration, it shows where terrain is most likely to fail and roughly how many people, buildings, roads and facilities are in those zones.
@@ -18,4 +18,4 @@ Prioritising which sub-districts to look at first, pre-positioning supplies, com
 Evacuation orders, naming individual unsafe houses, insurance or legal decisions, or replacing field inspection and local knowledge.
 
 ## If something looks wrong
-Local knowledge wins. Report issues to the tool maintainers (see README) and, for hazard decisions, consult DDPM and the Department of Mineral Resources geohazard teams.
+Local knowledge wins. Report issues to the tool maintainers (see the README) and, for hazard decisions, consult local disaster authorities and geohazard specialists.

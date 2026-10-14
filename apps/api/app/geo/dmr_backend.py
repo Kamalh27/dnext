@@ -143,7 +143,7 @@ def _sources(extra: list[str] | None = None) -> list[str]:
 def limitations(meta: dict, extra: list[str] | None = None) -> list[str]:
     t = dmr.cfg()["trigger"]
     out = [
-        "Screening-level estimate of rainfall-triggered landslide risk using the DMR/ADPC method; not an official forecast or warning.",
+        "Screening-level estimate of rainfall-triggered landslide risk using the DMR/ADPC method; not a forecast.",
         "Risk = trigger x susceptibility x vulnerability x exposure / 125, on 1-5 classes; classes are relative, not probabilities.",
         f"Trigger compares each tambon's 30-day rainfall with its own DMR percentile thresholds (P60-P95); rainfall is assumed uniform within a what-if scenario.",
         "Susceptibility is ADPC's static CNN map (12 m); vulnerability and exposure are DMR indices. Tambon statistics are computed at ~100 m.",

@@ -35,14 +35,17 @@ IDs and caveats verified **2026-10-12** (Earth Engine catalog, Vertex AI docs, d
 - **Single threshold.** The rainfall threshold defaults to the global Caine (1980) curve; it is not calibrated for Thailand (swappable in `thresholds.yaml`).
 
 
-## DMR / ADPC layers (default hazard model, added 2026-10-13)
-| Use | Asset | Notes |
+## DMR / ADPC layers (default hazard model)
+The Earth Engine paths of these layers are project-specific and are kept out of the repository: put them in `apps/api/app/config/dmr_assets.local.yaml` (gitignored; template `dmr_assets.local.yaml.example`).
+
+| Use | Content | Notes |
 |---|---|---|
-| Susceptibility | `projects/<project>/assets/<asset>` | band `b1`, 0-100, 12 m, EPSG:32647 |
-| Vulnerability | `projects/<project>/assets/<asset>` | band `combined_vulnerability`, 0-0.50 |
-| Exposure | `projects/<project>/assets/<asset>` | band `exposure`, 0.07-0.82 |
-| Rainfall thresholds + tambon boundaries | `projects/<project>/assets/<asset>` | 7,425 tambon polygons; EN/TH names and pcodes; `P60max`..`P95max` (30-day mm) |
-| Boundary | `projects/<project>/assets/<asset>` | |
-| Observed rain | `NASA/GPM_L3/IMERG_V07` (or `JAXA/GPM_L3/GSMaP/v6/operational`) | newest image ~1 day old |
-| Forecast rain | `NOAA/GFS0P25` | IMERG has no forecast |
-See `docs/dmr_method.md`. The tambon thresholds table also gives us the tambon boundary layer, so the HDX shapefile is no longer required for tambon ranking.
+| Susceptibility | ADPC landslide susceptibility map | band `b1`, 0-100, 12 m |
+| Vulnerability | Combined vulnerability index | 0-0.50 nationally |
+| Exposure | Combined exposure index | 0.07-0.82 nationally |
+| Rainfall thresholds and tambon boundaries | 7,425 tambon polygons | EN/TH names and codes; `P60max`..`P95max` (30-day mm) |
+| Boundary | Thailand boundary with 10 km buffer | |
+| Observed rain | JAXA GSMaP (`JAXA/GPM_L3/GSMaP/v6/operational`); NASA IMERG selectable | newest image about 1 day old |
+| Forecast rain | NOAA GFS (`NOAA/GFS0P25`) | observed products have no forecast |
+
+See `docs/dmr_method.md`. The tambon thresholds table also gives us the tambon boundary layer, so no separate administrative shapefile is needed for tambon ranking.

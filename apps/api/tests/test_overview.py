@@ -69,7 +69,7 @@ def test_series_gives_one_record_per_day_with_cumulative_risk_and_daily_rain(cac
     assert dry(0)["rain_mm"] == 1.0 and dry(1)["rain_mm"] == 100.0 and dry(2)["rain_mm"] == 150.0 and dry(3)["rain_mm"] == 50.0
     trig = [d["totals"]["triggered"] for d in s["days"]]
     assert trig == sorted(trig)                  # synthetic data has no rain rolling out of the 30-day window, so it only grows
-    assert s["days"][5]["totals"]["triggered"] == 3 and "not an official" in s["limitations"][0]
+    assert s["days"][5]["totals"]["triggered"] == 3 and "not a forecast" in s["limitations"][0]
 
 
 def test_series_endpoint(caches):
