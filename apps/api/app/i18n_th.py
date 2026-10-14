@@ -6,8 +6,8 @@ English text, so a missing translation never shows a wrong one.
 import re
 
 LIMITATIONS: dict[str, str] = {
-    "Screening-level estimate of rainfall-triggered landslide risk using the DMR/ADPC method; not an official forecast or warning.":
-        "ประมาณการคัดกรองความเสี่ยงดินถล่มจากฝนด้วยวิธี DMR/ADPC ไม่ใช่การพยากรณ์หรือการเตือนภัยอย่างเป็นทางการ",
+    "Screening-level estimate of rainfall-triggered landslide risk using the DMR/ADPC method; not a forecast.":
+        "ประมาณการคัดกรองความเสี่ยงดินถล่มจากฝนด้วยวิธี DMR/ADPC ไม่ใช่ผลพยากรณ์",
     "Risk = trigger x susceptibility x vulnerability x exposure / 125, on 1-5 classes; classes are relative, not probabilities.":
         "ความเสี่ยง = ตัวกระตุ้นจากฝน × ความอ่อนไหว × ความเปราะบาง × การรับสัมผัส ÷ 125 ในระดับ 1-5 ระดับเหล่านี้เป็นค่าสัมพัทธ์ ไม่ใช่ความน่าจะเป็น",
     "Trigger compares each tambon's 30-day rainfall with its own DMR percentile thresholds (P60-P95); rainfall is assumed uniform within a what-if scenario.":

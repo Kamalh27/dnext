@@ -157,11 +157,12 @@ async def readyz():
         init()
         wanted = dict(dmr.cfg()["assets"]) if settings().hazard_model == "dmr" else {}
         out = {}
-        for k, a in wanted.items():
+        for k, a in wanted.items():   # report readability only: asset paths and error details stay out of the public response
             try:
-                out[k] = {"asset": a, "readable": bool(ee.data.getAsset(a))}
+                out[k] = {"readable": bool(a and ee.data.getAsset(a))}
             except Exception as e:  # noqa: BLE001
-                out[k] = {"asset": a, "readable": False, "error": str(e)[:120]}
+                log.warning("readyz: layer %s not readable: %s", k, str(e)[:200])
+                out[k] = {"readable": False}
         return out
 
     res = await asyncio.to_thread(check)

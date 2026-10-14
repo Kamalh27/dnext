@@ -139,7 +139,7 @@ def shape_explain(props: dict, weights: dict) -> dict:
 def base_limitations(extra: list[str] | None = None) -> list[str]:
     osm = assets().get("osm_extract_date") or "the date of the Geofabrik extract used when the exposure stack was built"
     out = [
-        "Screening-level model (weighted susceptibility overlay x intensity-duration trigger); not an official forecast or warning.",
+        "Screening-level model (weighted susceptibility overlay x intensity-duration trigger); not a forecast.",
         "Rainfall is assumed spatially uniform over the area for the scenario; antecedent wetness comes from IMERG.",
         "Households are an estimate: people / assumed household size.",
         "Population is WorldPop 2020 (constrained to the 2020 baseline); people rounded to nearest 100 (1,000 above 100k).",

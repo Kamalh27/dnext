@@ -4,7 +4,7 @@
 
 A landslide risk screening tool for Thailand. It combines Thailand's rainfall (observed and forecast) with the DMR/ADPC landslide risk method to show, at province and tambon (sub-district) level, where rain is likely to trigger landslides and how many people, buildings, hospitals, schools and roads are in the danger zones. You can ask questions in English or Thai ("What if Nan gets 250 mm in three days?"), run what-if rainfall scenarios, and follow a 5-day risk forecast on a map.
 
-> Screening tool, **not an official forecast or warning.** Follow the Thai Meteorological Department (TMD) and the Department of Disaster Prevention and Mitigation (DDPM). See [docs/limitations.md](docs/limitations.md).
+> A screening tool for planning and situational awareness, not a forecast or warning service. Confirm results locally before acting. See [docs/limitations.md](docs/limitations.md).
 
 ## What it does
 
@@ -69,7 +69,8 @@ The default `GEO_BACKEND=mock` serves deterministic fixtures so the UI and API r
 1. Choose or create a Google Cloud project with billing, and register it for [Earth Engine](https://code.earthengine.google.com/register).
 2. Create a service account, grant it the roles it needs (`infra/setup.sh` lists them), and save its JSON key as `credentials/ee-sa.json`. That folder is gitignored. Alternatively use `gcloud auth application-default login`.
 3. Create a Google Maps API key (restricted to your site) and a Map ID (choose *Vector* rendering to enable the 3D tilt).
-4. Edit `.env`:
+4. Copy `apps/api/app/config/dmr_assets.local.yaml.example` to `dmr_assets.local.yaml` and fill in the Earth Engine paths of the DMR/ADPC layers (see [docs/data_sources.md](docs/data_sources.md)). The file is gitignored because the paths are project-specific.
+5. Edit `.env`:
 
 | Variable | Purpose |
 |---|---|
@@ -132,7 +133,7 @@ git config core.hooksPath .githooks
 
 ## Safety and honesty
 
-- Results are screening estimates, not official forecasts or warnings.
+- Results are screening estimates for planning, not forecasts or warnings.
 - Numbers shown come from computed results. People and buildings are rounded estimates, and building counts come from satellite built-up area.
 - Risk classes are national and relative, not probabilities.
 - OpenStreetMap hospital, school and road data can be incomplete.

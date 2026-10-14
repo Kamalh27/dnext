@@ -14,7 +14,9 @@ from concurrent.futures import ThreadPoolExecutor
 import ee
 
 from app.geo.ee_init import get_info, init, retry
-from app.settings import load_yaml
+import yaml
+
+from app.settings import CONFIG_DIR, load_yaml
 
 RAIN_SCALE_M = 11132   # reduce rainfall at the IMERG/GSMaP native grid
 STATS_SCALE_M = 100    # tambon statistics (WorldPop is 100 m)
@@ -22,7 +24,12 @@ TOP_TAMBON = 10
 
 
 def cfg() -> dict:
-    return load_yaml("dmr.yaml")
+    """dmr.yaml plus the project-specific layer paths from dmr_assets.local.yaml (gitignored; see its .example)."""
+    c = load_yaml("dmr.yaml")
+    local = CONFIG_DIR / "dmr_assets.local.yaml"
+    if local.is_file():
+        c["assets"].update({k: v for k, v in ((yaml.safe_load(local.read_text()) or {}).get("assets") or {}).items() if v})
+    return c
 
 
 # ---------------- pure helpers (unit-tested) ----------------
@@ -66,7 +73,10 @@ def risk_legend() -> list[dict]:
 
 # ---------------- Earth Engine images ----------------
 def _a(key: str) -> str:
-    return cfg()["assets"][key]
+    path = cfg()["assets"].get(key)
+    if not path:
+        raise RuntimeError(f"DMR layer '{key}' is not configured: copy app/config/dmr_assets.local.yaml.example to dmr_assets.local.yaml and fill it in.")
+    return path
 
 
 def susceptibility() -> ee.Image:

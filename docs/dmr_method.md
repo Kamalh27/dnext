@@ -8,13 +8,13 @@ Config: `apps/api/app/config/dmr.yaml`. Code: `app/geo/dmr.py` (Earth Engine), `
 
 | Factor | Source | Class (1-5) |
 |---|---|---|
-| Trigger (0-5) | Tambon 30-day rainfall vs that tambon's DMR percentile thresholds `P60/P70/P80/P90/P95max` (7,425 tambon polygons, `projects/<project>/assets/<asset>`) | highest threshold exceeded; below P60 = 0 |
-| Susceptibility | ADPC CNN map `dmr_cnn_landslide_susceptibility_60_int`, 0-100, 12 m. Pixels `< 10` are masked | z-score ("Standardize") on pixels >= 10: breaks at mean + k*sd, k = -1.5, -0.5, 0.5, 1.5 |
-| Vulnerability | `<project>/.../combined_vulnerability_index`, 0-0.50 nationally | `ceil(v * 10)`, clamp 1-5 |
-| Exposure | `<project>/.../exposure_combined`, 0.07-0.82 nationally | `ceil(e * 5)`, clamp 1-5 |
+| Trigger (0-5) | Tambon 30-day rainfall vs that tambon's DMR percentile thresholds `P60/P70/P80/P90/P95max` (7,425 tambon polygons) | highest threshold exceeded; below P60 = 0 |
+| Susceptibility | ADPC CNN susceptibility map, 0-100, 12 m. Pixels `< 10` are masked | z-score ("Standardize") on pixels >= 10: breaks at mean + k*sd, k = -1.5, -0.5, 0.5, 1.5 |
+| Vulnerability | Combined vulnerability index, 0-0.50 nationally | `ceil(v * 10)`, clamp 1-5 |
+| Exposure | Combined exposure index, 0.07-0.82 nationally | `ceil(e * 5)`, clamp 1-5 |
 
 National statistics used (computed 2026-10-13 at 1 km, susceptibility >= 10): mean 41.379, sd 19.861; vulnerability max 0.5006 (so x10 is correct); exposure max 0.8187 (x5).
-All assets are public and cleared for use. `GET /readyz` checks that the running identity can read every asset.
+The layers' Earth Engine paths are kept in `apps/api/app/config/dmr_assets.local.yaml` (gitignored; see `dmr_assets.local.yaml.example`). `GET /readyz` checks that the running identity can read every layer.
 
 ## Rainfall
 * What-if (X mm over D hours): the 30-day total = observed rainfall of the preceding `30 - ceil(D/24)` days + X, applied uniformly. **Needs confirmation by DMR.**

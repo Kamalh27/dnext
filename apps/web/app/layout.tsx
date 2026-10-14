@@ -22,7 +22,7 @@ const plexMono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: "DNext · LandslideWatch TH",
-  description: "Landslide risk screening tool for Thailand. Not an official forecast.",
+  description: "Landslide risk screening for Thailand: what-if rainfall scenarios, forecasts and exposure estimates by tambon.",
 };
 
 // viewport-fit=cover lets the layout use the notch/home-indicator area (padded with env(safe-area-inset-*)); resizes-content makes the

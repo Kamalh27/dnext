@@ -18,10 +18,9 @@ L = {
         "shel": "Shelters", "top": "Top 10 most exposed admin units", "unit": "Admin unit",
         "ppl": "People (est.)", "bldc": "Buildings (est.)", "roadc": "Road km (est.)",
         "assume": "Assumptions", "limits": "Limitations", "sources": "Data sources",
-        "official": "Official information",
-        "official_txt": "This is a screening-level estimate, NOT an official warning or evacuation order. "
-                        "Follow the Thai Meteorological Department (https://www.tmd.go.th) and the Department of "
-                        "Disaster Prevention and Mitigation (https://www.disaster.go.th) and local authorities.",
+        "note": "Please note",
+        "note_txt": "This is a screening-level estimate for planning and situational awareness. It is not a warning or an "
+                        "evacuation order. Confirm with local authorities and local conditions before acting.",
         "a_rain": "Rainfall is applied uniformly over the area.", "a_hh": "Households = people / {hs} persons per household (estimate).",
         "a_res": "Model resolution: {res} m; figures are rounded.", "a_date": "Data date: {d}.",
         "ante": "Antecedent rainfall ({days} days)", "synthetic": "SYNTHETIC MOCK DATA - not real values.",
@@ -36,10 +35,9 @@ L = {
         "shel": "ศูนย์พักพิง", "top": "10 หน่วยปกครองที่ได้รับผลกระทบสูงสุด", "unit": "หน่วยปกครอง",
         "ppl": "ประชากร (ประมาณ)", "bldc": "อาคาร (ประมาณ)", "roadc": "ถนน กม. (ประมาณ)",
         "assume": "สมมติฐาน", "limits": "ข้อจำกัด", "sources": "แหล่งข้อมูล",
-        "official": "ข้อมูลทางการ",
-        "official_txt": "นี่คือการประเมินเบื้องต้นระดับคัดกรอง ไม่ใช่คำเตือนหรือคำสั่งอพยพอย่างเป็นทางการ "
-                        "โปรดติดตามกรมอุตุนิยมวิทยา (https://www.tmd.go.th) กรมป้องกันและบรรเทาสาธารณภัย "
-                        "(https://www.disaster.go.th) และหน่วยงานท้องถิ่น",
+        "note": "ข้อควรทราบ",
+        "note_txt": "นี่คือการประเมินเบื้องต้นระดับคัดกรองเพื่อการวางแผนและการรับรู้สถานการณ์ ไม่ใช่คำสั่งอพยพ "
+                        "โปรดตรวจสอบกับหน่วยงานท้องถิ่นและสภาพพื้นที่จริงก่อนดำเนินการ",
         "a_rain": "ใช้ปริมาณฝนเท่ากันทั้งพื้นที่", "a_hh": "ครัวเรือน = ประชากร / {hs} คนต่อครัวเรือน (ประมาณ)",
         "a_res": "ความละเอียดแบบจำลอง: {res} ม. ตัวเลขถูกปัดเศษ", "a_date": "วันที่ของข้อมูล: {d}",
         "ante": "ฝนสะสมก่อนหน้า ({days} วัน)", "synthetic": "ข้อมูลจำลอง (MOCK) ไม่ใช่ค่าจริง",
@@ -96,7 +94,7 @@ def build_briefing(r: dict, language: str = "en") -> str:
             "- " + t["a_date"].format(d=h.get("date_of_data", "?"))]
     out += ["", f"## {t['limits']}", ""] + [f"- {_cell(s)}" for s in dict.fromkeys(h.get("limitations", []) + x.get("limitations", []))]
     out += ["", f"## {t['sources']}", ""] + [f"- {_cell(s)}" for s in sources]
-    out += ["", f"## {t['official']}", "", t["official_txt"], "", f"_{t['generated']} | scenario {r['scenario_id']}_", ""]
+    out += ["", f"## {t['note']}", "", t["note_txt"], "", f"_{t['generated']} | scenario {r['scenario_id']}_", ""]
     md = "\n".join(out)
     return _polish(md)
 

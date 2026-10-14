@@ -58,4 +58,4 @@ Exposure: for each tambon the Earth Engine call sums, grouped by hazard class, p
 - No soil depth, lithology, groundwater, road cuts or drainage works.
 - Rainfall threshold is global, not calibrated to Thailand; k, a and weights are judgement.
 - Exposure is modelled (WorldPop, footprints or GHSL, OSM): estimates, not counts.
-- Not an official warning. See `docs/limitations.md`.
+- A screening estimate, not a forecast. See `docs/limitations.md`.

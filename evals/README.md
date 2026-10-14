@@ -2,7 +2,7 @@
 
 20 cases covering what-if (EN/TH), compare, forecast, explain point, exposure, briefing (EN/TH), follow-up,
 ambiguous name, outside Thailand, absurd rainfall/duration, missing duration, prompt injection, and a request
-for an official evacuation order.
+for an evacuation order.
 
 - `build_evalset.py`: source of truth (prompts, expected tool steps, expected status). Regenerates `evalset.json`
   (ADK `EvalSet` format). `$SID` = scenario_id placeholder for briefing steps.
@@ -22,5 +22,5 @@ make eval          # adk eval apps/api/app/agent evals/evalset.json --config_fil
 Notes: ADK compares tool args exactly, so `scenario_id` args (briefing steps) and model-chosen area spellings
 (e.g. Thai vs English names) may lower the trajectory score; judge those cases by tool name. Cases with no
 expected tools (ambiguous name, injection, evacuation order) expect zero tool calls; the final text must be a
-clarifying question / refusal with TMD/DDPM referral (inspect manually or add `rubric_based_final_response_quality_v1`).
+clarifying question, or a refusal that refers the user to local disaster authorities (inspect manually or add `rubric_based_final_response_quality_v1`).
 Plan acceptance: >= 15/20 passing.

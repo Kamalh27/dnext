@@ -1,0 +1,7 @@
+# Copy to dmr_assets.local.yaml and fill in the Earth Engine asset paths you were given. The real file is gitignored.
+assets:
+  boundary: projects/<project>/assets/<country boundary with buffer>
+  thresholds: projects/<project>/assets/<tambon polygons with P60max..P95max rainfall thresholds>
+  susceptibility: projects/<project>/assets/<landslide susceptibility image, band b1, 0-100>
+  vulnerability: projects/<project>/assets/<combined vulnerability index image>
+  exposure: projects/<project>/assets/<combined exposure image>
