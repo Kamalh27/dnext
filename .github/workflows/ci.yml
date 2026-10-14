@@ -60,6 +60,8 @@ jobs:
           cache: pnpm
           cache-dependency-path: apps/web/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
+      - name: Generate Next route types (not committed; the dev server makes them locally)
+        run: pnpm exec next typegen
       - name: Type check
         run: pnpm exec tsc --noEmit
       - name: Lint

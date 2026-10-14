@@ -1,0 +1,6 @@
+# Copy to assets.local.yaml (gitignored). The scripts in scripts/ write these keys after each export; empty = the API computes on the fly.
+susceptibility_asset: ""
+exposure_stack_asset: ""
+tambon_asset: ""
+facilities_asset: ""
+dmr_static_asset: ""        # e.g. projects/<your-project-id>/assets/landslidewatch/dmr_static

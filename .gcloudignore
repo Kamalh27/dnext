@@ -1,0 +1,19 @@
+# What `gcloud builds submit .` uploads to Cloud Build. Never upload secrets, credentials, local data or dependencies.
+#!include:.gitignore
+.git
+.github
+.env
+.env.*
+!.env.example
+credentials/
+*-sa.json
+*service-account*.json
+*.pem
+*.p12
+.local_storage/
+scripts/out/
+node_modules/
+.venv/
+.next/
+# generated, project-specific config that the API image can use: keep it despite being gitignored
+!apps/api/app/config/assets.local.yaml
