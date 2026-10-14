@@ -19,11 +19,12 @@ def post(url, body, timeout):
 
 
 def check_health(base):
+    # Cloud Run's front end answers /healthz itself on *.run.app (404), so check /readyz (also verifies the data assets).
     try:
-        with urllib.request.urlopen(base + "/healthz", timeout=10) as r:
-            record("GET /healthz", r.status == 200, f"HTTP {r.status}")
+        with urllib.request.urlopen(base + "/readyz", timeout=60) as r:
+            record("GET /readyz", r.status == 200, f"HTTP {r.status}")
     except Exception as e:
-        record("GET /healthz", False, str(e))
+        record("GET /readyz", False, str(e))
 
 
 def check_scenario(base):
