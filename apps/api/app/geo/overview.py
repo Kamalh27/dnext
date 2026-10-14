@@ -4,13 +4,59 @@ Observed 30-day rainfall per tambon (GSMaP) vs the tambon's rainfall thresholds 
 risk, people in the elevated zone and class areas per tambon, aggregated to provinces. horizon_days > 0 swaps the last
 `horizon_days` observed days for the GFS forecast of the next `horizon_days` days (same rule as the forecast scenario).
 """
+import logging
+import threading
 import time
 
 from app.geo import tambon_risk, obs_cache, static_stats
 from app.settings import load_yaml
 
+log = logging.getLogger("api")
 _memo: dict = {}
-_TTL_S = 600
+_TTL_S = 3600          # results stay valid for an hour while the daily files are unchanged
+_MAX_STALE_S = 6 * 3600  # a stale result is still served (and refreshed in the background) for this long
+_lock = threading.Lock()
+_inflight: set = set()
+
+
+def _sig(data: dict | None):
+    """Identity of the daily file: a reload of an unchanged file must not throw the computed results away."""
+    return None if not data else (data.get("newest_ms"), (data.get("forecast") or {}).get("run_ms"))
+
+
+def _swr(key, compute):
+    """Cached value while fresh. When it is stale, return it straight away and recompute once in the background, so a visitor after an
+    idle period gets the map immediately. Compute inline only when there is nothing usable (first call, or too old)."""
+    now, sig = time.time(), _sig(obs_cache.load())
+    hit = _memo.get(key)
+    if hit and now - hit[0] < _TTL_S and hit[2] == sig:
+        return hit[1]
+    if hit and now - hit[0] < _MAX_STALE_S:
+        with _lock:
+            start = key not in _inflight
+            if start:
+                _inflight.add(key)
+        if start:
+            def refresh():
+                try:
+                    compute()
+                except Exception as e:  # noqa: BLE001
+                    log.warning("overview refresh failed: %s", str(e)[:120])
+                finally:
+                    with _lock:
+                        _inflight.discard(key)
+            threading.Thread(target=refresh, daemon=True).start()
+        return hit[1]
+    return compute()
+
+
+def warm() -> None:
+    """Fill the caches (called at startup); failures only mean the first visitor computes it instead."""
+    try:
+        series(5)
+        national(0)
+    except Exception as e:  # noqa: BLE001
+        log.info("overview warm-up skipped: %s", str(e)[:120])
 
 
 class OverviewUnavailable(RuntimeError):
@@ -46,10 +92,11 @@ def _day_rain(t: dict, h: int) -> float | None:
 
 
 def national(horizon_days: int = 0) -> dict:
+    return _swr((horizon_days,), lambda: _national(horizon_days))
+
+
+def _national(horizon_days: int) -> dict:
     key = (horizon_days,)
-    hit = _memo.get(key)
-    if hit and time.time() - hit[0] < _TTL_S and hit[2] == id(obs_cache.load()):
-        return hit[1]
     src = tambon_risk.cfg()["trigger"]["observed_source"]
     data, ss = obs_cache.load(), static_stats.load()
     if not obs_cache.usable(data, src, tambon_risk.cfg()["trigger"]["window_days"]) or not ss:
@@ -114,7 +161,7 @@ def national(horizon_days: int = 0) -> dict:
                         if not horizon_days else
                         "Observed rainfall plus GFS forecast compared with each tambon's rainfall thresholds; a screening estimate."],
     }
-    _memo[key] = (time.time(), out, id(data))
+    _memo[key] = (time.time(), out, _sig(data))
     return out
 
 
@@ -123,16 +170,17 @@ def series(max_days: int = 5) -> dict:
 
     Risk is cumulative (observed window + forecast so far, compared with the tambon thresholds); rain_mm is that day's own rain.
     """
+    return _swr(("series", max_days), lambda: _series(max_days))
+
+
+def _series(max_days: int) -> dict:
     key = ("series", max_days)
-    hit = _memo.get(key)
     cur = obs_cache.load()
-    if hit and time.time() - hit[0] < _TTL_S and hit[2] == id(cur):
-        return hit[1]
     days = []
     forecast_note = None
     for h in range(0, max_days + 1):
         try:
-            o = national(h)
+            o = _national(h)
         except OverviewUnavailable as e:
             if h == 0:
                 raise                                   # no usable observed data: nothing honest to show
@@ -152,7 +200,7 @@ def series(max_days: int = 5) -> dict:
            "days": days, "forecast_available": forecast_note is None, "forecast_note": forecast_note,
            "limitations": ["Observed rainfall (GSMaP) plus GFS forecast compared with each tambon's rainfall thresholds. Forecast skill falls with lead time; "
                            "this is a screening estimate, not a forecast."]}
-    _memo[key] = (time.time(), out, id(cur))
+    _memo[key] = (time.time(), out, _sig(cur))
     return out
 
 
