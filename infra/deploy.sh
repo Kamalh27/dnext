@@ -37,7 +37,7 @@ echo "api: $API_URL"
 if [ "$MODE" != "--api-only" ]; then
   echo "== build + deploy web (API_URL baked in)"
   gcloud builds submit . $BUILD --config infra/cloudbuild-web.yaml --substitutions=\
-^@^_REGION="$REGION"@_WEB_SA="$WEB_SA"@_API_URL="$API_URL"@_MAPS_KEY="$NEXT_PUBLIC_GOOGLE_MAPS_API_KEY"@_MAP_ID="$NEXT_PUBLIC_GOOGLE_MAP_ID"@_FEEDBACK_URL="${NEXT_PUBLIC_FEEDBACK_FORM_URL:-}"   # '@' delimiter: form URLs contain , = ?
+^|^_REGION="$REGION"|_WEB_SA="$WEB_SA"|_API_URL="$API_URL"|_MAPS_KEY="$NEXT_PUBLIC_GOOGLE_MAPS_API_KEY"|_MAP_ID="$NEXT_PUBLIC_GOOGLE_MAP_ID"|_FEEDBACK_URL="${NEXT_PUBLIC_FEEDBACK_FORM_URL:-}"   # '|' delimiter: form URLs contain , = ?
   WEB_URL="$(url lw-web)"; echo "web: $WEB_URL"
   echo "== lock api CORS to the web origin"
   gcloud run services update lw-api --region "$REGION" --update-env-vars "^@^ALLOWED_ORIGINS=$WEB_URL" >/dev/null
