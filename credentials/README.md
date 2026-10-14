@@ -8,4 +8,4 @@ Everything in this folder except this README and `.gitkeep` is gitignored. The k
 `docker compose` mounts this folder read-only at `/credentials`. On Cloud Run use the attached service account instead (no key file).
 
 The service account needs: `roles/serviceusage.serviceUsageConsumer`, `roles/earthengine.writer`, and (for chat/cache)
-`roles/aiplatform.user`, `roles/datastore.user`, plus bucket access — `infra/setup.sh` grants these to `landslide-api`.
+`roles/aiplatform.user`, `roles/datastore.user`, plus bucket access — `infra/setup.sh` grants these to `dnext-api`.

@@ -1,4 +1,4 @@
-export const CHAT_W_KEY = "lw-chat-width";
+export const CHAT_W_KEY = "dnext-chat-width";
 export const CHAT_MIN_W = 320;
 
 /** Runs in <head> before first paint: restores the saved chat width as a CSS variable on <html> (avoids hydration mismatch). */

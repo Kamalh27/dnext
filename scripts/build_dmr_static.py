@@ -35,7 +35,7 @@ def main(argv=None):
     from app.geo import dmr
     region = ee.FeatureCollection(dmr.cfg()["assets"]["boundary"]).geometry()
     task = ee.batch.Export.image.toAsset(
-        image=build_image().set({"run_date": c.today(), "scale_m": 100}), description="lw_dmr_static", assetId=asset_id,
+        image=build_image().set({"run_date": c.today(), "scale_m": 100}), description="dnext_dmr_static", assetId=asset_id,
         region=region, scale=100, crs="EPSG:4326", maxPixels=int(1e13),
         pyramidingPolicy={"prod": "mode", "expo_class": "mode", "expo": "mean"})
     if a.no_wait:

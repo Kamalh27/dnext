@@ -2,7 +2,7 @@
 ingest facilities as EE asset <folder>/facilities and road tables as <folder>/roads_<class>.
 
 Needs the `osmium` CLI (preferred; `brew install osmium-tool`) or pyrosm. Streams geojsonseq, so memory stays low.
-  cd apps/api && uv run --group scripts python ../../scripts/fetch_osm.py --bucket $PROJECT_ID-lw
+  cd apps/api && uv run --group scripts python ../../scripts/fetch_osm.py --bucket $PROJECT_ID-dnext
 """
 import csv
 import json
@@ -187,12 +187,12 @@ def main(argv=None):
     c.setup_logging()
     p = c.base_parser(__doc__)
     p.add_argument("--pbf", type=Path, default=c.OUT_DIR / "osm" / "thailand-latest.osm.pbf")
-    p.add_argument("--bucket", help="GCS bucket (default $PROJECT_ID-lw)")
+    p.add_argument("--bucket", help="GCS bucket (default $PROJECT_ID-dnext)")
     p.add_argument("--skip-upload", action="store_true")
     a = p.parse_args(argv)
     project = c.require_project(a.project, a.dry_run)
     import os
-    bucket = a.bucket or f"{os.environ.get('PROJECT_ID', project)}-lw"
+    bucket = a.bucket or f"{os.environ.get('PROJECT_ID', project)}-dnext"
     folder = c.asset_folder(project)
     if a.dry_run:
         print(f"[dry-run] download {PBF_URL} -> {a.pbf} (skip if exists); extract roads {ROAD_CLASSES} + facilities; "

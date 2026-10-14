@@ -10,9 +10,9 @@ Each script is idempotent (skips if its asset exists), prints `ASSET <key> = <id
 
 | # | Step | Command | Writes key | Runtime (est.) |
 |---|------|---------|-----------|----------------|
-| 1 | Infra | `infra/setup.sh` (APIs, SA, bucket `$PROJECT_ID-lw`) | - | minutes |
+| 1 | Infra | `infra/setup.sh` (APIs, SA, bucket `$PROJECT_ID-dnext`) | - | minutes |
 | 2 | Admin boundaries | `upload_admin.py --zip tha_admin_boundaries.shp.zip` (or `--fallback geoboundaries`) | `tambon_asset`, `admin_index.json` | 5-15 min |
-| 3 | OSM | `fetch_osm.py --bucket $PROJECT_ID-lw` | `facilities_asset`, `osm_date` | download ~400 MB + 10-30 min extract + ingest |
+| 3 | OSM | `fetch_osm.py --bucket $PROJECT_ID-dnext` | `facilities_asset`, `osm_date` | download ~400 MB + 10-30 min extract + ingest |
 | 4 | Susceptibility | `precompute_susceptibility.py --region nan` (test), then no `--region` | `susceptibility_asset` | test: ~5-15 min; full TH: ~1-3 h |
 | 5 | Exposure stack | `build_exposure_stack.py --region nan` (test), then full | `exposure_stack_asset`, `building_source` | ~1-4 h (Open Buildings is heavy) |
 | 6 | Validation | `validate_susceptibility.py [--lhasa lhasa.tif]` | - (writes `scripts/out/validation.md`) | ~2-5 min |

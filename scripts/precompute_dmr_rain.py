@@ -4,7 +4,7 @@ Output JSON (read by app/geo/obs_cache.py): .local_storage/dmr/obs_daily.json, a
 Run once a day (Cloud Scheduler -> Cloud Run job, or cron). ~77 province-sized reductions in parallel; a few minutes.
 
   cd apps/api && uv run python ../../scripts/precompute_dmr_rain.py
-  cd apps/api && uv run python ../../scripts/precompute_dmr_rain.py --bucket <your-project-id>-lw     # also upload to GCS
+  cd apps/api && uv run python ../../scripts/precompute_dmr_rain.py --bucket <your-project-id>-dnext     # also upload to GCS
 """
 import argparse
 import json

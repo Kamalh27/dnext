@@ -34,7 +34,7 @@ def _read() -> dict | None:
     if project:
         try:
             from google.cloud import storage
-            blob = storage.Client(project=project).bucket(f"{project}-lw").blob(GCS_BLOB)
+            blob = storage.Client(project=project).bucket(f"{project}-dnext").blob(GCS_BLOB)
             if blob.exists():
                 return json.loads(blob.download_as_text())
         except Exception as e:  # noqa: BLE001
@@ -77,7 +77,7 @@ def load_features() -> dict | None:
         try:
             from google.cloud import storage
             project = settings().project_id or settings().ee_project
-            blob = storage.Client(project=project).bucket(f"{project}-lw").blob(FEATURES_GCS_BLOB)
+            blob = storage.Client(project=project).bucket(f"{project}-dnext").blob(FEATURES_GCS_BLOB)
             if blob.exists():
                 data = json.loads(blob.download_as_text())
         except Exception as e:  # noqa: BLE001

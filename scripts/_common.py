@@ -32,7 +32,7 @@ REGION_BBOXES = {
     "mae_hong_son": [97.3, 17.7, 98.9, 19.8],
 }
 
-log = logging.getLogger("lw")
+log = logging.getLogger("dnext")
 
 
 def setup_logging() -> None:

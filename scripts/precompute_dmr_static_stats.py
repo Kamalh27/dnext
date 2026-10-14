@@ -6,7 +6,7 @@ above a risk cutoff, class areas) follow from this histogram and that number, co
 Re-run only when the DMR susceptibility/vulnerability/exposure layers (or WorldPop) change.
 
   cd apps/api && uv run python ../../scripts/precompute_dmr_static_stats.py            # -> .local_storage/dmr/static_stats.json
-  cd apps/api && uv run python ../../scripts/precompute_dmr_static_stats.py --bucket <your-project-id>-lw
+  cd apps/api && uv run python ../../scripts/precompute_dmr_static_stats.py --bucket <your-project-id>-dnext
 Requires dmr_static_asset (scripts/build_dmr_static.py); falls back to the 12 m sources (much slower) if it is not recorded.
 """
 import argparse

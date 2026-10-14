@@ -1,7 +1,7 @@
 """Daily precomputed per-tambon rainfall (observed daily GSMaP + GFS forecast), so a request needs no rainfall reduction.
 
 Written by scripts/precompute_dmr_rain.py (run daily). Read from, in order: $DMR_OBS_PATH, ./.local_storage/dmr/obs_daily.json,
-gs://$PROJECT_ID-lw/dmr/obs_daily.json. Falls back to live Earth Engine when absent, for another source than configured, or stale.
+gs://$PROJECT_ID-dnext/dmr/obs_daily.json. Falls back to live Earth Engine when absent, for another source than configured, or stale.
 Observed day i (d[i]) covers [end - (i+1) d, end - i d) where end = newest image + 1 step, matching rain.observed_image().
 """
 import json
@@ -32,7 +32,7 @@ def _read() -> dict | None:
     if project:
         try:
             from google.cloud import storage
-            blob = storage.Client(project=project).bucket(f"{project}-lw").blob(GCS_BLOB)
+            blob = storage.Client(project=project).bucket(f"{project}-dnext").blob(GCS_BLOB)
             if blob.exists():
                 return json.loads(blob.download_as_text())
         except Exception as e:  # noqa: BLE001

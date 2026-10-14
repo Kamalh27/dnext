@@ -1,7 +1,7 @@
 # Build + deploy the API. Submitted by infra/deploy.sh (substitutions come from infra/config.env).
 substitutions:
   _REGION: asia-southeast1
-  _REPO: lw
+  _REPO: dnext
   _RUNTIME_SA: ""            # runtime service account email; deploy.sh passes it
   _EE_PROJECT: ""            # Earth Engine project; deploy.sh passes EE_PROJECT (defaults to the Cloud project)
   _MIN_INSTANCES: "1"
@@ -24,7 +24,7 @@ steps:
     args:
       - run
       - deploy
-      - lw-api
+      - dnext-api
       - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/api:$BUILD_ID
       - --region=${_REGION}
       - --service-account=${_RUNTIME_SA}

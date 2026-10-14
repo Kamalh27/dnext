@@ -3,7 +3,7 @@
 import { useCallback, useSyncExternalStore } from "react";
 import { MQ } from "./use-media";
 
-const PREFIX = "lw-ui-";
+const PREFIX = "dnext-ui-";
 const mem = new Map<string, "1" | "0">();   // survives blocked storage for the visit
 const listeners = new Set<() => void>();
 const notify = () => listeners.forEach((l) => l());

@@ -29,8 +29,8 @@ Work through in order. Everything runs in **mock mode** (`GEO_BACKEND=mock`) bef
 7. **Data pipeline** (from `apps/api`; EE exports are long-running and continue server-side; each script writes IDs into `app/config/assets.local.yaml`, and `upload_admin.py` writes `app/config/admin_index.json`). Smoke-test each with `--region nan` before the full country:
    ```bash
    cd apps/api
-   uv run --group scripts python ../../scripts/upload_admin.py --zip ~/Downloads/tha_admin_boundaries.shp.zip --bucket $PROJECT_ID-lw
-   uv run --group scripts python ../../scripts/fetch_osm.py --bucket $PROJECT_ID-lw
+   uv run --group scripts python ../../scripts/upload_admin.py --zip ~/Downloads/tha_admin_boundaries.shp.zip --bucket $PROJECT_ID-dnext
+   uv run --group scripts python ../../scripts/fetch_osm.py --bucket $PROJECT_ID-dnext
    uv run python ../../scripts/precompute_susceptibility.py            # add --region nan to test first
    uv run python ../../scripts/build_exposure_stack.py                 # add --region nan to test first
    uv run --group scripts python ../../scripts/validate_susceptibility.py
@@ -39,13 +39,13 @@ Work through in order. Everything runs in **mock mode** (`GEO_BACKEND=mock`) bef
 8. **Optional Geocoding fallback** for places not in the admin index: `export GOOGLE_MAPS_SERVER_KEY=<server key>` locally (or `--update-secrets` / `--set-env-vars` on Cloud Run; `infra/cloudbuild-api.yaml` mounts it from the `maps-server-key` secret).
 9. **Deploy.** First run builds the api; set `API_URL` to its URL, then deploy again so the web build points at it:
    ```bash
-   gcloud run services describe lw-api --region asia-southeast1 --project $PROJECT_ID --format='value(status.url)'
+   gcloud run services describe dnext-api --region asia-southeast1 --project $PROJECT_ID --format='value(status.url)'
    API_URL=<that url> MAPS_KEY=$MAPS_KEY MAP_ID=<map id> make deploy     # or: infra/bootstrap.sh --deploy
    ```
-10. **Add the web origin to CORS** and redeploy the api env: `ALLOWED_ORIGINS=https://<lw-web url>`.
+10. **Add the web origin to CORS** and redeploy the api env: `ALLOWED_ORIGINS=https://<dnext-web url>`.
 11. **Smoke test and warm the cache:**
     ```bash
-    python infra/smoke_test.py https://<lw-api url>
+    python infra/smoke_test.py https://<dnext-api url>
     ```
     Then run the three demo prompts once so Firestore holds them.
 
@@ -53,7 +53,7 @@ Work through in order. Everything runs in **mock mode** (`GEO_BACKEND=mock`) bef
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `PROJECT_ID` | "" | GCP project for Firestore/GCS (bucket `<PROJECT_ID>-lw`). |
+| `PROJECT_ID` | "" | GCP project for Firestore/GCS (bucket `<PROJECT_ID>-dnext`). |
 | `REGION` | `asia-southeast1` | Region for infra and Vertex. |
 | `EE_PROJECT` | "" | Earth Engine-registered Cloud project; required when `GEO_BACKEND=ee`. |
 | `GEO_BACKEND` | `mock` | `mock` (deterministic fixtures, zero cloud) or `ee`. |
@@ -84,9 +84,9 @@ Web build args (`apps/web`): `NEXT_PUBLIC_API_BASE_URL`, `NEXT_PUBLIC_GOOGLE_MAP
 **`thresholds.yaml`**: `intensity_duration.{name,alpha,beta}` (Caine 14.82, -0.39); `antecedent.{days,reference_mm}` (15, 300); `hazard.{k,antecedent_gain,class_cutoffs,class_names,class_colors}` (1.2, 0.5, [0.15,0.35,0.60]); `limits.{rainfall_mm_max,duration_h_min,duration_h_max}` (1500, 1, 720); `exposure.household_size` (2.5).
 
 ## Deploy flow (infra/deploy.sh)
-Order: `infra/config.env` (PROJECT_ID, REGION, EE_PROJECT) → `infra/setup.sh` once (APIs, `landslide-api` service account + roles, Cloud Build roles, Artifact Registry `lw`, Firestore, bucket `$PROJECT_ID-lw`) → `infra/bootstrap.sh` (Secret Manager: `maps-key`, `maps-server-key`) → `just deploy`.
+Order: `infra/config.env` (PROJECT_ID, REGION, EE_PROJECT) → `infra/setup.sh` once (APIs, `dnext-api` service account + roles, Cloud Build roles, Artifact Registry `lw`, Firestore, bucket `$PROJECT_ID-dnext`) → `infra/bootstrap.sh` (Secret Manager: `maps-key`, `maps-server-key`) → `just deploy`.
 
-- `just deploy` = `infra/deploy.sh`: builds + deploys `lw-api` (Cloud Run, attached SA, **no key file in the image**, min-instances from `MIN_INSTANCES_API`), reads its URL, builds `lw-web` with that URL baked in (`NEXT_PUBLIC_*` come from `.env`), then locks the api's `ALLOWED_ORIGINS` to the web URL and runs `infra/smoke_test.py`.
+- `just deploy` = `infra/deploy.sh`: builds + deploys `dnext-api` (Cloud Run, attached SA, **no key file in the image**, min-instances from `MIN_INSTANCES_API`), reads its URL, builds `dnext-web` with that URL baked in (`NEXT_PUBLIC_*` come from `.env`), then locks the api's `ALLOWED_ORIGINS` to the web URL and runs `infra/smoke_test.py`.
 - `just deploy-api` / `just deploy-web` redeploy one service. `just smoke <url>` re-runs the smoke test.
-- After the first web deploy, add the printed web URL (`https://lw-web-….run.app/*`) to the Maps **browser key's HTTP referrer** list.
+- After the first web deploy, add the printed web URL (`https://dnext-web-….run.app/*`) to the Maps **browser key's HTTP referrer** list.
 - Local-only: `EE_SERVICE_ACCOUNT_KEY=credentials/ee-sa.json` (gitignored). Cloud Run uses its attached service account instead.
