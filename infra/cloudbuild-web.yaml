@@ -1,5 +1,6 @@
 # Build + deploy the web app. NEXT_PUBLIC_* values are baked at build time (they are public by design).
 substitutions:
+  _WEB_SA: ""                # web runtime service account email; deploy.sh passes it
   _REGION: asia-southeast1
   _REPO: lw
   _API_URL: ""
@@ -24,4 +25,4 @@ steps:
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
     entrypoint: gcloud
     args: [run, deploy, lw-web, "--image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/web:$BUILD_ID",
-           "--region=${_REGION}", "--service-account=lw-web@$PROJECT_ID.iam.gserviceaccount.com", --allow-unauthenticated, --cpu=1, --memory=512Mi, --max-instances=5]
+           "--region=${_REGION}", "--service-account=${_WEB_SA}", --allow-unauthenticated, --cpu=1, --memory=512Mi, --max-instances=5]

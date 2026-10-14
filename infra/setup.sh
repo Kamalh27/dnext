@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 # One-time project setup. Usage: source infra/config.env; infra/setup.sh
-# Safe for a shared project: it creates two dedicated service accounts and grants roles to THEM only.
-# It never changes roles of the project's default Compute / Cloud Build accounts.
+# Two modes:
+#  dedicated (default): creates landslide-api (runtime), lw-build (build/deploy) and lw-web (no roles) and grants roles to THEM only.
+#  shared: set RUNTIME_SA=<existing service account email> in infra/config.env (use when the project's service-account quota is full).
+#          No service accounts are created and no roles are granted; the existing account must already have Vertex AI, Earth Engine,
+#          Firestore and Storage access. Builds then run as the project's default Cloud Build account.
+# Neither mode changes roles of the project's default Compute / Cloud Build accounts.
 set -euo pipefail
 : "${PROJECT_ID:?set PROJECT_ID in infra/config.env}"; : "${REGION:=asia-southeast1}"
 SA=landslide-api; SA_EMAIL=$SA@$PROJECT_ID.iam.gserviceaccount.com      # runtime identity of the Cloud Run API (no key file)
@@ -16,13 +20,18 @@ gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregi
   cloudtrace.googleapis.com bigquery.googleapis.com \
   firebase.googleapis.com identitytoolkit.googleapis.com securetoken.googleapis.com
 
+gcloud artifacts repositories create lw --repository-format=docker --location "$REGION" || true
+gcloud firestore databases create --location "$REGION" || true
+gsutil mb -l "$REGION" "gs://$BUCKET" || true
+
+if [ -n "${RUNTIME_SA:-}" ]; then
+  echo "== shared mode: using existing runtime account $RUNTIME_SA (no accounts created, no roles granted)"
+  gsutil iam ch "serviceAccount:$RUNTIME_SA:objectAdmin" "gs://$BUCKET"
+else
 gcloud iam service-accounts create $SA  --display-name "LandslideWatch API (runtime)" || true
 gcloud iam service-accounts create $BSA --display-name "LandslideWatch build and deploy" || true
 WSA_EMAIL=lw-web@$PROJECT_ID.iam.gserviceaccount.com                      # identity of the web service: no roles at all
 gcloud iam service-accounts create lw-web --display-name "LandslideWatch web (no roles)" || true
-gcloud artifacts repositories create lw --repository-format=docker --location "$REGION" || true
-gcloud firestore databases create --location "$REGION" || true
-gsutil mb -l "$REGION" "gs://$BUCKET" || true
 
 # Runtime account. Maps-key secrets are granted per secret by infra/bootstrap.sh, not project-wide.
 for r in aiplatform.user serviceusage.serviceUsageConsumer earthengine.writer datastore.user logging.logWriter cloudtrace.agent; do
@@ -40,6 +49,7 @@ for t in "$SA_EMAIL" "$WSA_EMAIL"; do   # may deploy services running as these t
     --member "serviceAccount:$BSA_EMAIL" --role roles/iam.serviceAccountUser -q >/dev/null
 done
 gsutil iam ch "serviceAccount:$BSA_EMAIL:objectViewer" "gs://$BUCKET"                        # reads the uploaded build source
+fi
 
 # auto-delete expired cache entries and daily usage counters (documents carry an expires_at timestamp)
 gcloud firestore fields ttls update expires_at --collection-group=usage --enable-ttl --async || true

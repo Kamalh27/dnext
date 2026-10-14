@@ -8,7 +8,14 @@ set -a; . infra/config.env; [ -f .env ] && . ./.env; set +a
 : "${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY:?set in .env}"; : "${NEXT_PUBLIC_GOOGLE_MAP_ID:?set in .env}"
 export CLOUDSDK_CORE_PROJECT="$PROJECT_ID"
 MODE="${1:-all}"
-BUILD="--service-account=projects/$PROJECT_ID/serviceAccounts/lw-build@$PROJECT_ID.iam.gserviceaccount.com --gcs-source-staging-dir=gs://$PROJECT_ID-lw/build-src"
+PROJECT_NUMBER="$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')"
+if [ -n "${RUNTIME_SA:-}" ]; then   # shared mode: existing runtime account, project-default Cloud Build account
+  API_SA="$RUNTIME_SA"; WEB_SA="$PROJECT_NUMBER-compute@developer.gserviceaccount.com"; BUILD=""
+else
+  API_SA="landslide-api@$PROJECT_ID.iam.gserviceaccount.com"; WEB_SA="lw-web@$PROJECT_ID.iam.gserviceaccount.com"
+  BUILD="--service-account=projects/$PROJECT_ID/serviceAccounts/lw-build@$PROJECT_ID.iam.gserviceaccount.com"
+fi
+BUILD="$BUILD --gcs-source-staging-dir=gs://$PROJECT_ID-lw/build-src"
 url() { gcloud run services describe "$1" --region "$REGION" --format='value(status.url)' 2>/dev/null || true; }
 
 if [ "${AUTH_REQUIRED:-false}" = "true" ]; then
@@ -22,7 +29,7 @@ gcloud artifacts repositories describe lw --location "$REGION" >/dev/null 2>&1 |
 if [ "$MODE" != "--web-only" ]; then
   echo "== build + deploy api"
   gcloud builds submit . $BUILD --config infra/cloudbuild-api.yaml --substitutions=\
-_REGION="$REGION",_EE_PROJECT="${EE_PROJECT:-$PROJECT_ID}",_MIN_INSTANCES="${MIN_INSTANCES_API:-1}",_MAX_INSTANCES="${MAX_INSTANCES_API:-5}",_AGENT_MODEL="${AGENT_MODEL:-gemini-3.5-flash}",_ALLOWED_ORIGINS="$(url lw-web || true)",_AUTH_REQUIRED="${AUTH_REQUIRED:-false}",_FIREBASE_API_KEY="${FIREBASE_API_KEY:-}",_FIREBASE_AUTH_DOMAIN="${FIREBASE_AUTH_DOMAIN:-}",_FIREBASE_APP_ID="${FIREBASE_APP_ID:-}"
+_REGION="$REGION",_RUNTIME_SA="$API_SA",_EE_PROJECT="${EE_PROJECT:-$PROJECT_ID}",_MIN_INSTANCES="${MIN_INSTANCES_API:-1}",_MAX_INSTANCES="${MAX_INSTANCES_API:-5}",_AGENT_MODEL="${AGENT_MODEL:-gemini-3.5-flash}",_ALLOWED_ORIGINS="$(url lw-web || true)",_AUTH_REQUIRED="${AUTH_REQUIRED:-false}",_FIREBASE_API_KEY="${FIREBASE_API_KEY:-}",_FIREBASE_AUTH_DOMAIN="${FIREBASE_AUTH_DOMAIN:-}",_FIREBASE_APP_ID="${FIREBASE_APP_ID:-}"
 fi
 API_URL="$(url lw-api)"; [ -n "$API_URL" ] || { echo "lw-api not deployed"; exit 1; }
 echo "api: $API_URL"
@@ -30,7 +37,7 @@ echo "api: $API_URL"
 if [ "$MODE" != "--api-only" ]; then
   echo "== build + deploy web (API_URL baked in)"
   gcloud builds submit . $BUILD --config infra/cloudbuild-web.yaml --substitutions=\
-^@^_REGION="$REGION"@_API_URL="$API_URL"@_MAPS_KEY="$NEXT_PUBLIC_GOOGLE_MAPS_API_KEY"@_MAP_ID="$NEXT_PUBLIC_GOOGLE_MAP_ID"@_FEEDBACK_URL="${NEXT_PUBLIC_FEEDBACK_FORM_URL:-}"   # '@' delimiter: form URLs contain , = ?
+^@^_REGION="$REGION"@_WEB_SA="$WEB_SA"@_API_URL="$API_URL"@_MAPS_KEY="$NEXT_PUBLIC_GOOGLE_MAPS_API_KEY"@_MAP_ID="$NEXT_PUBLIC_GOOGLE_MAP_ID"@_FEEDBACK_URL="${NEXT_PUBLIC_FEEDBACK_FORM_URL:-}"   # '@' delimiter: form URLs contain , = ?
   WEB_URL="$(url lw-web)"; echo "web: $WEB_URL"
   echo "== lock api CORS to the web origin"
   gcloud run services update lw-api --region "$REGION" --update-env-vars "^@^ALLOWED_ORIGINS=$WEB_URL" >/dev/null

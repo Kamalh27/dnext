@@ -2,6 +2,7 @@
 substitutions:
   _REGION: asia-southeast1
   _REPO: lw
+  _RUNTIME_SA: ""            # runtime service account email; deploy.sh passes it
   _EE_PROJECT: ""            # Earth Engine project; deploy.sh passes EE_PROJECT (defaults to the Cloud project)
   _MIN_INSTANCES: "1"
   _MAX_INSTANCES: "5"
@@ -26,7 +27,7 @@ steps:
       - lw-api
       - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/api:$BUILD_ID
       - --region=${_REGION}
-      - --service-account=landslide-api@$PROJECT_ID.iam.gserviceaccount.com
+      - --service-account=${_RUNTIME_SA}
       - --allow-unauthenticated
       - --cpu=2
       - --memory=1Gi
