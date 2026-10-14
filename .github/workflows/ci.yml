@@ -14,6 +14,18 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  secrets:
+    name: Secret scan (files, content, full history)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0                    # the history scan needs every commit
+      - name: Tracked files
+        run: scripts/check-secrets.sh
+      - name: Full history
+        run: scripts/check-secrets.sh --history
+
   api:
     name: API (pytest)
     runs-on: ubuntu-latest
