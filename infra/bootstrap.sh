@@ -66,6 +66,9 @@ put_secret() {  # name value
     printf %s "$2" | gcloud secrets create "$1" --data-file=- --replication-policy=automatic --project "$PROJECT_ID" >/dev/null
     ok "$1: created"
   fi
+  # runtime account reads only these secrets (no project-wide secretAccessor)
+  gcloud secrets add-iam-policy-binding "$1" --project "$PROJECT_ID" \
+    --member "serviceAccount:landslide-api@$PROJECT_ID.iam.gserviceaccount.com" --role roles/secretmanager.secretAccessor -q >/dev/null
 }
 echo "== Maps keys -> Secret Manager"
 put_secret maps-key "$MAPS_KEY"                       # browser key (referrer-restricted)

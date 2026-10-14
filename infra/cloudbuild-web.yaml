@@ -24,4 +24,4 @@ steps:
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
     entrypoint: gcloud
     args: [run, deploy, lw-web, "--image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/web:$BUILD_ID",
-           "--region=${_REGION}", --allow-unauthenticated, --cpu=1, --memory=512Mi, --max-instances=5]
+           "--region=${_REGION}", "--service-account=lw-web@$PROJECT_ID.iam.gserviceaccount.com", --allow-unauthenticated, --cpu=1, --memory=512Mi, --max-instances=5]
