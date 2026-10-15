@@ -114,8 +114,8 @@ export const fetchTrend = (pcode: string, days = 30) => fetch(`${API_BASE}/trend
 
 /** Alerts and the watch list belong to a signed-in account. Call them only when signed in (a refusal would open the sign-in dialog). */
 export const getWatchlist = () => authFetch("/watchlist").then((r) => json<Watchlist>(r));
-export const putWatchlist = (w: { provinces: string[]; min_class: number; email: boolean; lang: Lang }) =>
-  authFetch("/watchlist", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(w) }).then((r) => json<Pick<Watchlist, "provinces" | "min_class" | "email">>(r));
+export const putWatchlist = (w: { provinces: string[]; min_class: number; lang: Lang }) =>
+  authFetch("/watchlist", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(w) }).then((r) => json<Pick<Watchlist, "provinces" | "min_class">>(r));
 export const listAlerts = () => authFetch("/alerts").then((r) => json<{ unread: number; items: AlertItem[] }>(r));
 export const markAlertsRead = () => authFetch("/alerts/read", { method: "POST" }).then((r) => json<unknown>(r));
 

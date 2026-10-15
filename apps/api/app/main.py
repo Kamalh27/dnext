@@ -407,7 +407,6 @@ async def chats_delete(thread_id: str, request: Request):
 class WatchIn(BaseModel):
     provinces: list[str] = Field(max_length=10)
     min_class: int = Field(default=3, ge=2, le=5)
-    email: bool = False
     lang: str = Field(default="en", pattern="^(en|th)$")
 
 
@@ -416,20 +415,19 @@ async def watchlist_get(request: Request):
     from app import alerts
     acct, _ = _signed_in(request)
     w = await asyncio.to_thread(alerts.get_watch, acct)
-    return {"provinces": w.get("provinces", []), "min_class": w.get("min_class", settings().alert_min_class), "email": bool(w.get("email")),
-            "email_available": bool(settings().smtp_host and settings().smtp_from), "max": alerts.MAX_WATCHED}
+    return {"provinces": w.get("provinces", []), "min_class": w.get("min_class", settings().alert_min_class), "max": alerts.MAX_WATCHED}
 
 
 @app.put("/watchlist")
 async def watchlist_put(body: WatchIn, request: Request):
     import re
     from app import alerts
-    acct, user = _signed_in(request)
+    acct, _ = _signed_in(request)
     provinces = list(dict.fromkeys(p.upper() for p in body.provinces))
     if any(not re.fullmatch(r"TH\d{2}", p) for p in provinces):
         raise HTTPException(422, "province codes must look like TH50")
-    w = await asyncio.to_thread(alerts.set_watch, acct, provinces, body.min_class, body.email, user.email, body.lang)
-    return {"provinces": w["provinces"], "min_class": w["min_class"], "email": w["email"]}
+    w = await asyncio.to_thread(alerts.set_watch, acct, provinces, body.min_class, body.lang)
+    return {"provinces": w["provinces"], "min_class": w["min_class"]}
 
 
 @app.get("/alerts")

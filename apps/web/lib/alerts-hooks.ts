@@ -52,7 +52,7 @@ export function useWatchlist(lang: Lang) {
     const provinces = has ? watch.provinces.filter((p) => p !== pcode) : [...watch.provinces, pcode].slice(0, watch.max);
     setBusy(true);
     try {
-      const r = await putWatchlist({ provinces, min_class: watch.min_class, email: watch.email, lang });
+      const r = await putWatchlist({ provinces, min_class: watch.min_class, lang });
       setWatch({ ...watch, ...r });
     } catch { /* unchanged */ } finally {
       setBusy(false);

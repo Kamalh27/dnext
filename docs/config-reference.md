@@ -27,7 +27,6 @@ Read by `apps/api/app/settings.py`, from the environment or from `.env`.
 | `USAGE_TIMEZONE` | `Asia/Bangkok` | Daily counters reset at midnight in this zone |
 | `PUBSUB_TOPIC`, `PUBSUB_AUDIENCE`, `PUBSUB_INVOKER_SA` | `dnext-new-data`, the API's own address, and the service account the push subscription signs as. `infra/setup-alerts.sh` sets the last two |
 | `ALERT_MIN_CLASS` | `3` | Default lowest risk class that triggers an alert (3 = Moderate) |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | empty | Optional email for alerts. All empty means in-app notifications only |
 | `MAX_PHOTO_REQUEST_BYTES` | `3000000` | Size cap of a photo request (photo check and community reports) |
 | `LIMIT_ROUTE_PER_DAY` | `40` | Route previews per account per day |
 | `ROUTE_DAILY_CAP` | `400` | Route previews per instance per day, whoever asks. Each preview is one Google Routes API call |
