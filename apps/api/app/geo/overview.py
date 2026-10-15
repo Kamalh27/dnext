@@ -228,6 +228,11 @@ def _series_file(max_days: int, sig) -> dict | None:
     return None
 
 
+def latest_series(max_days: int = 5) -> dict:
+    """The overview for the rainfall file in use right now, never an older cached one: the job's saved file when it matches, otherwise computed once."""
+    return _series(max_days)
+
+
 def save_series(series: dict, bucket: str = "") -> None:
     """Called by the daily job: keep the computed overview next to the rainfall file it was made from."""
     cur = obs_cache.load()
