@@ -14,7 +14,7 @@ export interface InfraToggles { buildings: boolean; roads: boolean; facilities: 
 export const DEFAULT_TOGGLES: InfraToggles = { buildings: true, roads: true, facilities: true, threeD: false };
 
 /** Buildings are drawn as footprints from this zoom on (dots before), and extruded in 3D from Z_3D (street level: one pixel is about 2 m). */
-export const Z_POLY = 16;
+export const Z_POLY = 17;
 export const Z_3D = 16;
 
 const COLORS: Record<number, [number, number, number]> = { 3: [253, 141, 60], 4: [240, 59, 32], 5: [189, 0, 38] };
@@ -47,3 +47,12 @@ export function hotspot(d: Infra | null): { lat: number; lng: number } | null {
   for (const b of d.buildings) if (b[4] > best[4]) best = b;
   return { lat: best[0], lng: best[1] };
 }
+
+export type BuildingShape = "dots" | "footprints" | "blocks";
+/** How buildings are drawn: points almost everywhere (thousands of tiny outlines turn into noise), footprints only at close range, blocks when 3D is on at street level. */
+export function buildingShape(zoom: number, threeD: boolean): BuildingShape {
+  if (threeD && zoom >= Z_3D) return "blocks";
+  return zoom >= Z_POLY ? "footprints" : "dots";
+}
+/** Dot size in pixels: it grows a little as you zoom in so points stay easy to see, between 4 and 8. */
+export const dotRadius = (zoom: number) => Math.min(8, Math.max(4, Math.round((4 + (zoom - 10) * 0.5) * 2) / 2));
