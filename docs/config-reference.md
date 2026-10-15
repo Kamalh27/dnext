@@ -28,7 +28,7 @@ Read by `apps/api/app/settings.py`, from the environment or from `.env`.
 | `GOOGLE_GENAI_USE_VERTEXAI` | `true` | Use Vertex AI rather than an API key |
 | `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION` | project, `global` | Used by the Gemini SDK |
 | `GOOGLE_MAPS_SERVER_KEY` | unset | Turns on the geocoding fallback for places that are not in the built-in list. Read from the environment |
-| `RISK_OBS_PATH`, `RISK_STATIC_STATS_PATH`, `RISK_STATIC_FEATURES_PATH` | unset | Use a specific precomputed file instead of the local or Cloud Storage copy |
+| `RISK_OBS_PATH`, `RISK_STATIC_STATS_PATH`, `RISK_STATIC_FEATURES_PATH`, `RISK_FACILITIES_PATH` | unset | Use a specific precomputed file instead of the local or Cloud Storage copy |
 
 ## Web environment variables
 
@@ -62,5 +62,6 @@ Run `infra/setup.sh` once, then `infra/bootstrap.sh`, then `just deploy`. [READM
 
 - `just deploy` builds and deploys `dnext-api`, reads its address, builds `dnext-web` with that address baked in, restricts the API's `ALLOWED_ORIGINS` to the web address and runs `infra/smoke_test.py`. `just deploy-api` and `just deploy-web` redeploy one service.
 - The Cloud Build files read their settings from substitutions that `infra/deploy.sh` fills in. They contain no secrets. The Maps server key comes from Secret Manager (`maps-server-key`).
+- `just deploy-job` (`infra/deploy-job.sh`) deploys the daily rainfall job `dnext-rain` and its schedule. It runs under the same service account as the API and writes `obs_daily.json` to the bucket.
 - For local use only, `credentials/ee-sa.json` is gitignored. Cloud Run uses its attached service account.
 - After the first web deploy, add the web address (`https://<web address>/*`) to the Maps key's allowed websites and the host to Firebase's authorised domains.

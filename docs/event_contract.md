@@ -27,7 +27,7 @@ For forecasts it also has `forecast_rain_mm`, `observed_rain_mm`, `horizon_days`
 
 ### What each tool sends
 
-- A scenario sends `map_layer`, `map_layers`, `kpis`, `chart`, `table` (the tambon ranking) and `map_markers`.
+- A scenario sends `map_layer`, `map_layers`, `kpis`, `chart`, `table` (the tambon ranking), and `map_markers` and a second `table` (`<scenario_id>-facilities-table`) when named hospitals or schools are at risk. A marker carries `name_th`, `risk`, `risk_class`, `risk_class_name`, `tambon` and the Thai versions.
 - A forecast sends the same, plus a `table` (`<scenario_id>-forecast`: observed mm, forecast mm, horizon, model run time) and a `chart` of observed against forecast rain. The interface labels it "observed + forecast rainfall, model run <time>".
 - `get_exposure` sends only `map_markers`.
 - `generate_briefing` sends no event. The interface links to `GET /briefing/{scenario_id}`.
@@ -39,7 +39,7 @@ For forecasts it also has `forecast_rain_mm`, `observed_rain_mm`, `horizon_days`
 | `POST /scenario` with `{area, rainfall_mm, duration_h}` | One object holding the payloads of the events above, with every table in a `tables` list. Answers 422 with `detail` for invalid input, such as too much rain or a place outside Thailand |
 | `POST /forecast` with `{area, horizon_days}` (default 5) | The same payloads plus the forecast table |
 | `GET /explain?lat&lng&scenario_id?` | What drives the result at a point, with its limitations |
-| `GET /briefing/{scenario_id}?language=en\|th&format=md\|html` | A briefing as Markdown or print-ready HTML. Answers 404 when the scenario is unknown or has expired. A copy is stored under `gs://<project>-dnext/briefings/` (locally in `.local_storage/`) |
+| `GET /briefing/{scenario_id}?language=en\|th&format=md\|html&print=1` | A briefing as Markdown or print-ready HTML. With `print=1` the HTML page opens the browser's print dialog, where the user can save it as a PDF. The report has the headline numbers, the tambon ranking, the hospitals and schools at risk and general guidance. Answers 404 when the scenario is unknown or has expired. A copy is stored under `gs://<project>-dnext/briefings/` (locally in `.local_storage/`) |
 | `GET /overview?horizon_days=0` | National conditions by province, observed or observed plus forecast, from the daily files |
 | `GET /overview/series?days=5` | The same for day 0 to day N, for the slider |
 | `GET /layers/static` | Reference layers for the layers panel: susceptibility, vulnerability, exposure and population |

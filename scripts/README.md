@@ -9,10 +9,11 @@ Run from `apps/api`: `uv run [--group scripts] python ../../scripts/<script>.py 
 | `build_risk_layer.py` | Once | Exports the rain-independent part of the risk (susceptibility × vulnerability × exposure classes) as a 100 m Earth Engine asset. Add `--no-wait` to start the task and return | `risk_static_asset` in `assets.local.yaml` |
 | `precompute_static_stats.py` | Once | Per-tambon area and population for each value of the static risk product. `--bucket` also uploads it | `.local_storage/risk/static_stats.json` |
 | `precompute_features.py` | Once | Built-up area, hospitals, schools and main roads per tambon and risk product. Needs `scripts/out/osm/thailand-latest.osm.pbf` from Geofabrik. Runs in cached steps: `geoms, osm, sample, ghsl, merge` | `.local_storage/risk/static_features.json` |
+| `precompute_facilities.py` | Once | Named hospitals and schools that can reach a Low-or-higher risk, with location, tambon and risk product. Same Geofabrik extract. Needs the `geoms` step of `precompute_features.py` to have run | `.local_storage/risk/facilities.json` |
 | `build_provinces_geojson.py` | Once | Simplified outlines of the 77 provinces, built from the tambon table, for map clicks | `apps/web/public/provinces.json` |
 | `precompute_rain.py` | Daily | Observed (GSMaP) and forecast (GFS) rainfall per tambon. `--bucket` also uploads it | `.local_storage/risk/obs_daily.json` |
 
-Re-run the one-off scripts only when the susceptibility, vulnerability or exposure layers change. For production, upload the three JSON files to `gs://<project>-dnext/risk/`. Details are in [docs/risk_method.md](../docs/risk_method.md).
+`precompute_rain.py` runs in the cloud as a job; see `infra/deploy-job.sh`. Re-run the one-off scripts only when the susceptibility, vulnerability or exposure layers change. For production, upload the three JSON files to `gs://<project>-dnext/risk/`. Details are in [docs/risk_method.md](../docs/risk_method.md).
 
 ## Alternative screening method
 

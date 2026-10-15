@@ -9,6 +9,7 @@ import { MapPanel } from "./map-panel";
 import { ScenarioBar } from "./scenario-bar";
 import { SignInDialog } from "./sign-in-dialog";
 import type { RunError, RunKind } from "./scenario-card";
+import { parseShare, type ShareRun } from "@/lib/share";
 import { ApiError, fetchOverviewSeries, fetchProvinces, fetchStaticLayers, runForecast as apiForecast, runScenario, streamChat } from "@/lib/api";
 import { burstLeftS, gate, loadAuthConfig, requestSignIn } from "@/lib/auth";
 import { t } from "@/lib/i18n";
@@ -332,6 +333,27 @@ export function AppShell() {
   );
   const scenario = useCallback((rainfall_mm: number, duration_h: number) => run("scenario", (area) => runScenario({ area, rainfall_mm, duration_h })), [run]);
   const forecast = useCallback((horizon_days: number) => run("forecast", (area) => apiForecast({ area, horizon_days })), [run]);
+
+  // A shared link (?area=TH55&mm=250&h=72 or ?area=TH55&forecast=5) selects the province and runs it once the province list is in.
+  const shared = useRef<ShareRun | null>(null);
+  const [sharedRun, setSharedRun] = useState<ShareRun | null>(null);
+  useEffect(() => { shared.current = parseShare(window.location.search); }, []);
+  useEffect(() => {
+    const s = shared.current;
+    if (!s || provinces.length === 0) return;
+    shared.current = null;
+    const p = provinces.find((x) => x.pcode === s.area);
+    if (!p) return;
+    setSelected(p);
+    setSharedRun(s);
+  }, [provinces]);
+  useEffect(() => {
+    if (!sharedRun || selected?.pcode !== sharedRun.area) return;
+    const s = sharedRun;
+    setSharedRun(null);
+    const go = () => (s.forecast ? forecast(s.forecast) : scenario(s.mm!, s.h!));
+    if (gate(go)) go();      // signed out: the sign-in dialog opens and the run follows
+  }, [sharedRun, selected, scenario, forecast]);
 
   const allMarkers = useMemo(() => markers.flatMap((m) => m.markers), [markers]);
 

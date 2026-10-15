@@ -67,7 +67,7 @@ jobs:
       - name: Lint
         run: pnpm lint
       - name: Unit tests (language helpers)
-        run: node --test lib/lang.test.ts
+        run: node --test lib/*.test.ts
       - name: Production build
         run: pnpm build
         env:
@@ -125,3 +125,11 @@ jobs:
             NEXT_PUBLIC_API_BASE_URL=http://localhost:8080
           cache-from: type=gha,scope=web
           cache-to: type=gha,mode=max,scope=web
+      - name: Build rainfall job image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/job.Dockerfile
+          push: false
+          cache-from: type=gha,scope=job
+          cache-to: type=gha,mode=max,scope=job

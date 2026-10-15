@@ -263,7 +263,7 @@ async def explain(lat: float, lng: float, scenario_id: str | None = None, accoun
 
 
 @app.get("/briefing/{scenario_id}")
-async def briefing(scenario_id: str, language: str = "en", format: str = "md", account=Depends(gate("light"))):
+async def briefing(scenario_id: str, language: str = "en", format: str = "md", print: int = 0, account=Depends(gate("light"))):
     if language not in ("en", "th") or format not in ("md", "html"):
         raise HTTPException(422, "language must be en|th and format md|html")
     sc = service.get_cached(scenario_id)
@@ -274,5 +274,5 @@ async def briefing(scenario_id: str, language: str = "en", format: str = "md", a
     path = await asyncio.to_thread(storage.upload, f"{name}.md", md)
     log.info("briefing stored at %s", path)
     if format == "html":
-        return HTMLResponse(briefing_mod.to_html(md, language))
+        return HTMLResponse(briefing_mod.to_html(md, language, auto_print=bool(print)))
     return PlainTextResponse(md, media_type="text/markdown; charset=utf-8")

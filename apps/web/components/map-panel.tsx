@@ -18,7 +18,7 @@ import { gate, useBurstLeft } from "@/lib/auth";
 import { apiErrorText } from "@/lib/limit-text";
 import { fmt, t } from "@/lib/i18n";
 import { DEFAULT_VIEW, findProvince } from "@/lib/geo";
-import { localLayer, pick } from "@/lib/lang";
+import { localLayer, markerTitle, pick } from "@/lib/lang";
 import { countsOf, fillsFor, legendFor, numFmt, riskName, type Fill, type OverviewMetric } from "@/lib/overview";
 import { MQ, useMedia } from "@/lib/use-media";
 import type { Explain, Lang, MapLayer, MapLayerItem, MapLayersEvent, MapMarkers, OverviewProvinceDay, OverviewSeries, Province, StaticLayerItem } from "@/lib/types";
@@ -212,7 +212,7 @@ function MapInner({ lang, layer, layers, staticLayers, markers, provinces, selec
         {markers.map((m, i) => {
           const s = KIND_STYLE[m.kind] ?? KIND_STYLE.bridge;
           return (
-            <AdvancedMarker key={`${m.kind}-${i}`} position={{ lat: m.lat, lng: m.lng }} title={`${m.name} (${m.kind})`}>
+            <AdvancedMarker key={`${m.kind}-${i}`} position={{ lat: m.lat, lng: m.lng }} title={markerTitle(m, lang)}>
               <Pin background={s.bg} borderColor="#fff" glyphColor="#fff" glyph={s.glyph} scale={0.8} />
             </AdvancedMarker>
           );

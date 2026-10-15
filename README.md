@@ -12,6 +12,8 @@ It is a screening tool for planning and situational awareness, not a forecast or
 
 - **National overview.** The first screen colours the provinces by risk, with a five-day slider for forecast risk or rainfall and a dashboard of key figures, trends and the most affected provinces.
 - **Province and tambon detail.** Pick a province from the list or the map, then run a rainfall what-if or a forecast. You get risk, rainfall and trigger layers, a ranked tambon table, and people, buildings, hospitals, schools and main roads in the risk zone.
+- **Report and sharing.** Each result has a report button that opens a print-ready page in English or Thai, which the browser saves as a PDF. It holds the headline numbers, the tambon ranking, the hospitals and schools at risk, and general safety guidance. A copy-link button gives an address that runs the same scenario or forecast again.
+- **Hospitals and schools at risk.** Named hospitals and schools from OpenStreetMap that sit on susceptible ground in tambons above their rainfall trigger are listed in a table and marked on the map, with their risk class.
 - **Reference layers.** Susceptibility, vulnerability, exposure, population and province boundaries can each be switched on the map.
 - **Chat assistant.** Gemini, running through Google's Agent Development Kit, answers in English or Thai. Every number comes from a computed result, not from the model.
 - **Sign-in with daily limits (optional).** Firebase Authentication with Google accounts, with a daily budget per account to keep Gemini costs under control on a public deployment.
@@ -104,12 +106,13 @@ uv run python ../../scripts/build_risk_layer.py --project <EE_PROJECT>      # ex
 uv run python ../../scripts/precompute_static_stats.py                      # per-tambon risk statistics
 uv run python ../../scripts/build_provinces_geojson.py                      # province outlines for the map
 uv run --group scripts python ../../scripts/precompute_features.py          # buildings, hospitals, schools, roads (needs a Geofabrik extract; see the script header)
+uv run --group scripts python ../../scripts/precompute_facilities.py        # named hospitals and schools at risk (same extract)
 
 # daily: rainfall
 uv run python ../../scripts/precompute_rain.py
 ```
 
-Keep the daily file fresh. If the observed data is more than 3 days old the overview is unavailable, and if the forecast run is more than 36 hours old the dashboard shows observed conditions only.
+The daily file has to stay fresh (step 5 schedules it in the cloud). If the observed data is more than 3 days old the overview is unavailable, and if the forecast run is more than 36 hours old the dashboard shows observed conditions only.
 
 ### 4. Sign-in and per-account limits (optional)
 
@@ -128,7 +131,7 @@ just deploy                                     # builds and deploys the API, th
 
 The API runs under an attached service account, so there is no key file in the image. If your project cannot create more service accounts, set `RUNTIME_SA` in `infra/config.env` to an existing one and `setup.sh` will use it instead.
 
-The data files from step 3 must also be in the project's bucket, under `gs://<project>-dnext/risk/`, because the container does not include them. Running the daily rainfall job on a schedule is not set up yet.
+The data files from step 3 must also be in the project's bucket, under `gs://<project>-dnext/risk/`, because the container does not include them. `just deploy-job` builds the daily rainfall job and schedules it with Cloud Scheduler for 06:30 and 18:30 Bangkok time, so the overview stays fresh without anyone running a script. Add `--run-now` (`bash infra/deploy-job.sh --run-now`) to run it once straight away.
 
 After the first deploy, add the web address to the Maps key's allowed websites and to Firebase's authorised domains.
 

@@ -1,4 +1,4 @@
-import type { ChartData, Kpis, KpiExtras, Lang, LegendItem, TableData } from "./types";
+import type { ChartData, Kpis, KpiExtras, Lang, LegendItem, MapMarkers, TableData } from "./types";
 
 /** English unless the UI is Thai AND a non-empty Thai variant exists. */
 export function pick(lang: Lang, en: string, th?: string | null): string;
@@ -42,3 +42,12 @@ export const chartTexts = (c: ChartData, lang: Lang) => ({
   xLabel: pick(lang, c.x_label, c.x_label_th),
   yLabel: pick(lang, c.y_label, c.y_label_th),
 });
+
+const KIND_TH: Record<string, string> = { hospital: "โรงพยาบาล", school: "โรงเรียน", shelter: "ศูนย์พักพิง", bridge: "สะพาน" };
+
+/** Hover text of a facility marker: the name, its type and, when the API sent it, the risk class. */
+export function markerTitle(m: MapMarkers["markers"][number], lang: Lang): string {
+  const kind = lang === "th" ? KIND_TH[m.kind] ?? m.kind : m.kind;
+  const cls = pick(lang, m.risk_class_name ?? "", m.risk_class_name_th);
+  return `${pick(lang, m.name, m.name_th)} (${kind}${cls ? `, ${cls}` : ""})`;
+}

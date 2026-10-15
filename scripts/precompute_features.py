@@ -118,32 +118,28 @@ def step_osm() -> None:
 
 
 # ---------------------------------------------------------------- step 3: tambon + prod for every point
-def step_sample() -> None:
-    import ee
-    import numpy as np
+def locate(arr) -> dict:
+    """Tambon code for each point (N x 2 array of lon, lat) that falls inside a tambon; the first match wins."""
     from shapely import STRtree, points
     from shapely.geometry import shape
+
+    geoms = json.loads((OUT / "tambon_geoms.json").read_text())
+    tree = STRtree([shape(g["geometry"]) for g in geoms])
+    pi, ti = tree.query(points(arr[:, 0], arr[:, 1]), predicate="intersects")        # (point index, tambon index) pairs
+    first: dict = {}
+    for a, b in zip(pi, ti):
+        first.setdefault(int(a), geoms[int(b)]["code"])
+    return first
+
+
+def sample_prod(arr, idxs: list) -> dict:
+    """Static risk product (0..125) at each listed point, sampled from the 100 m Earth Engine layer."""
+    import ee
     from app.geo import tambon_risk
     from app.geo.ee_init import get_info
 
-    geoms = json.loads((OUT / "tambon_geoms.json").read_text())
-    shapes = [shape(g["geometry"]) for g in geoms]
-    codes = [g["code"] for g in geoms]
-    tree = STRtree(shapes)
-    osm = json.loads((OUT / "osm_points.json").read_text())
-    pts = [("hospital", lon, lat, 1.0) for lon, lat in osm["hospital"]] + [("school", lon, lat, 1.0) for lon, lat in osm["school"]] \
-        + [("road", lon, lat, w) for lon, lat, w in osm["road"]]
-    arr = np.array([(p[1], p[2]) for p in pts])
-    pg = points(arr[:, 0], arr[:, 1])
-    pi, ti = tree.query(pg, predicate="intersects")           # (point index, tambon index) pairs; first match wins
-    first = {}
-    for a, b in zip(pi, ti):
-        first.setdefault(int(a), int(b))
-    inside = sorted(first)
-    c.log.info("%d of %d points fall inside a tambon", len(inside), len(pts))
-
     s = tambon_risk.static_stats_bands().select("prod").unmask(0).toInt()
-    chunks = [inside[i:i + CHUNK] for i in range(0, len(inside), CHUNK)]
+    chunks = [idxs[i:i + CHUNK] for i in range(0, len(idxs), CHUNK)]
 
     def sample(chunk):
         feats = [ee.Feature(ee.Geometry.Point([float(arr[i, 0]), float(arr[i, 1])]), {"i": int(i)}) for i in chunk]
@@ -151,7 +147,7 @@ def step_sample() -> None:
         return {int(f["properties"]["i"]): int(f["properties"]["prod"]) for f in res["features"]} if isinstance(res, dict) else \
             {int(f["properties"]["i"]): int(f["properties"]["prod"]) for f in res}
 
-    prod = {}
+    prod: dict = {}
     done = 0
     with ThreadPoolExecutor(max_workers=4) as ex:
         for part in ex.map(sample, chunks):
@@ -159,10 +155,24 @@ def step_sample() -> None:
             done += 1
             if done % 20 == 0:
                 c.log.info("  sampled %d/%d chunks", done, len(chunks))
+    return prod
+
+
+def step_sample() -> None:
+    import numpy as np
+
+    osm = json.loads((OUT / "osm_points.json").read_text())
+    pts = [("hospital", lon, lat, 1.0) for lon, lat in osm["hospital"]] + [("school", lon, lat, 1.0) for lon, lat in osm["school"]] \
+        + [("road", lon, lat, w) for lon, lat, w in osm["road"]]
+    arr = np.array([(p[1], p[2]) for p in pts])
+    tambon_of = locate(arr)
+    inside = sorted(tambon_of)
+    c.log.info("%d of %d points fall inside a tambon", len(inside), len(pts))
+    prod = sample_prod(arr, inside)
     agg: dict = {}
     for i in inside:
         kind, _, _, w = pts[i]
-        slot = agg.setdefault(codes[first[i]], {}).setdefault(str(prod.get(i, 0)), {"hospital": 0.0, "school": 0.0, "road_km": 0.0})
+        slot = agg.setdefault(tambon_of[i], {}).setdefault(str(prod.get(i, 0)), {"hospital": 0.0, "school": 0.0, "road_km": 0.0})
         slot["road_km" if kind == "road" else kind] += w
     (OUT / "points_by_tambon_prod.json").write_text(json.dumps(agg, separators=(",", ":")))
     c.log.info("wrote points_by_tambon_prod.json for %d tambons", len(agg))
