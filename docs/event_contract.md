@@ -48,6 +48,11 @@ For forecasts it also has `forecast_rain_mm`, `observed_rain_mm`, `horizon_days`
 | `GET /overview/series?days=5` | The same for day 0 to day N, for the slider |
 | `GET /layers/static` | Reference layers for the layers panel: susceptibility, vulnerability, exposure and population |
 | `GET /chats`, `GET /chats/{id}`, `PUT /chats/{id}`, `DELETE /chats/{id}` | Saved chats of the signed-in account (Firestore `chats/{account}/threads`, deleted 90 days after the last save). A chat holds its messages and the recipes of its runs, never map layers. Answer 401 when not signed in and 404 `history_unavailable` when sign-in is switched off, in which case the app keeps history in the browser only |
+| `GET /trend/{pcode}?days=30` | A province's observed daily risk from the BigQuery history: `{pcode, available, days: [{date, risk_class, risk_max, triggered, tambons, people_elevated, rain_mm}]}`. `available` is false when there is no history store. Public |
+| `GET /watchlist`, `PUT /watchlist` | The signed-in account's watched provinces (at most 10), the lowest risk class that triggers an alert (2 to 5, default 3) and whether to email |
+| `GET /alerts`, `POST /alerts/read` | The account's notifications (newest first, deleted after 30 days) and "mark all as read" |
+| `POST /internal/new-data` | Pub/Sub push from the daily job. Accepts only the Google-signed token of the subscription's service account |
+| `POST /photo-check` with `{image_b64, language, note?, scenario_id?}` | Gemini's description of the warning signs in one JPEG, PNG or WebP photo (at most 2 MB), the computed risk of the result on screen and a disclaimer. Uses the chat budget |
 | `GET /auth/config` | Whether sign-in is required, the public Firebase web config and the limits |
 | `GET /me` | The signed-in user and today's usage. Answers 401 when not signed in |
 | `GET /readyz` | Whether the running identity can read each Earth Engine layer. Reports only true or false, never paths |

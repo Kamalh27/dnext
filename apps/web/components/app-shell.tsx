@@ -6,7 +6,9 @@ import { ViewTabs } from "./view-tabs";
 import { ResizeHandle } from "./resize-handle";
 import { ChatPanel, type Message } from "./chat-panel";
 import { MapPanel } from "./map-panel";
+import { PhotoCheckModal } from "./photo-check";
 import { ReportModal } from "./report-modal";
+import { useWatchlist } from "@/lib/alerts-hooks";
 import { useChatHistory } from "@/lib/chat-history";
 import type { RunRef } from "@/lib/chat-store";
 import { ScenarioBar } from "./scenario-bar";
@@ -74,6 +76,8 @@ export function AppShell() {
   const runToken = useRef(0);
   const sessionId = useRef<string>(typeof crypto !== "undefined" ? crypto.randomUUID() : "web");
   const abort = useRef<AbortController | null>(null);
+  const [photoOpen, setPhotoOpen] = useState(false);
+  const watchlist = useWatchlist(lang);
   const history = useChatHistory({ messages, setMessages, sessionRef: sessionId, lang, areaCode: selected?.pcode, busy });
   const lastPrompt = useRef("");
   const tr = t(lang);
@@ -411,6 +415,8 @@ export function AppShell() {
   return (
     <div className="flex h-[var(--app-h,100dvh)] flex-col">
       <SignInDialog lang={lang} />
+      <PhotoCheckModal lang={lang} open={photoOpen} onClose={() => setPhotoOpen(false)} scenarioId={kpis?.scenario_id}
+        onAddToChat={(md) => setMessages((ms) => [...ms, { role: "assistant", text: md }])} />
       {reportOpen && reportTarget === "scenario" && kpis && <ReportModal lang={lang} source={{ mode: "scenario", kpis }} provinces={provinces} onClose={closeReport} />}
       {reportOpen && reportTarget === "overview" && series && <ReportModal lang={lang} source={{ mode: "overview", series, day: overviewDay }} provinces={provinces} onClose={closeReport} />}
       <Header lang={lang} setLang={setLang} tab={tab} onTab={setTab} />
@@ -431,12 +437,14 @@ export function AppShell() {
           )}
         >
           <ScenarioBar lang={lang} provinces={provinces} selected={selected} kpis={kpis} hasResults={hasResults} onSelect={selectByCode} onReset={clearScenario}
-            report={{ target: reportTarget, busy: false, error: null, onClick: onReport }} />
+            report={{ target: reportTarget, busy: false, error: null, onClick: onReport }}
+            watch={{ enabled: watchlist.enabled, watching: !!selected && watchlist.watching(selected.pcode), full: watchlist.full, busy: watchlist.busy, onToggle: () => selected && void watchlist.toggle(selected.pcode) }} />
           <div className="min-h-0 flex-1 short:flex-none">
           <ChatPanel
             lang={lang}
             history={{ summaries: history.summaries, loading: history.loading, signedIn: history.signedIn, accountHistory: history.accountHistory, onOpen: openChat, onNew: newChat, onDelete: history.remove }}
             onRestore={restoreRun}
+            onPhoto={() => setPhotoOpen(true)}
             messages={messages}
             busy={busy}
             status={status}

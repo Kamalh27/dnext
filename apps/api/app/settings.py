@@ -35,6 +35,17 @@ class Settings(BaseSettings):
     limit_burst_per_min: int = 6                # per account, per instance
     usage_timezone: str = "Asia/Bangkok"        # daily counters reset at local midnight
     request_timeout_s: float = 60.0
+    # --- alerts (Pub/Sub push from the daily job) and the optional email channel
+    pubsub_topic: str = "dnext-new-data"
+    pubsub_audience: str = ""                   # the API's own URL: the audience of the OIDC token Pub/Sub sends
+    pubsub_invoker_sa: str = ""                 # the service account the push subscription signs as
+    alert_min_class: int = 3                    # default: notify at Moderate or higher
+    smtp_host: str = ""                         # all four empty = no email, in-app notifications only
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = ""
+    max_photo_request_bytes: int = 3_000_000    # POST /photo-check carries a resized photo as base64
 
 
 @lru_cache

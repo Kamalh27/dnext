@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Info, MessageSquareText, Moon, Sun } from "lucide-react";
+import { AlertsBell } from "./alerts-bell";
 import { AuthControls } from "./account-menu";
 import { AboutModal } from "./about-modal";
 import { FeedbackModal } from "./feedback-modal";
@@ -52,6 +53,7 @@ export function Header({ lang, setLang, tab, onTab }: { lang: Lang; setLang: (l:
             </button>
           ))}
         </div>
+        <AlertsBell lang={lang} />
         <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground dark:text-foreground dark:hover:bg-accent dark:hover:text-accent-foreground" onClick={() => setModal("about")} aria-label={tr.aboutOpen} title={tr.aboutOpen}><Info /></Button>
         <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground dark:text-foreground dark:hover:bg-accent dark:hover:text-accent-foreground" onClick={() => setModal("feedback")} aria-label={tr.feedbackOpen} title={tr.feedbackOpen}><MessageSquareText /></Button>
         <AuthControls lang={lang} />

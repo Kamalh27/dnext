@@ -70,6 +70,9 @@ deploy:
 deploy-job:
     bash infra/deploy-job.sh
 
+deploy-alerts:
+    bash infra/setup-alerts.sh
+
 deploy-api:
     bash infra/deploy.sh --api-only
 

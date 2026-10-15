@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Activity, ArrowUp, History, Plus, Square, ArrowUpRight, Timer } from "lucide-react";
+import { Activity, ArrowUp, Camera, History, Plus, Square, ArrowUpRight, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Markdown } from "./markdown";
 import { LegalModal } from "./legal-modal";
 import { LogoMark } from "./logo";
 import { OverviewCard } from "./overview-card";
 import { ResultCards } from "./result-cards";
+import { TrendCard } from "./trend-card";
 import { ChatHistoryPanel } from "./chat-history";
 import type { ChatMessage, ChatSummary, RunRef } from "@/lib/chat-store";
 import { ScenarioCard, type RunError, type RunKind } from "./scenario-card";
@@ -52,6 +53,8 @@ interface Props {
   history: { summaries: ChatSummary[]; loading: boolean; signedIn: boolean; accountHistory: boolean; onOpen: (id: string) => Promise<boolean>; onNew: () => void; onDelete: (id: string) => void };
   /** Show a past scenario run again (from a note in the conversation). */
   onRestore: (run: RunRef) => void;
+  /** Open the photo check. */
+  onPhoto: () => void;
 }
 
 export function ChatPanel(p: Props) {
@@ -190,6 +193,7 @@ export function ChatPanel(p: Props) {
             </div>
           ),
         )}
+        {p.province && <TrendCard lang={p.lang} province={p.province} />}
         <ResultCards lang={p.lang} kpis={p.kpis} charts={p.charts} tables={p.tables} loading={p.busy} />
         {(p.province || p.kpis) && <ScenarioCard lang={p.lang} province={p.province} busy={p.runBusy} error={p.runError} onRun={p.onScenario} onForecast={p.onForecast} />}
         {legalInFlow && legalNav}
@@ -199,6 +203,10 @@ export function ChatPanel(p: Props) {
 
       <div data-testid="chat-composer" className="border-t bg-background px-3 pt-3 pb-1 short:sticky short:bottom-0 short:z-10">
         <form onSubmit={submit} className="flex items-center gap-2 rounded-2xl border bg-card py-1.5 pr-1.5 pl-4 shadow-xs transition focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-ring/30">
+          <button type="button" onClick={p.onPhoto} aria-label={tr.photoOpen} title={tr.photoOpen} data-testid="photo-open"
+            className="grid size-8 shrink-0 place-items-center rounded-full text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring coarse:size-11">
+            <Camera className="size-4" aria-hidden />
+          </button>
           <input
             data-chat-input
             value={input}

@@ -227,3 +227,14 @@ export interface ReportData {
   limitations?: string[];
 }
 export interface TambonShapes { pcode: string; tambons: Record<string, import("./svgmap").Geometry> }
+
+export interface TrendDay { date: string; risk_class: number; risk_max: number; triggered: number; tambons: number; people_elevated: number; rain_mm: number | null }
+export interface Trend { pcode: string; available: boolean; days: TrendDay[] }
+export interface Watchlist { provinces: string[]; min_class: number; email: boolean; email_available: boolean; max: number }
+export interface AlertItem { id: string; province_code: string; province: string; province_th?: string; class: number; horizon: number; date: string; title: string; body: string; read: boolean; created: string }
+export interface PhotoObservation { sign: string; evidence: string; severity: "low" | "moderate" | "high" }
+export interface PhotoAnalysis {
+  is_slope_scene: boolean; scene: string; report_kind: "landslide" | "road_blocked" | "slope_damage" | "none"; observations: PhotoObservation[];
+  summary: string; confidence: "low" | "medium" | "high"; looks_manipulated_or_unrelated: boolean;
+}
+export interface PhotoResult { analysis: PhotoAnalysis; context: { area?: string; area_th?: string; peak_risk: number; scenario_id: string } | null; disclaimer: string }

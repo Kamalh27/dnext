@@ -25,6 +25,10 @@ Read by `apps/api/app/settings.py`, from the environment or from `.env`.
 | `LIMIT_RUN_PER_DAY` | `200` | Scenario and forecast runs per account per day |
 | `LIMIT_BURST_PER_MIN` | `6` | Requests per account per minute, per instance |
 | `USAGE_TIMEZONE` | `Asia/Bangkok` | Daily counters reset at midnight in this zone |
+| `PUBSUB_TOPIC`, `PUBSUB_AUDIENCE`, `PUBSUB_INVOKER_SA` | `dnext-new-data`, the API's own address, and the service account the push subscription signs as. `infra/setup-alerts.sh` sets the last two |
+| `ALERT_MIN_CLASS` | `3` | Default lowest risk class that triggers an alert (3 = Moderate) |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | empty | Optional email for alerts. All empty means in-app notifications only |
+| `MAX_PHOTO_REQUEST_BYTES` | `3000000` | Size cap of a photo request |
 | `GOOGLE_GENAI_USE_VERTEXAI` | `true` | Use Vertex AI rather than an API key |
 | `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION` | project, `global` | Used by the Gemini SDK |
 | `GOOGLE_MAPS_SERVER_KEY` | unset | Turns on the geocoding fallback for places that are not in the built-in list. Read from the environment |

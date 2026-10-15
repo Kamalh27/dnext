@@ -63,7 +63,7 @@ app = FastAPI(title="LandslideWatch TH API", lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(CORSMiddleware, allow_origins=settings().allowed_origins.split(","),
-                   allow_methods=["GET", "POST"], allow_headers=["*"])
+                   allow_methods=["GET", "POST", "PUT", "DELETE"], allow_headers=["*"])
 
 
 @app.middleware("http")
@@ -73,7 +73,9 @@ async def guard(request: Request, call_next):
     request_id_var.set(rid)
     t0 = time.monotonic()
     try:
-        cap = settings().max_chat_save_bytes if request.url.path.startswith("/chats/") and request.method == "PUT" else settings().max_request_bytes
+        path = request.url.path
+        cap = (settings().max_chat_save_bytes if path.startswith("/chats/") and request.method == "PUT"
+               else settings().max_photo_request_bytes if path in ("/photo-check", "/reports") else settings().max_request_bytes)
         if int(request.headers.get("content-length") or 0) > cap:
             resp = JSONResponse({"detail": "request too large"}, status_code=413)
         elif request.url.path == "/chat":
@@ -203,6 +205,16 @@ async def report_data(scenario_id: str, language: str = "en", account=Depends(ga
             "tambon_risks": x.get("tambon_risks") or [], "area": {k: sc["area"].get(k) for k in ("name", "name_th", "admin_code", "bbox")}}
 
 
+@app.get("/trend/{pcode}")
+async def trend(pcode: str, days: int = 30):
+    """Observed daily risk of one province over the last days, from the BigQuery history written by the daily job. Public, like the overview."""
+    import re
+    from app import history
+    if not re.fullmatch(r"TH\d{2}", pcode.upper()) or not (2 <= days <= 120):
+        raise HTTPException(422, "pcode must look like TH50 and days must be 2..120")
+    return await asyncio.to_thread(history.trend, pcode.upper(), days)
+
+
 @app.get("/overview/report-data")
 async def overview_report_data(day: int = 0, language: str = "en"):
     """The same for the national overview: guidance text and the named facilities at risk for one slider day."""
@@ -257,15 +269,19 @@ async def auth_config():
     return {"auth_required": settings().auth_required, "firebase": auth.public_config(), "limits": usage.limits()}
 
 
-def _chat_account(request: Request) -> str:
-    """Saved chats need a signed-in account. With sign-in switched off the web app keeps its history in the browser only."""
+def _signed_in(request: Request):
+    """(account id, user) for features that belong to an account. With sign-in switched off they are unavailable (the web app keeps history in the browser)."""
     from app import auth
     if not settings().auth_required:
-        raise HTTPException(404, {"code": "history_unavailable", "message": "Saved history needs sign-in to be enabled."})
+        raise HTTPException(404, {"code": "history_unavailable", "message": "This feature needs sign-in to be enabled."})
     user = auth.current_user(request)
     if user is None:
-        raise HTTPException(401, {"code": "auth_required", "message": "Sign in with Google to use saved chats."}, headers={"WWW-Authenticate": "Bearer"})
-    return auth.account_id(user.uid)
+        raise HTTPException(401, {"code": "auth_required", "message": "Sign in with Google to use this feature."}, headers={"WWW-Authenticate": "Bearer"})
+    return auth.account_id(user.uid), user
+
+
+def _chat_account(request: Request) -> str:
+    return _signed_in(request)[0]
 
 
 @app.get("/chats")
@@ -304,6 +320,92 @@ async def chats_delete(thread_id: str, request: Request):
         raise HTTPException(422, "bad chat id")
     await asyncio.to_thread(chats.delete, acct, thread_id)
     return {"ok": True}
+
+
+class WatchIn(BaseModel):
+    provinces: list[str] = Field(max_length=10)
+    min_class: int = Field(default=3, ge=2, le=5)
+    email: bool = False
+    lang: str = Field(default="en", pattern="^(en|th)$")
+
+
+@app.get("/watchlist")
+async def watchlist_get(request: Request):
+    from app import alerts
+    acct, _ = _signed_in(request)
+    w = await asyncio.to_thread(alerts.get_watch, acct)
+    return {"provinces": w.get("provinces", []), "min_class": w.get("min_class", settings().alert_min_class), "email": bool(w.get("email")),
+            "email_available": bool(settings().smtp_host and settings().smtp_from), "max": alerts.MAX_WATCHED}
+
+
+@app.put("/watchlist")
+async def watchlist_put(body: WatchIn, request: Request):
+    import re
+    from app import alerts
+    acct, user = _signed_in(request)
+    provinces = list(dict.fromkeys(p.upper() for p in body.provinces))
+    if any(not re.fullmatch(r"TH\d{2}", p) for p in provinces):
+        raise HTTPException(422, "province codes must look like TH50")
+    w = await asyncio.to_thread(alerts.set_watch, acct, provinces, body.min_class, body.email, user.email, body.lang)
+    return {"provinces": w["provinces"], "min_class": w["min_class"], "email": w["email"]}
+
+
+@app.get("/alerts")
+async def alerts_get(request: Request):
+    from app import alerts
+    acct, _ = _signed_in(request)
+    return await asyncio.to_thread(alerts.list_alerts, acct)
+
+
+@app.post("/alerts/read")
+async def alerts_read(request: Request):
+    from app import alerts
+    acct, _ = _signed_in(request)
+    await asyncio.to_thread(alerts.mark_all_read, acct)
+    return {"ok": True}
+
+
+@app.post("/internal/new-data")
+async def internal_new_data(request: Request):
+    """Pub/Sub push from the daily job: new rainfall data is in the bucket. Only Google's signed token from our subscription is accepted."""
+    from app import alerts
+    from app.geo import obs_cache, overview as ov
+    if not alerts.verify_push(request.headers.get("authorization")):
+        raise HTTPException(403, "forbidden")
+    obs_cache.reset()
+    try:
+        series = await asyncio.to_thread(ov.series, 5, True)
+    except ov.OverviewUnavailable as e:
+        return {"skipped": True, "reason": str(e)}          # acknowledge: a retry would not help
+    return await asyncio.to_thread(alerts.process_new_data, series)
+
+
+class PhotoIn(BaseModel):
+    image_b64: str = Field(max_length=2_900_000)
+    language: str = Field(default="en", pattern="^(en|th)$")
+    note: str = Field(default="", max_length=300)
+    scenario_id: str | None = Field(default=None, max_length=64)
+
+
+@app.post("/photo-check")
+async def photo_check(body: PhotoIn, account=Depends(gate("chat"))):
+    """Gemini describes the warning signs visible in one photo; the answer comes with the computed risk of the result on screen, if any."""
+    from app import photo
+    try:
+        data, mime = photo.decode(body.image_b64)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+    try:
+        analysis = await asyncio.to_thread(photo.analyse, data, mime, body.language, body.note)
+    except Exception:  # noqa: BLE001
+        log.exception("photo analysis failed")
+        raise HTTPException(502, "The photo could not be analysed. Please try again.")
+    ctx = None
+    sc = service.get_cached(body.scenario_id) if body.scenario_id else None
+    if sc:
+        peak = max((t.get("risk") or 0 for t in sc["exposure"].get("tambon_risks") or []), default=0)
+        ctx = {"area": sc["area"].get("name"), "area_th": sc["area"].get("name_th"), "peak_risk": peak, "scenario_id": body.scenario_id}
+    return {"analysis": analysis.model_dump(), "context": ctx, "disclaimer": photo.DISCLAIMER[body.language]}
 
 
 @app.get("/me")
