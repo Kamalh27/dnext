@@ -18,7 +18,10 @@ import { gate, useBurstLeft } from "@/lib/auth";
 import { apiErrorText } from "@/lib/limit-text";
 import { fmt, t } from "@/lib/i18n";
 import { DEFAULT_VIEW, findProvince } from "@/lib/geo";
+import { fetchInfrastructure } from "@/lib/api";
+import { DEFAULT_TOGGLES, type Infra, type InfraToggles } from "@/lib/infra";
 import { localLayer, markerTitle, pick } from "@/lib/lang";
+import { InfraOverlay } from "./infra-overlay";
 import { countsOf, fillsFor, legendFor, numFmt, riskName, type Fill, type OverviewMetric } from "@/lib/overview";
 import { MQ, useMedia } from "@/lib/use-media";
 import type { Explain, Lang, MapLayer, MapLayerItem, MapLayersEvent, MapMarkers, OverviewProvinceDay, OverviewSeries, Province, StaticLayerItem } from "@/lib/types";
@@ -102,6 +105,18 @@ function MapInner({ lang, layer, layers, staticLayers, markers, provinces, selec
 
   // One list for both modes: a map_layers set, or the single legacy map_layer as a lone risk layer.
   const scope = layers?.scenario_id ?? layer?.scenario_id ?? "";
+  // Affected infrastructure (Moderate risk or higher) of the result on screen, loaded once per result.
+  const [infra, setInfra] = useState<{ sid: string; data: Infra | null }>({ sid: "", data: null });
+  const [infraOn, setInfraOn] = useState<InfraToggles>(DEFAULT_TOGGLES);
+  useEffect(() => {
+    if (!scope) return;
+    let live = true;
+    fetchInfrastructure(scope).then((d) => live && setInfra({ sid: scope, data: d })).catch(() => live && setInfra({ sid: scope, data: null }));
+    return () => { live = false; };
+  }, [scope]);
+  const infraData = infra.sid === scope && scope ? infra.data : null;
+  // Facility markers: hospitals and schools at Moderate risk or higher only (a marker without a class, e.g. test data, is kept).
+  const shownMarkers = useMemo(() => (infraOn.facilities ? markers.filter((m) => m.risk_class == null || m.risk_class >= 3) : []), [markers, infraOn.facilities]);
   const bbox = layers?.bbox ?? layer?.bbox ?? null;
   const items = useMemo<MapLayerItem[]>(() => {
     const base: MapLayerItem[] = layers
@@ -209,7 +224,8 @@ function MapInner({ lang, layer, layers, staticLayers, markers, provinces, selec
             <Pin background="#8a4b24" borderColor="#fff" glyphColor="#fff" />
           </AdvancedMarker>
         )}
-        {markers.map((m, i) => {
+        {infraData && <InfraOverlay lang={lang} data={infraData} show={infraOn} zoom={cam.zoom} />}
+        {shownMarkers.map((m, i) => {
           const s = KIND_STYLE[m.kind] ?? KIND_STYLE.bridge;
           return (
             <AdvancedMarker key={`${m.kind}-${i}`} position={{ lat: m.lat, lng: m.lng }} title={markerTitle(m, lang)}>
@@ -227,7 +243,8 @@ function MapInner({ lang, layer, layers, staticLayers, markers, provinces, selec
       <div className="absolute top-3 left-3 flex flex-col items-start gap-2">
         <MapSearch lang={lang} onPin={setPin} />
       </div>
-      <MapControls lang={lang} onLocate={setMe} onGlobe={() => setGlobe(true)} onResetView={() => setGlobe(false)} boundaries={{ visible: outlines, onChange: setOutlines }} fullscreenTarget={wrap} layers={items} reference={staticItems} onLayerChange={onLayerChange} />
+      <MapControls lang={lang} onLocate={setMe} onGlobe={() => setGlobe(true)} onResetView={() => setGlobe(false)} boundaries={{ visible: outlines, onChange: setOutlines }} fullscreenTarget={wrap} layers={items} reference={staticItems} onLayerChange={onLayerChange}
+        infra={scope ? { counts: { buildings: infraData?.buildings.length ?? 0, roadKm: infraData?.road_km ?? 0, facilities: shownMarkers.length }, state: infraOn, zoom: cam.zoom, loading: !!scope && infra.sid !== scope, truncated: !!infraData?.truncated, onChange: (p) => setInfraOn((s) => ({ ...s, ...p })) } : undefined} />
 
       {overview && hover && (
         <OverviewTip lang={lang} hover={hover} wrap={wrap} province={provinces.find((p) => p.pcode === hover.pcode)} data={byPcode[hover.pcode]} metric={metric} />

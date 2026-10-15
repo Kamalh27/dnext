@@ -2,6 +2,7 @@ import { ApiError, readApiError } from "./api-error";
 import { authStatus, getAuthToken, loadAuthConfig, onAuthRequired, refreshUsage, startBurst } from "./auth";
 import { API_BASE } from "./config";
 import { parseSSE } from "./sse";
+import type { Infra } from "./infra";
 import type { AlertItem, PhotoResult, Trend, Watchlist } from "./types";
 import type { ChatSummary, ChatThread, RunRef } from "./chat-store";
 import type { Explain, ForecastResponse, Lang, OverviewSeries, Province, ReportData, ScenarioResponse, SseEvent, StaticLayersResponse, TambonShapes } from "./types";
@@ -119,6 +120,8 @@ export const markAlertsRead = () => authFetch("/alerts/read", { method: "POST" }
 
 export const photoCheck = (b: { image_b64: string; language: Lang; note?: string; scenario_id?: string }) =>
   authFetch("/photo-check", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(b) }).then((r) => json<PhotoResult>(r));
+
+export const fetchInfrastructure = (scenarioId: string) => authFetch(`/infrastructure/${encodeURIComponent(scenarioId)}`).then((r) => json<Infra>(r));
 
 export const fetchReportData = (scenarioId: string, lang: "en" | "th") =>
   authFetch(`/report-data/${encodeURIComponent(scenarioId)}?language=${lang}`).then((r) => json<ReportData>(r));

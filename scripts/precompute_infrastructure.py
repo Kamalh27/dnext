@@ -7,7 +7,7 @@ of 2 (Moderate). The script keeps what stands on that ground:
 At request time the API picks, for each tambon, the pieces whose risk (tambon trigger x product / 125) reaches the elevated value
 (app/geo/static_stats.py, GET /infrastructure/{scenario_id}).
 
-  cd apps/api && uv run --group scripts python ../../scripts/precompute_infrastructure.py [--provinces TH50,TH55] [--steps cells,buildings,roads,merge]
+  cd apps/api && uv run --group scripts python ../../scripts/precompute_infrastructure.py [--provinces TH50,TH55] [--steps cells,roadcells,buildings,roads,merge]
 Needs the cached tambon polygons from scripts/precompute_features.py (step `geoms`), the risk_static_asset and, for roads, the Geofabrik extract.
 Earth Engine data: Google Open Buildings v3 and JRC GHSL (see their licences); OSM data (c) OpenStreetMap contributors, ODbL.
 """
@@ -74,6 +74,51 @@ def _cell_files(provinces: list[str] | None) -> list[Path]:
     return [f for f in files if not provinces or f.stem.split("_")[1] in provinces]
 
 
+# ---------------------------------------------------------------- step 1b: every 100 m cell that can reach Moderate (roads need no buildings)
+def step_road_cells(provinces: list[str] | None) -> None:
+    import ee
+    from app.geo import static_stats, tambon_risk
+    from app.geo.ee_init import get_info
+
+    ss = static_stats.load()
+    if not ss:
+        sys.exit("static_stats.json is needed to know which tambons hold ground with product >= 50")
+    by_prov: dict = {}
+    for code, t in ss["tambon"].items():
+        km2 = sum(v[0] for p, v in t["h"].items() if int(p) >= MIN_PROD)
+        if km2 > 0 and (not provinces or code[:4] in provinces):
+            by_prov.setdefault(code[:4], []).append((code, km2))
+    thr = ee.FeatureCollection(tambon_risk.cfg()["assets"]["thresholds"])
+    prod, _, _ = _images()
+    img = prod.rename("prod").updateMask(prod.gte(MIN_PROD))
+
+    def one(job):
+        pc, i, codes = job
+        out = CACHE / f"roadcells_{pc}_{i:02d}.json"
+        if out.exists():
+            return
+        region = thr.filter(ee.Filter.inList("adm3_pcode", codes)).geometry()
+        rows = get_info(img.sample(region=region, scale=tambon_risk.STATS_SCALE_M, geometries=True, tileScale=4).toList(5000))
+        if len(rows) >= 5000:
+            c.log.warning("%s part %d: 5000 cells, the list may be cut", pc, i)
+        out.write_text(json.dumps([[round(r["geometry"]["coordinates"][0], 5), round(r["geometry"]["coordinates"][1], 5), int(r["properties"]["prod"]), 0.0] for r in rows], separators=(",", ":")))
+        c.log.info("  road cells %s part %d: %d", pc, i, len(rows))
+
+    jobs = []
+    for pc, rows in by_prov.items():
+        part, acc, codes = 0, 0.0, []
+        for code, km2 in rows:                      # about 3,000 cells (30 km2) per request stays under the 5,000 limit
+            if codes and acc + km2 > 30:
+                jobs.append((pc, part, codes)); part, acc, codes = part + 1, 0.0, []
+            codes.append(code)
+            acc += km2
+        if codes:
+            jobs.append((pc, part, codes))
+    c.log.info("%d road-cell requests", len(jobs))
+    with ThreadPoolExecutor(max_workers=6) as ex:
+        list(ex.map(one, jobs))
+
+
 # ---------------------------------------------------------------- step 2: Open Buildings inside those cells
 def step_buildings(provinces: list[str] | None) -> None:
     import ee
@@ -116,7 +161,9 @@ def step_roads(provinces: list[str] | None) -> None:
     if not pf.PBF.exists():
         sys.exit(f"missing {pf.PBF}; download https://download.geofabrik.de/asia/thailand-latest.osm.pbf")
     grid: dict = {}
-    for f in _cell_files(provinces):
+    for f in sorted(CACHE.glob("roadcells_TH*.json")):
+        if provinces and f.stem.split("_")[1] not in provinces:
+            continue
         for x, y, p, _ in json.loads(f.read_text()):
             grid.setdefault((int(x / 0.0012), int(y / 0.0012)), []).append((x, y, p))
 
@@ -225,16 +272,16 @@ def step_merge(out_path: Path, provinces: list[str] | None) -> None:
 def main(argv=None) -> int:
     c.setup_logging()
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--steps", default="cells,buildings,roads,merge")
+    p.add_argument("--steps", default="cells,roadcells,buildings,roads,merge")
     p.add_argument("--provinces", default="", help="comma separated province codes, e.g. TH50,TH55 (default: all)")
     p.add_argument("--out", default=".local_storage/risk/infrastructure.json")
     a = p.parse_args(argv)
     provinces = [x.strip().upper() for x in a.provinces.split(",") if x.strip()] or None
     steps = a.steps.split(",")
-    if set(steps) & {"cells", "buildings"}:
+    if set(steps) & {"cells", "roadcells", "buildings"}:
         c.ee_init("")
     CACHE.mkdir(parents=True, exist_ok=True)
-    fns = {"cells": lambda: step_cells(provinces), "buildings": lambda: step_buildings(provinces), "roads": lambda: step_roads(provinces), "merge": lambda: step_merge(Path(a.out), provinces)}
+    fns = {"cells": lambda: step_cells(provinces), "roadcells": lambda: step_road_cells(provinces), "buildings": lambda: step_buildings(provinces), "roads": lambda: step_roads(provinces), "merge": lambda: step_merge(Path(a.out), provinces)}
     for s in steps:
         c.log.info("== step %s", s)
         fns[s]()
