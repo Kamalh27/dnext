@@ -837,13 +837,13 @@ requires-dist = [
     { name = "google-adk", specifier = "==2.12.*" },
     { name = "google-cloud-bigquery", specifier = ">=3.25" },
     { name = "google-cloud-firestore", specifier = ">=2.19" },
-    { name = "google-cloud-pubsub", specifier = ">=2.23" },
-    { name = "google-cloud-storage", specifier = ">=2.18" },
+    { name = "google-cloud-pubsub", specifier = ">=2.42.0" },
+    { name = "google-cloud-storage", specifier = ">=3.17.0" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "pydantic", specifier = ">=2.12,<3" },
     { name = "pydantic-settings", specifier = ">=2.4" },
     { name = "pyyaml", specifier = ">=6" },
-    { name = "rapidfuzz", specifier = ">=3.9" },
+    { name = "rapidfuzz", specifier = ">=3.14.6" },
     { name = "slowapi", specifier = ">=0.1.9" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
 ]
@@ -854,10 +854,10 @@ dev = [
     { name = "pytest-asyncio", specifier = ">=0.24" },
 ]
 scripts = [
-    { name = "geopandas", specifier = ">=1.0" },
+    { name = "geopandas", specifier = ">=1.2.0" },
     { name = "osmium", specifier = ">=4.3.1" },
     { name = "pyogrio", specifier = ">=0.9" },
-    { name = "rasterio", specifier = ">=1.4" },
+    { name = "rasterio", specifier = ">=1.5.2" },
     { name = "shapely", specifier = ">=2.2.0" },
 ]
 
