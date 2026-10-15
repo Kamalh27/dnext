@@ -21,7 +21,7 @@ import { DEFAULT_VIEW, findProvince } from "@/lib/geo";
 import { fetchInfrastructure } from "@/lib/api";
 import { DEFAULT_TOGGLES, hotspot, type Infra, type InfraToggles } from "@/lib/infra";
 import { localLayer, markerTitle, pick } from "@/lib/lang";
-import { InfraOverlay } from "./infra-overlay";
+import { InfraTilt } from "./infra-overlay";
 import { InfraCanvas } from "./infra-canvas";
 import { NO_DRAW, SafeOverlay, SafePlacesPanel, type SafeDraw } from "./safe-places";
 import { ReportMarkers, ReportModal } from "./community-report";
@@ -244,7 +244,7 @@ function MapInner({ lang, layer, layers, staticLayers, markers, provinces, selec
         <ReportMarkers lang={lang} version={reportsVersion} />
         {safeOpen && <SafeOverlay lang={lang} draw={draw} />}
         {infraData && <InfraCanvas lang={lang} data={infraData} show={infraOn} zoom={cam.zoom} />}
-        {infraData && <InfraOverlay lang={lang} data={infraData} show={infraOn} zoom={cam.zoom} />}
+        {infraData && <InfraTilt show={infraOn} zoom={cam.zoom} />}
         {shownMarkers.map((m, i) => {
           const s = KIND_STYLE[m.kind] ?? KIND_STYLE.bridge;
           return (
