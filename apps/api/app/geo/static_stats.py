@@ -177,6 +177,72 @@ def load_shapes() -> dict | None:
     return data
 
 
+INFRA_LOCAL = Path(".local_storage/risk/infrastructure.json")
+INFRA_GCS_BLOB = "risk/infrastructure.json"
+_imem: dict = {"data": None}
+
+
+def load_infrastructure() -> dict | None:
+    """Buildings and main-road pieces on ground that can reach Moderate risk, per tambon (scripts/precompute_infrastructure.py). Loaded once."""
+    with _lock:
+        if _imem["data"] is not None:
+            return _imem["data"]
+    data = None
+    p = os.environ.get("RISK_INFRASTRUCTURE_PATH")
+    for path in ([Path(p)] if p else []) + [INFRA_LOCAL]:
+        if path.is_file():
+            data = json.loads(path.read_text())
+            break
+    if data is None and (settings().project_id or settings().ee_project):
+        try:
+            from google.cloud import storage
+            project = settings().project_id or settings().ee_project
+            blob = storage.Client(project=project).bucket(f"{project}-dnext").blob(INFRA_GCS_BLOB)
+            if blob.exists():
+                data = json.loads(blob.download_as_text())
+        except Exception as e:  # noqa: BLE001
+            log.info("infrastructure: GCS not available (%s)", str(e)[:80])
+    if data is not None:
+        with _lock:
+            _imem["data"] = data
+    return data
+
+
+def infrastructure_at_risk(infra: dict | None, tambons: list[dict], elevated_value: float, divisor: float = 125.0, prone: set | None = None,
+                           max_buildings: int = 25_000) -> dict:
+    """The buildings and road pieces whose risk (tambon trigger x product / divisor) reaches `elevated_value`, for the tambons of one result.
+
+    `tambons` are the result's tambon_risks ({code, trigger}); buildings are [lat, lng, area_m2, height_m, risk], roads [risk, [[lng, lat], ...]]."""
+    out = {"buildings": [], "roads": [], "road_km": 0.0, "truncated": False}
+    if not infra:
+        return out
+    from math import cos, hypot, radians
+    for t in tambons:
+        trig = t.get("trigger") or 0
+        code = t["code"]
+        if trig <= 0 or (prone is not None and code not in prone):
+            continue
+        entry = infra["tambon"].get(code)
+        if not entry:
+            continue
+        for lat, lng, area, height, prod in entry.get("b", ()):
+            risk = trig * prod / divisor
+            if risk >= elevated_value:
+                out["buildings"].append([lat, lng, area, height, round(risk, 2)])
+        for prod, line in entry.get("r", ()):
+            risk = trig * prod / divisor
+            if risk >= elevated_value:
+                out["roads"].append([round(risk, 2), line])
+                for a, b in zip(line, line[1:]):
+                    out["road_km"] += hypot((b[0] - a[0]) * 111.32 * cos(radians((a[1] + b[1]) / 2)), (b[1] - a[1]) * 110.54)
+    if len(out["buildings"]) > max_buildings:
+        out["buildings"].sort(key=lambda b: -b[4])
+        out["buildings"] = out["buildings"][:max_buildings]
+        out["truncated"] = True
+    out["road_km"] = round(out["road_km"], 1)
+    return out
+
+
 _prone_memo: dict = {"id": None, "codes": set()}
 
 

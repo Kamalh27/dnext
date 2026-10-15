@@ -5,6 +5,7 @@ import { Slider } from "@/components/ui/slider";
 import { t } from "@/lib/i18n";
 import type { Lang, MapLayerItem } from "@/lib/types";
 import { MQ, useMedia } from "@/lib/use-media";
+import { Z_3D, type InfraToggles } from "@/lib/infra";
 import { cn } from "@/lib/utils";
 
 export type LayerPatch = { visible?: boolean; opacity?: number };
@@ -77,10 +78,12 @@ function BoundariesRow({ lang, visible, onChange }: { lang: Lang; visible: boole
 }
 
 /** Scenario and reference layers: visibility switch, opacity slider and legend swatch. Layout only: the parent owns open/close. */
-export function LayersPanel({ id, lang, scenario, reference, onChange, boundaries, onClose }: {
+export function LayersPanel({ id, lang, scenario, reference, onChange, boundaries, infra, onClose }: {
   onClose: () => void;
   id: string; lang: Lang; scenario: MapLayerItem[]; reference: MapLayerItem[]; onChange: (id: string, p: LayerPatch) => void;
   boundaries?: { visible: boolean; onChange: (v: boolean) => void };
+  /** Affected infrastructure of the result on screen (Moderate risk or higher): toggles and what is available. */
+  infra?: { counts: { buildings: number; roadKm: number; facilities: number }; state: InfraToggles; zoom: number; loading: boolean; truncated: boolean; onChange: (p: Partial<InfraToggles>) => void };
 }) {
   const tr = t(lang);
   // Phones and short screens: a full-width panel at the bottom of the map, above the Google logo (the other overlays hide while it is open, see globals.css); otherwise a popover beside the button.
@@ -127,7 +130,29 @@ export function LayersPanel({ id, lang, scenario, reference, onChange, boundarie
             </ul>
           </section>
         ))}
-        {sections.length === 0 && <p className="px-3 py-3 text-muted-foreground">{tr.layersNone}</p>}
+        {infra && (
+          <section aria-labelledby={`${id}-infra`} className="border-b last:border-b-0" data-testid="infra-section">
+            <h3 id={`${id}-infra`} className="bg-muted/60 px-3 py-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">{tr.layersInfra}</h3>
+            <p className="px-3 pt-1.5 text-[11px] text-muted-foreground">{tr.infraSubtitle}</p>
+            <ul className="divide-y">
+              {([["buildings", tr.infraBuildings, infra.counts.buildings.toLocaleString()], ["roads", tr.infraRoads, `${infra.counts.roadKm} km`], ["facilities", tr.infraFacilities, infra.counts.facilities.toLocaleString()]] as const).map(([k, label, n]) => (
+                <li key={k} className="flex items-center gap-2 px-2 py-1">
+                  <Switch checked={infra.state[k]} label={`${tr.layerShow}: ${label}`} onClick={() => infra.onChange({ [k]: !infra.state[k] })} />
+                  <span className={cn("min-w-0 flex-1 truncate font-medium", !infra.state[k] && "text-muted-foreground")}>{label}</span>
+                  <span className="shrink-0 tabular-nums text-muted-foreground">{infra.loading ? "…" : n}</span>
+                </li>
+              ))}
+              <li className="flex items-center gap-2 px-2 py-1">
+                <Switch checked={infra.state.threeD} label={`${tr.layerShow}: ${tr.infra3d}`} onClick={() => infra.onChange({ threeD: !infra.state.threeD })} />
+                <span className={cn("min-w-0 flex-1 font-medium", !infra.state.threeD && "text-muted-foreground")}>{tr.infra3d}</span>
+              </li>
+            </ul>
+            {infra.state.threeD && infra.zoom < Z_3D && <p className="px-3 py-1.5 text-[11px] text-muted-foreground">{tr.infra3dHint}</p>}
+            {infra.truncated && <p className="px-3 py-1.5 text-[11px] text-muted-foreground">{tr.infraTruncated}</p>}
+            {!infra.loading && infra.counts.buildings + infra.counts.roadKm + infra.counts.facilities === 0 && <p className="px-3 py-1.5 text-[11px] text-muted-foreground">{tr.infraNone}</p>}
+          </section>
+        )}
+        {sections.length === 0 && !infra && <p className="px-3 py-3 text-muted-foreground">{tr.layersNone}</p>}
       </div>
     </div>
   );

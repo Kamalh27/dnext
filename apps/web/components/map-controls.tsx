@@ -28,10 +28,11 @@ function MapButton({ label, onClick, children, disabled, pressed, className }: {
 }
 
 /** Zoom, my location, 2D/3D and fullscreen. Must render under <APIProvider> (uses the default map instance). */
-export function MapControls({ lang, onLocate, onGlobe, onResetView, fullscreenTarget, layers, reference, onLayerChange, boundaries }: {
+export function MapControls({ lang, onLocate, onGlobe, onResetView, fullscreenTarget, layers, reference, onLayerChange, boundaries, infra }: {
   lang: Lang; onLocate: (p: Pt) => void; onGlobe: () => void; onResetView: () => void; fullscreenTarget: HTMLElement | null;
   layers: MapLayerItem[]; reference: MapLayerItem[]; onLayerChange: (id: string, p: LayerPatch) => void;
   boundaries: { visible: boolean; onChange: (v: boolean) => void };
+  infra?: React.ComponentProps<typeof LayersPanel>["infra"];
 }) {
   const tr = t(lang);
   const panelId = useId();
@@ -167,7 +168,7 @@ export function MapControls({ lang, onLocate, onGlobe, onResetView, fullscreenTa
             <Layers />
           </button>
         </div>
-        {showPanel && <LayersPanel id={panelId} lang={lang} scenario={layers} reference={reference} onChange={onLayerChange} boundaries={boundaries} onClose={() => { setLayersOpen(false); layersBtn.current?.focus(); }} />}
+        {showPanel && <LayersPanel id={panelId} lang={lang} scenario={layers} reference={reference} onChange={onLayerChange} boundaries={boundaries} infra={infra} onClose={() => { setLayersOpen(false); layersBtn.current?.focus(); }} />}
       </div>
       {short ? (
         // Short screens (phone landscape): zoom + layers + a "more" menu; the rest moves into a small popover row.

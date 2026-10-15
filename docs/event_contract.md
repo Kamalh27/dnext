@@ -53,6 +53,7 @@ For forecasts it also has `forecast_rain_mm`, `observed_rain_mm`, `horizon_days`
 | `GET /alerts`, `POST /alerts/read` | The account's notifications (newest first, deleted after 30 days) and "mark all as read" |
 | `POST /internal/new-data` | Pub/Sub push from the daily job. Accepts only the Google-signed token of the subscription's service account |
 | `POST /photo-check` with `{image_b64, language, note?, scenario_id?}` | Gemini's description of the warning signs in one JPEG, PNG or WebP photo (at most 2 MB), the computed risk of the result on screen and a disclaimer. Uses the chat budget |
+| `GET /infrastructure/{scenario_id}` | The buildings and main-road pieces inside the Moderate-or-higher zone of a result: `{buildings: [[lat, lng, area_m2, height_m, risk]], roads: [[risk, [[lng, lat], ...]]], road_km, truncated, available}`. Needs sign-in when it is required |
 | `GET /auth/config` | Whether sign-in is required, the public Firebase web config and the limits |
 | `GET /me` | The signed-in user and today's usage. Answers 401 when not signed in |
 | `GET /readyz` | Whether the running identity can read each Earth Engine layer. Reports only true or false, never paths |

@@ -112,3 +112,40 @@ def test_report_data_endpoints_and_tambon_shapes(monkeypatch):
         t = c.get("/geo/tambons/TH50")
         assert t.status_code == 200 and "TH500101" in t.json()["tambons"] and "max-age" in t.headers["cache-control"]
         assert c.get("/geo/tambons/TH99").status_code == 404 and c.get("/geo/tambons/bad").status_code == 422
+
+
+INFRA = {"tambon": {
+    "T1": {"b": [[18.1, 100.1, 80, 6.0, 100], [18.2, 100.2, 60, 4.0, 40]], "r": [[100, [[100.0, 18.0], [100.0, 18.01]]], [30, [[100.1, 18.0], [100.1, 18.01]]]]},
+    "T2": {"b": [[19.0, 101.0, 70, 5.0, 125]]},
+}}
+
+
+def test_only_infrastructure_that_reaches_the_elevated_value_is_returned():
+    tambons = [{"code": "T1", "trigger": 4}, {"code": "T2", "trigger": 0}]
+    r = static_stats.infrastructure_at_risk(INFRA, tambons, 2.0)
+    assert r["buildings"] == [[18.1, 100.1, 80, 6.0, 3.2]]           # 4*100/125 = 3.2; 4*40/125 = 1.28 is below 2; T2 has no trigger
+    assert [x[0] for x in r["roads"]] == [3.2] and 1.0 < r["road_km"] < 1.2
+    assert static_stats.infrastructure_at_risk(None, tambons, 2.0)["buildings"] == []
+
+
+def test_tambons_without_landslide_prone_ground_are_left_out_and_the_list_is_capped():
+    tambons = [{"code": "T1", "trigger": 5}, {"code": "T2", "trigger": 5}]
+    assert [b[0] for b in static_stats.infrastructure_at_risk(INFRA, tambons, 2.0, prone={"T2"})["buildings"]] == [19.0]
+    big = {"tambon": {"T": {"b": [[1.0, 1.0, 50, 5.0, 100 + (i % 20)] for i in range(100)]}}}
+    r = static_stats.infrastructure_at_risk(big, [{"code": "T", "trigger": 5}], 2.0, max_buildings=10)
+    assert len(r["buildings"]) == 10 and r["truncated"] and min(b[4] for b in r["buildings"]) >= 4.5
+
+
+def test_the_infrastructure_endpoint_uses_the_result_on_screen(monkeypatch):
+    from fastapi.testclient import TestClient
+    from app.geo import service
+    from app.main import app
+    r = _result()
+    r["exposure"]["tambon_risks"] = [{"code": "T1", "risk": 3.2, "trigger": 4}]
+    monkeypatch.setattr(service, "get_cached", lambda sid: r if sid == "s1" else None)
+    monkeypatch.setattr(static_stats, "load_infrastructure", lambda: INFRA)
+    monkeypatch.setattr(static_stats, "load", lambda: None)
+    with TestClient(app) as c:
+        d = c.get("/infrastructure/s1").json()
+        assert d["available"] and len(d["buildings"]) == 1 and len(d["roads"]) == 1 and d["min_risk"] == 2
+        assert c.get("/infrastructure/nope").status_code == 404

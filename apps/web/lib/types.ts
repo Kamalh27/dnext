@@ -49,7 +49,7 @@ export interface MapLayersEvent {
 export type MarkerKind = "school" | "hospital" | "shelter" | "bridge";
 export interface MapMarkers {
   id: string;
-  markers: { lat: number; lng: number; name: string; kind: MarkerKind; name_th?: string; risk?: number; risk_class_name?: string; risk_class_name_th?: string; tambon?: string; tambon_th?: string }[];
+  markers: { lat: number; lng: number; name: string; kind: MarkerKind; name_th?: string; risk?: number; risk_class?: number; risk_class_name?: string; risk_class_name_th?: string; tambon?: string; tambon_th?: string }[];
 }
 
 export interface TableData {

@@ -215,6 +215,25 @@ async def trend(pcode: str, days: int = 30):
     return await asyncio.to_thread(history.trend, pcode.upper(), days)
 
 
+@app.get("/infrastructure/{scenario_id}")
+async def infrastructure(scenario_id: str, account=Depends(gate("light"))):
+    """Buildings and main-road pieces inside the Moderate-or-higher risk zone of a result, for the map (3D buildings, affected roads)."""
+    from app.geo import static_stats, tambon_risk
+    sc = service.get_cached(scenario_id)
+    if sc is None:
+        raise HTTPException(404, "Unknown or expired scenario_id")
+    risks = sc["exposure"].get("tambon_risks") or []
+
+    def build() -> dict:
+        r = tambon_risk.cfg()["risk"]
+        ss = static_stats.load()
+        res = static_stats.infrastructure_at_risk(static_stats.load_infrastructure(), risks, r["cutoffs"][r["exposure_from"] - 2], r["divisor"],
+                                                  static_stats.prone_codes(ss) if ss else None)
+        return {"scenario_id": scenario_id, "min_risk": r["cutoffs"][r["exposure_from"] - 2], "available": static_stats.load_infrastructure() is not None, **res}
+
+    return await asyncio.to_thread(build)
+
+
 @app.get("/overview/report-data")
 async def overview_report_data(day: int = 0, language: str = "en"):
     """The same for the national overview: guidance text and the named facilities at risk for one slider day."""
