@@ -98,6 +98,8 @@ function MapInner({ lang, layer, layers, staticLayers, markers, provinces, selec
   const [globe, setGlobe] = useState(false);
   // Thin outlines of every province are a toggleable reference layer (per session). The selected province stays highlighted regardless.
   const [outlines, setOutlines] = useState(true);
+  // The national overview colours the provinces by risk (or rain). It has no tiles, so it gets its own switch in the layers panel.
+  const [overviewShown, setOverviewShown] = useState(true);
   const [cam, setCam] = useState<{ zoom: number; lat: number; lng: number }>({ zoom: DEFAULT_VIEW.zoom, lat: DEFAULT_VIEW.center.lat, lng: DEFAULT_VIEW.center.lng });
   const [seenProvince, setSeenProvince] = useState(selected?.pcode);
   if (selected?.pcode !== seenProvince) {
@@ -167,8 +169,9 @@ function MapInner({ lang, layer, layers, staticLayers, markers, provinces, selec
   const day = overview ? (overview.series.days.find((d) => d.h === overview.day) ?? overview.series.days[0]) : null;
   const byPcode = useMemo(() => Object.fromEntries((day?.provinces ?? []).map((p) => [p.pcode, p] as const)) as Record<string, OverviewProvinceDay | undefined>, [day]);
   const metric = overview?.metric ?? "risk";
-  const fills = useMemo(() => (day ? fillsFor(metric, day.provinces) : null), [day, metric]);
-  const overviewLegend = overview ? legendFor(metric, lang) : null;
+  const fills = useMemo(() => (day && overviewShown ? fillsFor(metric, day.provinces) : null), [day, metric, overviewShown]);
+  const ovLegend = overview ? legendFor(metric, lang) : null;
+  const overviewLegend = overviewShown ? ovLegend : null;
   const [hover, setHover] = useState<{ pcode: string; x: number; y: number } | null>(null);
   const hoverActive = !!overview;
   const [seenOverview, setSeenOverview] = useState(hoverActive);
@@ -255,7 +258,7 @@ function MapInner({ lang, layer, layers, staticLayers, markers, provinces, selec
       {safeOpen && <SafePlacesPanel lang={lang} scenarioId={scope || undefined} me={me} onDraw={setDraw} onClose={() => setSafeOpen(false)} />}
       <ReportModal lang={lang} open={reportOpen} onClose={() => setReportOpen(false)} me={me}
         centre={() => { const c = gmap?.getCenter(); return c ? { lat: c.lat(), lng: c.lng() } : null; }} onDone={() => setReportsVersion((v) => v + 1)} />
-      <MapControls lang={lang} onLocate={setMe} onGlobe={() => setGlobe(true)} onResetView={() => setGlobe(false)} boundaries={{ visible: outlines, onChange: setOutlines }} fullscreenTarget={wrap} layers={items} reference={staticItems} onLayerChange={onLayerChange} safe={{ open: safeOpen, onToggle: () => setSafeOpen((o) => !o) }} onReport={() => setReportOpen(true)}
+      <MapControls lang={lang} onLocate={setMe} onGlobe={() => setGlobe(true)} onResetView={() => setGlobe(false)} boundaries={{ visible: outlines, onChange: setOutlines }} overviewLayer={ovLegend ? { name: ovLegend.title, visible: overviewShown, onChange: setOverviewShown } : undefined} fullscreenTarget={wrap} layers={items} reference={staticItems} onLayerChange={onLayerChange} safe={{ open: safeOpen, onToggle: () => setSafeOpen((o) => !o) }} onReport={() => setReportOpen(true)}
         infra={scope ? { counts: { buildings: infraData?.buildings.length ?? 0, roadKm: infraData?.road_km ?? 0, facilities: shownMarkers.length }, state: infraOn, zoom: cam.zoom, loading: !!scope && infra.sid !== scope, truncated: !!infraData?.truncated, onChange: (p) => setInfraOn((s) => ({ ...s, ...p })) } : undefined} />
 
       {overview && hover && (

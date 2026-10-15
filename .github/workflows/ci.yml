@@ -26,6 +26,24 @@ jobs:
       - name: Full history
         run: scripts/check-secrets.sh --history
 
+  audit:
+    name: Dependency audit (known vulnerabilities)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Python packages (locked versions)
+        working-directory: apps/api
+        run: |
+          uv export --frozen --no-hashes --no-emit-project --all-groups -o /tmp/requirements.txt
+          uvx pip-audit -r /tmp/requirements.txt --no-deps --disable-pip
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: apps/web/package.json
+      - name: Web packages that ship to users (dev tools are not audited)
+        working-directory: apps/web
+        run: pnpm audit --prod --audit-level=high
+
   api:
     name: API (pytest)
     runs-on: ubuntu-latest

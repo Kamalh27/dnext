@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Info, MessageSquareText, Moon, Sun } from "lucide-react";
+import { CircleHelp, Info, MessageSquareText, Moon, Sun } from "lucide-react";
 import { AlertsBell } from "./alerts-bell";
 import { AuthControls } from "./account-menu";
 import { AboutModal } from "./about-modal";
@@ -16,7 +16,7 @@ import { t } from "@/lib/i18n";
 import type { Lang } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-export function Header({ lang, setLang, tab, onTab }: { lang: Lang; setLang: (l: Lang) => void; tab: "chat" | "map"; onTab: (t: "chat" | "map") => void }) {
+export function Header({ lang, setLang, tab, onTab, onTour }: { lang: Lang; setLang: (l: Lang) => void; tab: "chat" | "map"; onTab: (t: "chat" | "map") => void; onTour: () => void }) {
   const tr = t(lang);
   const { theme, toggle } = useTheme();
   const authOn = useAuth().status !== "disabled";   // the sign-in control needs room: drop the wordmark a little earlier
@@ -38,7 +38,7 @@ export function Header({ lang, setLang, tab, onTab }: { lang: Lang; setLang: (l:
       </div>
 
       <nav className="flex shrink-0 items-center gap-1.5 coarse:gap-1" aria-label="Site">
-        <div role="group" aria-label={tr.language} className="mr-1 flex rounded-full bg-primary-foreground/15 p-0.5 text-xs font-medium coarse:text-sm dark:bg-muted">
+        <div role="group" data-tour="lang" aria-label={tr.language} className="mr-1 flex rounded-full bg-primary-foreground/15 p-0.5 text-xs font-medium coarse:text-sm dark:bg-muted">
           {(["en", "th"] as const).map((l) => (
             <button
               key={l}
@@ -54,6 +54,7 @@ export function Header({ lang, setLang, tab, onTab }: { lang: Lang; setLang: (l:
           ))}
         </div>
         <AlertsBell lang={lang} />
+        <Button variant="ghost" size="icon" data-tour="help" className="text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground dark:text-foreground dark:hover:bg-accent dark:hover:text-accent-foreground" onClick={onTour} aria-label={tr.tourOpen} title={tr.tourOpen}><CircleHelp /></Button>
         <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground dark:text-foreground dark:hover:bg-accent dark:hover:text-accent-foreground" onClick={() => setModal("about")} aria-label={tr.aboutOpen} title={tr.aboutOpen}><Info /></Button>
         <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground dark:text-foreground dark:hover:bg-accent dark:hover:text-accent-foreground" onClick={() => setModal("feedback")} aria-label={tr.feedbackOpen} title={tr.feedbackOpen}><MessageSquareText /></Button>
         <AuthControls lang={lang} />

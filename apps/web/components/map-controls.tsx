@@ -17,21 +17,22 @@ const glass = "border bg-card/90 shadow-lg backdrop-blur-md";
 const btn =
   "grid size-9 coarse:size-11 place-items-center text-foreground outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 [&_svg]:size-[18px]";
 
-function MapButton({ label, onClick, children, disabled, pressed, className }: {
-  label: string; onClick: () => void; children: ReactNode; disabled?: boolean; pressed?: boolean; className?: string;
+function MapButton({ label, onClick, children, disabled, pressed, className, tour }: {
+  tour?: string; label: string; onClick: () => void; children: ReactNode; disabled?: boolean; pressed?: boolean; className?: string;
 }) {
   return (
-    <button type="button" aria-label={label} title={label} aria-pressed={pressed} disabled={disabled} onClick={onClick} className={cn(btn, className)}>
+    <button type="button" data-tour={tour} aria-label={label} title={label} aria-pressed={pressed} disabled={disabled} onClick={onClick} className={cn(btn, className)}>
       {children}
     </button>
   );
 }
 
 /** Zoom, my location, 2D/3D and fullscreen. Must render under <APIProvider> (uses the default map instance). */
-export function MapControls({ lang, onLocate, onGlobe, onResetView, fullscreenTarget, layers, reference, onLayerChange, boundaries, infra, safe, onReport }: {
+export function MapControls({ lang, onLocate, onGlobe, onResetView, fullscreenTarget, layers, reference, onLayerChange, boundaries, overviewLayer, infra, safe, onReport }: {
   lang: Lang; onLocate: (p: Pt) => void; onGlobe: () => void; onResetView: () => void; fullscreenTarget: HTMLElement | null;
   layers: MapLayerItem[]; reference: MapLayerItem[]; onLayerChange: (id: string, p: LayerPatch) => void;
   boundaries: { visible: boolean; onChange: (v: boolean) => void };
+  overviewLayer?: { name: string; visible: boolean; onChange: (v: boolean) => void };
   infra?: React.ComponentProps<typeof LayersPanel>["infra"];
   /** Safe places panel (open state and toggle) and the community report button. */
   safe?: { open: boolean; onToggle: () => void };
@@ -147,8 +148,8 @@ export function MapControls({ lang, onLocate, onGlobe, onResetView, fullscreenTa
   const view3dBtn = <MapButton label={is3d ? tr.view2d : tr.view3d} onClick={() => { toggle3d(); setMenuOpen(false); }} pressed={is3d} className={cn(is3d && "bg-primary text-primary-foreground hover:bg-primary")}>{is3d ? <MapIcon /> : <Box />}</MapButton>;
   const globeBtn = <MapButton label={tr.globeView} onClick={() => { onGlobe(); setMenuOpen(false); }}><Globe /></MapButton>;
   const fullBtn = <MapButton label={full ? tr.exitFullscreen : tr.fullscreen} onClick={() => { toggleFull(); setMenuOpen(false); }}>{full ? <Minimize2 /> : <Maximize2 />}</MapButton>;
-  const safeBtn = safe ? <MapButton label={tr.safeOpen} onClick={() => { safe.onToggle(); setMenuOpen(false); }} pressed={safe.open} className={cn(safe.open && "bg-primary text-primary-foreground hover:bg-primary")}><ShieldCheck /></MapButton> : null;
-  const reportBtn = onReport ? <MapButton label={tr.reportOpen} onClick={() => { onReport(); setMenuOpen(false); }}><TriangleAlert /></MapButton> : null;
+  const safeBtn = safe ? <MapButton tour="safe" label={tr.safeOpen} onClick={() => { safe.onToggle(); setMenuOpen(false); }} pressed={safe.open} className={cn(safe.open && "bg-primary text-primary-foreground hover:bg-primary")}><ShieldCheck /></MapButton> : null;
+  const reportBtn = onReport ? <MapButton tour="community" label={tr.reportOpen} onClick={() => { onReport(); setMenuOpen(false); }}><TriangleAlert /></MapButton> : null;
   const homeBtn = <MapButton label={tr.resetView} onClick={() => { resetView(); setMenuOpen(false); }}><House /></MapButton>;
 
   return (
@@ -163,6 +164,7 @@ export function MapControls({ lang, onLocate, onGlobe, onResetView, fullscreenTa
           <button
             ref={layersBtn}
             type="button"
+            data-tour="layers"
             aria-label={tr.layersTitle}
             title={tr.layersTitle}
             aria-expanded={showPanel}
@@ -173,7 +175,7 @@ export function MapControls({ lang, onLocate, onGlobe, onResetView, fullscreenTa
             <Layers />
           </button>
         </div>
-        {showPanel && <LayersPanel id={panelId} lang={lang} scenario={layers} reference={reference} onChange={onLayerChange} boundaries={boundaries} infra={infra} onClose={() => { setLayersOpen(false); layersBtn.current?.focus(); }} />}
+        {showPanel && <LayersPanel id={panelId} lang={lang} scenario={layers} reference={reference} onChange={onLayerChange} boundaries={boundaries} overviewLayer={overviewLayer} infra={infra} onClose={() => { setLayersOpen(false); layersBtn.current?.focus(); }} />}
       </div>
       {short ? (
         // Short screens (phone landscape): zoom + layers + a "more" menu; the rest moves into a small popover row.

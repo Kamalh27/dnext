@@ -202,7 +202,7 @@ export function ChatPanel(p: Props) {
       )}
 
       <div data-testid="chat-composer" className="border-t bg-background px-3 pt-3 pb-1 short:sticky short:bottom-0 short:z-10">
-        <form onSubmit={submit} className="flex items-center gap-2 rounded-2xl border bg-card py-1.5 pr-1.5 pl-4 shadow-xs transition focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-ring/30">
+        <form onSubmit={submit} data-tour="chat" className="flex items-center gap-2 rounded-2xl border bg-card py-1.5 pr-1.5 pl-4 shadow-xs transition focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-ring/30">
           <button type="button" onClick={p.onPhoto} aria-label={tr.photoOpen} title={tr.photoOpen} data-testid="photo-open"
             className="grid size-8 shrink-0 place-items-center rounded-full text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring coarse:size-11">
             <Camera className="size-4" aria-hidden />

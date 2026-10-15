@@ -62,6 +62,7 @@ export function OverviewSlider({ lang, series, day, metric, playing, onDay, onMe
       role="group"
       aria-label={tr.ovTitle}
       data-testid="overview-slider"
+      data-tour="slider"
       data-map-overlay="slider"
       data-open={open}
       className="@container/sl pointer-events-auto w-full max-w-md rounded-[4px] border bg-card/90 text-xs shadow-lg backdrop-blur-md"

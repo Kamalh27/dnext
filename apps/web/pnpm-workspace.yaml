@@ -1,3 +1,6 @@
 ignoredBuiltDependencies:
   - sharp
   - unrs-resolver
+overrides:
+  # firebase pulls an old gRPC build (advisory GHSA-f596-whhp-79r4 and a getAuthContext fix); take the patched one
+  "@grpc/grpc-js": ">=1.13.6"
