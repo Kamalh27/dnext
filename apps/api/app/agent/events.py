@@ -12,6 +12,9 @@ STATUS_LABELS = {
 }
 
 
+FACILITY_TABLE_ROWS = 25
+
+
 def status_for(tool: str) -> dict:
     stage, label = STATUS_LABELS.get(tool, (tool, f"Running {tool}…"))
     return {"stage": stage, "label": label}
@@ -78,7 +81,23 @@ def scenario_events(r: dict) -> list[tuple[str, dict]]:
         }))
     if x.get("facilities"):
         ev.append(("map_markers", {"id": f"{sid}-facilities", "markers": [
-            {"lat": f["lat"], "lng": f["lng"], "name": f["name"], "kind": f["kind"]} for f in x["facilities"][:200]]}))
+            {"lat": f["lat"], "lng": f["lng"], "name": f["name"], "kind": f["kind"],
+             **{k: f[k] for k in ("name_th", "risk", "risk_class", "risk_class_name", "risk_class_name_th", "tambon", "tambon_th") if k in f}} for f in x["facilities"][:200]]}))
+        named = [f for f in x["facilities"] if "risk" in f][:FACILITY_TABLE_ROWS]
+        if named:
+            counts = x.get("facilities_named") or {}
+            ev.append(("table", {
+                "id": f"{sid}-facilities-table",
+                "title": f"Hospitals and schools at risk: {a['name']} "
+                         f"({counts.get('hospitals', 0)} hospitals, {counts.get('schools', 0)} schools; top {len(named)} by risk)",
+                "title_th": f"โรงพยาบาลและโรงเรียนที่มีความเสี่ยง: {a.get('name_th') or a['name']} "
+                            f"(โรงพยาบาล {counts.get('hospitals', 0)} แห่ง โรงเรียน {counts.get('schools', 0)} แห่ง; {len(named)} อันดับแรกตามความเสี่ยง)",
+                "columns": ["Name", "Type", "Tambon", "Risk 0-5", "Class"], "columns_th": th.FACILITY_COLUMNS,
+                "rows": [[f["name"], f["kind"], f["tambon"], f["risk"], f.get("risk_class_name", "")] for f in named],
+                "rows_th": [[f.get("name_th") or f["name"], th.KIND_TH.get(f["kind"], f["kind"]), f.get("tambon_th") or f["tambon"], f["risk"],
+                             f.get("risk_class_name_th", "")] for f in named],
+                "scenario_id": sid,
+            }))
     return ev
 
 

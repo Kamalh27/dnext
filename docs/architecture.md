@@ -30,10 +30,13 @@ Computing statistics straight from the 12 m source layers took 34 to 81 seconds 
 | `obs_daily.json` | `scripts/precompute_rain.py` | Daily observed and forecast rainfall per tambon | Daily |
 | `static_stats.json` | `scripts/precompute_static_stats.py` | Area and population per tambon for each value of the static risk product | Once |
 | `static_features.json` | `scripts/precompute_features.py` | Built-up area, hospitals, schools and road length per tambon and risk product | Once |
+| `facilities.json` | `scripts/precompute_facilities.py` | Named hospitals and schools with their location, tambon and risk product | Once |
+
+The daily file is rebuilt by a Cloud Run job (`dnext-rain`) that Cloud Scheduler starts at 06:30 and 18:30 Bangkok time (`infra/deploy-job.sh`).
 
 The static risk product is the rain-independent part of the risk (susceptibility class × vulnerability class × exposure class). It is also exported once as a 100 m Earth Engine asset (`scripts/build_risk_layer.py`).
 
-A scenario then only has to work out each tambon's trigger class from its rainfall, which is arithmetic on the daily file, and look up the matching rows in the static files. Only the map layer comes from Earth Engine, so requests finish in roughly 1 to 8 seconds.
+A scenario then only has to work out each tambon's trigger class from its rainfall, which is arithmetic on the daily file, and look up the matching rows in the static files. A named facility is at risk when its tambon's trigger class times its risk product, divided by 125, reaches the lowest risk class. Only the map layer comes from Earth Engine, so requests finish in roughly 1 to 8 seconds.
 
 The API reads the files from `apps/api/.local_storage/risk/` when they exist there, and otherwise from `gs://<project>-dnext/risk/`. On Cloud Run the container has no local copy, so the files must be in the bucket.
 

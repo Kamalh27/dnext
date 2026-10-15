@@ -98,11 +98,23 @@ export const fetchOverviewSeries = (signal?: AbortSignal) =>
 export const explain = (lat: number, lng: number, scenarioId: string) =>
   authFetch(`/explain?${new URLSearchParams({ lat: String(lat), lng: String(lng), scenario_id: scenarioId })}`).then((r) => json<Explain>(r));
 
-export async function downloadBriefing(scenarioId: string) {
-  const res = await authFetch(`/briefing/${encodeURIComponent(scenarioId)}`);
-  const ext = (res.headers.get("content-type") || "").includes("pdf") ? "pdf" : "html";
-  const url = URL.createObjectURL(await res.blob());
-  const a = Object.assign(document.createElement("a"), { href: url, download: `briefing-${scenarioId}.${ext}` });
-  a.click();
-  URL.revokeObjectURL(url);
+/** Opens the print-ready report in a new tab; the browser's print dialog then offers "Save as PDF". The tab is opened inside the click so pop-up blockers allow it. */
+export async function openReport(scenarioId: string, lang: "en" | "th") {
+  const tab = window.open("", "_blank");
+  try {
+    const res = await authFetch(`/briefing/${encodeURIComponent(scenarioId)}?language=${lang}&format=html&print=1`);
+    const html = await res.text();
+    if (tab) {
+      tab.document.open();
+      tab.document.write(html);
+      tab.document.close();
+    } else {   // pop-up blocked: save the report as a file instead
+      const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+      Object.assign(document.createElement("a"), { href: url, download: `report-${scenarioId}.html` }).click();
+      URL.revokeObjectURL(url);
+    }
+  } catch (e) {
+    tab?.close();
+    throw e;
+  }
 }

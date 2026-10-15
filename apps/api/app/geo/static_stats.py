@@ -87,6 +87,64 @@ def load_features() -> dict | None:
     return data
 
 
+FAC_LOCAL = Path(".local_storage/risk/facilities.json")
+FAC_GCS_BLOB = "risk/facilities.json"
+_famem: dict = {"t": 0.0, "data": None}
+
+
+def load_facilities() -> dict | None:
+    """Named hospitals and schools that can reach the elevated zone, per tambon, if the facilities precompute is built."""
+    now = time.time()
+    with _lock:
+        if now - _famem["t"] < _TTL_S:
+            return _famem["data"]
+    data = None
+    p = os.environ.get("RISK_FACILITIES_PATH")
+    for path in ([Path(p)] if p else []) + [FAC_LOCAL]:
+        if path.is_file():
+            data = json.loads(path.read_text())
+            break
+    if data is None and (settings().project_id or settings().ee_project):
+        try:
+            from google.cloud import storage
+            project = settings().project_id or settings().ee_project
+            blob = storage.Client(project=project).bucket(f"{project}-dnext").blob(FAC_GCS_BLOB)
+            if blob.exists():
+                data = json.loads(blob.download_as_text())
+        except Exception as e:  # noqa: BLE001
+            log.info("facilities: GCS not available (%s)", str(e)[:80])
+    with _lock:
+        _famem.update(t=now, data=data)
+    return data
+
+
+def facilities_at_risk(fac: dict | None, rows: list[dict], cutoffs: list[float], divisor: float = 125.0,
+                       names: list[str] | None = None, names_th: list[str] | None = None) -> dict:
+    """Named hospitals and schools whose risk (tambon trigger x product / divisor) reaches the lowest risk-class cutoff.
+
+    Returns {"items": [...sorted by risk then type...], "hospitals": n, "schools": n}; `items` carries every match (callers cap them)
+    and each item has its risk value and risk class (1 = Very low .. 5 = Very high, with the class name when `names` are given)."""
+    out = {"items": [], "hospitals": 0, "schools": 0}
+    if not fac:
+        return out
+    for row in rows:
+        t = row["trigger_class"]
+        if t <= 0:
+            continue
+        for kind, lat, lng, name, name_th, prod in fac["tambon"].get(row["adm3_pcode"], ()):
+            risk = t * prod / divisor
+            if risk < cutoffs[0]:
+                continue
+            cls = 1 + sum(1 for c in cutoffs if risk >= c)
+            out["hospitals" if kind == "hospital" else "schools"] += 1
+            out["items"].append({"kind": kind, "lat": lat, "lng": lng, "name": name, "name_th": name_th, "risk": round(risk, 2), "risk_class": cls,
+                                 **({"risk_class_name": names[cls - 1]} if names else {}), **({"risk_class_name_th": names_th[cls - 1]} if names_th else {}),
+                                 "tambon": row["adm3_name"], "tambon_th": row["adm3_name1"], "amphoe": row["adm2_name"], "amphoe_th": row["adm2_name1"],
+                                 "admin_code": row["adm3_pcode"]})
+    out["items"].sort(key=lambda f: (-f["risk"], f["kind"] != "hospital", f["name"]))
+    return out
+
+
 def covers(data: dict | None, rows: list[dict]) -> bool:
     return bool(data) and all(r["adm3_pcode"] in data["tambon"] for r in rows)
 

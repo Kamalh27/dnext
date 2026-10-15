@@ -1,0 +1,31 @@
+# Build and deploy the daily rainfall job. Submitted by infra/deploy-job.sh.
+substitutions:
+  _REGION: asia-southeast1
+  _REPO: dnext
+  _JOB: dnext-rain
+  _RUNTIME_SA: ""        # service account the job runs as (needs Earth Engine and bucket access)
+  _EE_PROJECT: ""
+  _BUCKET: ""
+options:
+  logging: CLOUD_LOGGING_ONLY
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: [build, -f, infra/job.Dockerfile, -t, "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/rain:$BUILD_ID", .]
+  - name: gcr.io/cloud-builders/docker
+    args: [push, "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/rain:$BUILD_ID"]
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - jobs
+      - deploy
+      - ${_JOB}
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/rain:$BUILD_ID
+      - --region=${_REGION}
+      - --service-account=${_RUNTIME_SA}
+      - --cpu=2
+      - --memory=2Gi
+      - --task-timeout=1200s
+      - --max-retries=1
+      - --set-env-vars=^@^GEO_BACKEND=ee@EE_PROJECT=${_EE_PROJECT}@PROJECT_ID=$PROJECT_ID
+      - --args=--bucket,${_BUCKET}

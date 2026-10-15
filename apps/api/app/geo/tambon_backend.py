@@ -22,6 +22,7 @@ _LOCK = threading.Lock()
 _BUNDLE_TTL_S = 600
 _OBS_TTL_S = 3600
 RANK_N = 10
+FACILITY_CAP = 200          # most at-risk named facilities kept in a result (markers, table and report)
 
 
 def _memo(key, ttl, fn):
@@ -93,7 +94,9 @@ def _compute(area, extra_mm: float, window_obs_days: int, forecast: tuple | None
             stats = tambon_risk.tambon_stats(tfc, trig, tambon_risk.worldpop(), region, high_from=_min_high_from(min_class))
         sid = f"{area.admin_code}-{int(extra_mm)}-{window_obs_days}"
         layers = tambon_risk.build_layers(region, rain_img, trig, tambon_risk.risk_image(trig), sid)
-        return {"meta": meta, "fmeta": fmeta, "rows": rows, "stats": stats, "layers": layers, "region_days": window_obs_days}
+        rk = tambon_risk.cfg()["risk"]
+        facilities = static_stats.facilities_at_risk(static_stats.load_facilities(), rows, rk["cutoffs"], rk["divisor"], rk["class_names"], rk["class_names_th"])
+        return {"meta": meta, "fmeta": fmeta, "rows": rows, "stats": stats, "layers": layers, "region_days": window_obs_days, "facilities": facilities}
 
     return _memo(key, _BUNDLE_TTL_S, build)
 
@@ -136,8 +139,9 @@ def tambon_table(rows: list[dict], stats_rows: dict, n: int = RANK_N) -> list[di
 
 
 def _sources(extra: list[str] | None = None) -> list[str]:
-    c = tambon_risk.cfg()["assets"]
-    return [c["susceptibility"], c["vulnerability"], c["exposure"], c["thresholds"], "WorldPop/GP/100m/pop (2020)"] + (extra or [])
+    """Descriptive names only: the Earth Engine paths of the ADPC layers are project-specific and stay server-side."""
+    return ["Landslide susceptibility map (ADPC)", "Vulnerability index (ADPC)", "Exposure index (ADPC)",
+            "Tambon rainfall thresholds (ADPC)", "WorldPop/GP/100m/pop (2020)"] + (extra or [])
 
 
 def limitations(meta: dict, extra: list[str] | None = None) -> list[str]:
@@ -188,13 +192,15 @@ def _exposure_payload(b: dict, min_class: str) -> dict:
     total_people = sum((s.get("people_high") or 0) for s in stats.values())
     people = round_people(total_people)
     hs = household_size()
+    fac = b.get("facilities") or {"items": [], "hospitals": 0, "schools": 0}
     tot = b["stats"].get("totals")          # present when the features precompute exists
     feat = {"buildings": round_buildings(tot["buildings"]), "road_km": round(tot["road_km"], 1), "schools": int(round(tot["schools"])),
             "hospitals": int(round(tot["hospitals"]))} if tot else {"buildings": None, "road_km": None, "schools": None, "hospitals": None}
     return {
         "model": "tambon", "people": people, "households_est": round_people(total_people / hs), "household_size_assumed": hs,
         **feat, "building_area_m2": None, "road_km_by_class": None, "shelters": None, "bridges": None,
-        "top_admin_units": table, "tambon_table": table, "tambons_ranked": len(rows), "facilities": [],
+        "top_admin_units": table, "tambon_table": table, "tambons_ranked": len(rows),
+        "facilities": fac["items"][:FACILITY_CAP], "facilities_named": {"hospitals": fac["hospitals"], "schools": fac["schools"]},
         "min_class": min_class, **_payload_common(b),
         "limitations": limitations(b["meta"], FEATURE_LIMITS if tot else [NO_FEATURES]),
     }

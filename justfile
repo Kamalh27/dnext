@@ -67,6 +67,9 @@ setup-gcp:
 deploy:
     bash infra/deploy.sh
 
+deploy-job:
+    bash infra/deploy-job.sh
+
 deploy-api:
     bash infra/deploy.sh --api-only
 

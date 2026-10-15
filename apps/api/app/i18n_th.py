@@ -55,3 +55,6 @@ TRIGGER_SOURCE = "เกณฑ์เปอร์เซ็นไทล์ฝน�
 
 def rain_window(n) -> str:
     return f"ฝนตรวจวัด {n} วัน + สถานการณ์จำลอง"
+
+FACILITY_COLUMNS = ["ชื่อสถานที่", "ประเภท", "ตำบล", "ความเสี่ยง 0-5", "ระดับ"]
+KIND_TH = {"hospital": "โรงพยาบาล", "school": "โรงเรียน", "shelter": "ศูนย์พักพิง", "bridge": "สะพาน"}

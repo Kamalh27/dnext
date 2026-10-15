@@ -18,7 +18,7 @@ gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregi
   aiplatform.googleapis.com earthengine.googleapis.com firestore.googleapis.com storage.googleapis.com \
   secretmanager.googleapis.com geocoding-backend.googleapis.com maps-backend.googleapis.com \
   cloudtrace.googleapis.com bigquery.googleapis.com \
-  firebase.googleapis.com identitytoolkit.googleapis.com securetoken.googleapis.com
+  firebase.googleapis.com identitytoolkit.googleapis.com securetoken.googleapis.com cloudscheduler.googleapis.com
 
 gcloud artifacts repositories create dnext --repository-format=docker --location "$REGION" || true
 gcloud firestore databases create --location "$REGION" || true

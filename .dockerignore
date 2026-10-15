@@ -1,0 +1,16 @@
+# Used when an image is built with the repository root as context (infra/job.Dockerfile).
+.git
+.github
+**/node_modules
+**/.next
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/.local_storage
+.env
+.env.*
+!.env.example
+credentials
+scripts/out
+docs
+evals
