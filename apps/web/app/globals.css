@@ -171,7 +171,15 @@
 .report-edit:focus { background: rgb(254 249 195 / 0.8); outline: 1px dashed #a3a3a3; }
 .report-sec h2 { break-after: avoid; }
 
-@page { size: A4; margin: 14mm; }
+@page {
+  size: A4;
+  margin: 14mm 14mm 16mm;
+  @bottom-left { content: "DNext · Landslide risk screening"; font-size: 8px; color: #78716c; }
+  @bottom-right { content: "Page " counter(page) " / " counter(pages); font-size: 8px; color: #78716c; }
+}
+.report-header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+@media print { .report-header { margin: 0 !important; border-radius: 6px !important; padding: 18px 20px !important; } }
+.report-doc * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 @media print {
   body.report-open > *:not(.report-root) { display: none !important; }
   body.report-open { overflow: visible !important; background: #ffffff !important; }

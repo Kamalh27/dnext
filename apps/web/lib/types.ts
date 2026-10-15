@@ -223,7 +223,7 @@ export interface ReportData {
   guidance: ReportGuidance;
   facilities: ReportFacility[];
   facilities_named: { hospitals?: number; schools?: number };
-  tambon_risks?: { code: string; risk: number; trigger: number }[];
+  tambon_risks?: { code: string; risk: number; trigger: number; name?: string; name_th?: string; amphoe?: string; amphoe_th?: string; rain?: number | null; people?: number }[];
   limitations?: string[];
 }
 export interface TambonShapes { pcode: string; tambons: Record<string, import("./svgmap").Geometry> }

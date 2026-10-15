@@ -206,7 +206,10 @@ def _exposure_payload(b: dict, min_class: str) -> dict:
         "model": "tambon", "people": people, "households_est": round_people(total_people / hs), "household_size_assumed": hs,
         **feat, "building_area_m2": None, "road_km_by_class": None, "shelters": None, "bridges": None,
         "top_admin_units": table, "tambon_table": table, "tambons_ranked": len(rows),
-        "tambon_risks": [{"code": r["adm3_pcode"], "risk": round(stats.get(r["adm3_pcode"], {}).get("risk_max") or 0.0, 2), "trigger": r["trigger_class"]} for r in rows],
+        "tambon_risks": [{"code": r["adm3_pcode"], "name": r["adm3_name"], "name_th": r["adm3_name1"], "amphoe": r["adm2_name"], "amphoe_th": r["adm2_name1"],
+                          "risk": round(stats.get(r["adm3_pcode"], {}).get("risk_max") or 0.0, 2), "trigger": r["trigger_class"],
+                          "rain": None if r["rain30_mm"] is None else round(r["rain30_mm"]), "people": round_people(stats.get(r["adm3_pcode"], {}).get("people_high") or 0.0)}
+                         for r in rows],
         "facilities": fac["items"][:FACILITY_CAP], "facilities_named": {"hospitals": fac["hospitals"], "schools": fac["schools"]},
         "min_class": min_class, **_payload_common(b),
         "limitations": limitations(b["meta"], FEATURE_LIMITS if tot else [NO_FEATURES]),

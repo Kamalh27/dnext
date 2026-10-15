@@ -15,7 +15,7 @@ def _hash(*parts) -> str:
     return hashlib.sha256(json.dumps(parts).encode()).hexdigest()[:16]
 
 
-RESULT_VERSION = "v2"
+RESULT_VERSION = "v3"
 
 
 def scenario_id(area: Area, rainfall_mm: float, duration_h: float, min_class: str = "High") -> str:

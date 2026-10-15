@@ -16,7 +16,7 @@ export function boundsOf(geoms: Geometry[]): Bounds | null {
   return Number.isFinite(w) ? { w, s, e, n } : null;
 }
 
-export interface Projection { width: number; height: number; project: (lng: number, lat: number) => [number, number] }
+export interface Projection { width: number; height: number; kmPerUnit: number; project: (lng: number, lat: number) => [number, number] }
 
 /** Fits the bounds into width x maxHeight (keeping the shape), so a tall country and a wide province both fill the box well. */
 export function projector(b: Bounds, width: number, maxHeight: number, pad = 6): Projection {
@@ -26,7 +26,7 @@ export function projector(b: Bounds, width: number, maxHeight: number, pad = 6):
   const scale = Math.min((width - 2 * pad) / spanX, (maxHeight - 2 * pad) / spanY);
   const w = spanX * scale + 2 * pad;
   const h = spanY * scale + 2 * pad;
-  return { width: Math.round(w), height: Math.round(h), project: (lng, lat) => [pad + (lng - b.w) * cos * scale, pad + (b.n - lat) * scale] };
+  return { width: Math.round(w), height: Math.round(h), kmPerUnit: 111.32 / scale, project: (lng, lat) => [pad + (lng - b.w) * cos * scale, pad + (b.n - lat) * scale] };
 }
 
 const r1 = (x: number) => Math.round(x * 10) / 10;
@@ -45,3 +45,18 @@ export function pathOf(g: Geometry, project: Projection["project"]): string {
 
 /** Risk class 0 (none) or 1..5 from a risk value on the 0-5 scale, with the same cut-offs as the API (1, 2, 3, 4). */
 export const classOfRisk = (v: number, cutoffs: number[] = [1, 2, 3, 4]) => (v > 0 ? 1 + cutoffs.filter((c) => v >= c).length : 0);
+
+/** A point inside a geometry for a label: the centre of the bounding box of its largest ring (most vertices). */
+export function labelPoint(g: Geometry): [number, number] | null {
+  let best: Ring | null = null;
+  for (const poly of polygons(g)) if (!best || poly[0].length > best.length) best = poly[0];
+  if (!best) return null;
+  const b = boundsOf([{ type: "Polygon", coordinates: [best] }]);
+  return b ? [(b.w + b.e) / 2, (b.s + b.n) / 2] : null;
+}
+
+/** A round length for a scale bar that is about `targetKm` long. */
+export function niceKm(targetKm: number): number {
+  const steps = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500];
+  return steps.reduce((best, s) => (Math.abs(s - targetKm) < Math.abs(best - targetKm) ? s : best), steps[0]);
+}
