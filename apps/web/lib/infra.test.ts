@@ -1,7 +1,7 @@
 // Run: node --test lib/infra.test.ts   (Node type stripping)
 import test from "node:test";
 import assert from "node:assert/strict";
-import { colorOfRisk, counts, heightOf, hotspot, squareAround, type Infra } from "./infra.ts";
+import { buildingShape, colorOfRisk, counts, dotRadius, heightOf, hotspot, squareAround, type Infra } from "./infra.ts";
 
 test("a footprint is a closed square of about the right size", () => {
   const ring = squareAround(18.8, 99.0, 100);
@@ -35,4 +35,18 @@ test("the hotspot is the riskiest building, and there is none without buildings"
   assert.deepEqual(hotspot(d), { lat: 18.2, lng: 98.2 });
   assert.equal(hotspot({ ...d, buildings: [] }), null);
   assert.equal(hotspot(null), null);
+});
+
+test("buildings are points until street level; footprints only close up; blocks only with 3D", () => {
+  assert.equal(buildingShape(8, false), "dots");
+  assert.equal(buildingShape(16, false), "dots");
+  assert.equal(buildingShape(17, false), "footprints");
+  assert.equal(buildingShape(16, true), "blocks");
+  assert.equal(buildingShape(12, true), "dots");
+});
+
+test("dots stay between 4 and 8 pixels and grow with zoom", () => {
+  assert.equal(dotRadius(6), 4);
+  assert.ok(dotRadius(14) > dotRadius(11));
+  assert.equal(dotRadius(20), 8);
 });
