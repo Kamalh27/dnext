@@ -56,3 +56,10 @@ export function buildingShape(zoom: number, threeD: boolean): BuildingShape {
 }
 /** Dot size in pixels: it grows a little as you zoom in so points stay easy to see, between 4 and 8. */
 export const dotRadius = (zoom: number) => Math.min(8, Math.max(4, Math.round((4 + (zoom - 10) * 0.5) * 2) / 2));
+
+/** Vertical exaggeration for the 3D blocks: heights are estimates and small in rural areas, so the view can stretch them to be easier to see. */
+export const HEIGHT_SCALES = [1, 2, 3, 5] as const;
+export const DEFAULT_HEIGHT_SCALE = 3;
+
+/** Screen pixels a block rises on a map tilted by tiltRad: height (metres) x scale over the metres one pixel covers, times sin(tilt) (a flat map shows no wall). */
+export const liftPx = (heightM: number, scale: number, mPerPx: number, tiltRad: number) => (heightM * scale / mPerPx) * Math.sin(tiltRad);
