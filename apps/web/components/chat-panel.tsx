@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, Square, ArrowUpRight, Timer } from "lucide-react";
+import { Activity, ArrowUp, History, Plus, Square, ArrowUpRight, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Markdown } from "./markdown";
 import { LegalModal } from "./legal-modal";
 import { LogoMark } from "./logo";
 import { OverviewCard } from "./overview-card";
 import { ResultCards } from "./result-cards";
+import { ChatHistoryPanel } from "./chat-history";
+import type { ChatMessage, ChatSummary, RunRef } from "@/lib/chat-store";
 import { ScenarioCard, type RunError, type RunKind } from "./scenario-card";
 import type { ApiError } from "@/lib/api-error";
 import { useAuth, useBurstLeft } from "@/lib/auth";
@@ -19,7 +21,9 @@ import { MQ, useMedia } from "@/lib/use-media";
 import { cn } from "@/lib/utils";
 
 /** `limit` = the API refused this turn with a 429 (daily or burst limit); it is rendered from the error so the language and the countdown stay live. */
-export interface Message { role: "user" | "assistant"; text: string; error?: string; limit?: ApiError }
+export type Message = ChatMessage & { limit?: ApiError };
+
+const TOOL = "inline-flex min-h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring coarse:min-h-11";
 
 interface Props {
   lang: Lang;
@@ -44,6 +48,10 @@ interface Props {
   overview: { series: OverviewSeries; day: number } | null;
   onOverviewDay: (day: number) => void;
   onPickProvince: (pcode: string) => void;
+  /** Saved chats: the list, and what to do with them. */
+  history: { summaries: ChatSummary[]; loading: boolean; signedIn: boolean; accountHistory: boolean; onOpen: (id: string) => Promise<boolean>; onNew: () => void; onDelete: (id: string) => void };
+  /** Show a past scenario run again (from a note in the conversation). */
+  onRestore: (run: RunRef) => void;
 }
 
 export function ChatPanel(p: Props) {
@@ -64,6 +72,8 @@ export function ChatPanel(p: Props) {
   const desktop = useMedia(MQ.desktop);
   const short = useMedia(MQ.short);
   const legalInFlow = !desktop || short;
+  const [view, setView] = useState<"chat" | "history">("chat");
+  const [openFailed, setOpenFailed] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const promptsRef = useRef<HTMLUListElement>(null);
   const jumpToPrompts = () => promptsRef.current?.scrollIntoView({ block: "start", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
@@ -91,6 +101,23 @@ export function ChatPanel(p: Props) {
 
   return (
     <section aria-label={tr.chat} className="flex h-full flex-col short:h-auto">
+      <div className="flex shrink-0 items-center justify-end gap-1.5 border-b bg-background px-3 py-1" data-testid="chat-toolbar">
+        {view === "history" ? (
+          <button type="button" onClick={() => setView("chat")} className={TOOL}>{tr.historyBack}</button>
+        ) : (
+          <>
+            {p.messages.length > 0 && <button type="button" onClick={() => { p.history.onNew(); setView("chat"); }} data-testid="chat-new" className={TOOL}><Plus className="size-3.5" aria-hidden />{tr.newChat}</button>}
+            <button type="button" onClick={() => setView("history")} data-testid="chat-history-open" className={TOOL}><History className="size-3.5" aria-hidden />{tr.historyOpen}</button>
+          </>
+        )}
+      </div>
+      {view === "history" ? (
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain" data-chat-scroll>
+          <ChatHistoryPanel lang={p.lang} summaries={p.history.summaries} loading={p.history.loading} signedIn={p.history.signedIn} accountHistory={p.history.accountHistory}
+            onOpen={async (id) => { setOpenFailed(false); if (await p.history.onOpen(id)) setView("chat"); else setOpenFailed(true); }} onDelete={p.history.onDelete} />
+          {openFailed && <p role="alert" className="px-4 pb-3 text-sm text-destructive">{tr.historyOpenFailed}</p>}
+        </div>
+      ) : (
       <div data-chat-scroll className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-5 short:flex-none short:overflow-visible" aria-live="polite">
         {p.messages.length === 0 && (
           <div className={cn("flex flex-col items-center gap-5 px-2 text-center", p.overview ? "pt-1" : "pt-6")}>
@@ -117,7 +144,14 @@ export function ChatPanel(p: Props) {
           </div>
         )}
         {p.messages.map((m, i) =>
-          m.role === "user" ? (
+          m.role === "activity" ? (
+            <div key={i} className="flex items-center justify-center gap-2 text-xs text-muted-foreground" data-testid="chat-activity">
+              <span className="inline-flex items-center gap-1.5 rounded-full border bg-card px-2.5 py-1"><Activity className="size-3.5" aria-hidden />{m.text}</span>
+              {m.run && m.run.scenario_id !== p.kpis?.scenario_id && (
+                <button type="button" onClick={() => p.onRestore(m.run!)} className="rounded px-1.5 py-1 underline underline-offset-2 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">{tr.activityShow}</button>
+              )}
+            </div>
+          ) : m.role === "user" ? (
             <div key={i} className="ml-auto w-fit max-w-[88%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-primary px-3.5 py-2 text-sm leading-relaxed text-primary-foreground">
               {m.text}
             </div>
@@ -161,6 +195,7 @@ export function ChatPanel(p: Props) {
         {legalInFlow && legalNav}
         <div ref={endRef} />
       </div>
+      )}
 
       <div data-testid="chat-composer" className="border-t bg-background px-3 pt-3 pb-1 short:sticky short:bottom-0 short:z-10">
         <form onSubmit={submit} className="flex items-center gap-2 rounded-2xl border bg-card py-1.5 pr-1.5 pl-4 shadow-xs transition focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-ring/30">

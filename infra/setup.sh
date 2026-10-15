@@ -54,5 +54,6 @@ fi
 # auto-delete expired cache entries and daily usage counters (documents carry an expires_at timestamp)
 gcloud firestore fields ttls update expires_at --collection-group=usage --enable-ttl --async || true
 gcloud firestore fields ttls update expires_at --collection-group=scenarios --enable-ttl --async || true
+gcloud firestore fields ttls update expires_at --collection-group=threads --enable-ttl --async || true     # saved chats: removed 90 days after the last save
 echo "Next: store the Maps keys with infra/bootstrap.sh (it also grants the runtime account access to those secrets)."
 echo "Earth Engine: ensure $PROJECT_ID is registered at https://code.earthengine.google.com/register"

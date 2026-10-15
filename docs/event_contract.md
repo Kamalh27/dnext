@@ -2,7 +2,7 @@
 
 ## Chat stream
 
-`POST /chat` takes `{message, session_id, language: "en" | "th"}` and returns a Server-Sent Events stream. The `event:` name of each message is its type and `data:` is JSON.
+`POST /chat` takes `{message, session_id, language: "en" | "th", area?, current?, context?}` and returns a Server-Sent Events stream. `area` is the province selected in the app. `current` is the result on screen as a recipe, `{kind, area, rainfall_mm, duration_h | horizon_days, scenario_id}`, so that "this" and "what about 400 mm?" work after a slider run. `context` carries the last turns of a reopened saved chat, once, because the agent's memory is lost when the service restarts. The `event:` name of each message is its type and `data:` is JSON.
 
 | event | data |
 |---|---|
@@ -47,6 +47,7 @@ For forecasts it also has `forecast_rain_mm`, `observed_rain_mm`, `horizon_days`
 | `GET /overview/report?day=0&language=en\|th&print=1` | A print-ready national overview report for one slider day: headline numbers, provinces ranked by peak risk, hospitals and schools at risk and general guidance. Public, like the overview. Answers 503 when the daily data is missing or stale |
 | `GET /overview/series?days=5` | The same for day 0 to day N, for the slider |
 | `GET /layers/static` | Reference layers for the layers panel: susceptibility, vulnerability, exposure and population |
+| `GET /chats`, `GET /chats/{id}`, `PUT /chats/{id}`, `DELETE /chats/{id}` | Saved chats of the signed-in account (Firestore `chats/{account}/threads`, deleted 90 days after the last save). A chat holds its messages and the recipes of its runs, never map layers. Answer 401 when not signed in and 404 `history_unavailable` when sign-in is switched off, in which case the app keeps history in the browser only |
 | `GET /auth/config` | Whether sign-in is required, the public Firebase web config and the limits |
 | `GET /me` | The signed-in user and today's usage. Answers 401 when not signed in |
 | `GET /readyz` | Whether the running identity can read each Earth Engine layer. Reports only true or false, never paths |

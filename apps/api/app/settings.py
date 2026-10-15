@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     briefing_model: str = ""   # empty = deterministic template only (no LLM polish)
     allowed_origins: str = "http://localhost:3000"
     max_request_bytes: int = 16_384
+    max_chat_save_bytes: int = 1_000_000      # saving a chat (PUT /chats/{id}) carries a whole conversation
     rate_limit: str = "30/minute"
     # --- sign-in + per-account limits (see app/auth.py, app/usage.py) ---
     auth_required: bool = False                 # True in production: chat/scenario/forecast need a Google sign-in

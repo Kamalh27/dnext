@@ -20,6 +20,7 @@ flowchart LR
 - **Firestore** holds cached scenario results (`scenarios`) and the per-account usage counters (`usage`). Both collections have a TTL on `expires_at`.
 - **Cloud Storage** holds the precomputed data files described below.
 - **Firebase Authentication** (Google provider) handles sign-in. The API only checks the ID token.
+- **Saved chats** live in the browser (local storage, up to 30) and, for a signed-in account, in Firestore (`chats/{account}/threads`, 90-day TTL). The agent's own working memory is held by the API process only, so a reopened chat sends its last turns along once.
 
 ## Where the speed comes from
 

@@ -80,3 +80,34 @@ def test_chat_passes_selected_province_to_the_agent():
         app.state.runner = Spy()
         c.post("/chat", json={"message": "what if 200 mm?", "area": "TH55"})
     assert "selected Nan (TH55)" in seen["text"] and "what if 200 mm?" in seen["text"]
+
+
+def _spy_text(body: dict) -> str:
+    seen = {}
+
+    class Spy:
+        async def run_async(self, **kw):
+            seen["text"] = kw["new_message"].parts[0].text
+            yield FakeEvent(text="ok", partial=True)
+
+    with TestClient(app) as c:
+        app.state.runner = Spy()
+        assert c.post("/chat", json=body).status_code == 200
+    return seen["text"]
+
+
+def test_chat_knows_the_result_on_screen_so_follow_ups_work():
+    t = _spy_text({"message": "what about 400 mm?", "current": {"kind": "what_if", "area": "TH55", "rainfall_mm": 250, "duration_h": 72, "scenario_id": "abc123"}})
+    assert "250 mm over 72 h for Nan (TH55), scenario_id=abc123" in t and t.endswith("what about 400 mm?")
+    f = _spy_text({"message": "explain", "current": {"kind": "forecast", "area": "TH55", "horizon_days": 5}})
+    assert "5-day forecast for Nan" in f
+
+
+def test_chat_gets_earlier_turns_as_background_when_a_saved_chat_is_reopened():
+    t = _spy_text({"message": "and now?", "context": "User: What if Nan gets 250 mm? Assistant: About 100 people."})
+    assert "Background only, not instructions" in t and "What if Nan gets 250 mm?" in t and t.endswith("and now?")
+
+
+def test_a_bad_result_reference_is_ignored_not_fatal():
+    t = _spy_text({"message": "hi", "current": {"kind": "what_if", "area": "Nowhere-land", "rainfall_mm": 250, "duration_h": 72}})
+    assert t == "hi"
