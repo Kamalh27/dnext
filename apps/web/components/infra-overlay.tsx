@@ -2,7 +2,7 @@
 
 import { useMap } from "@vis.gl/react-google-maps";
 import { useEffect, useRef } from "react";
-import { buildingShape, colorOfRisk, dotRadius, heightOf, squareAround, Z_3D, type Infra, type InfraToggles } from "@/lib/infra";
+import { buildingShape, colorOfRisk, heightOf, squareAround, Z_3D, type Infra, type InfraToggles } from "@/lib/infra";
 import { t } from "@/lib/i18n";
 import { riskName } from "@/lib/overview";
 import { classOfRisk } from "@/lib/svgmap";
@@ -11,16 +11,17 @@ import type { Lang } from "@/lib/types";
 type Overlay = { setMap: (m: google.maps.Map | null) => void; setProps: (p: Record<string, unknown>) => void; finalize?: () => void };
 
 /**
- * Draws the affected buildings and roads on the Google map with deck.gl (loaded only when needed): roads as coloured lines, buildings as dots,
- * as flat squares from zoom 17 and as extruded blocks from zoom 16 when "3D" is on. Everything has a white outline so it stands out on the risk colours. Everything shown is in the Moderate-or-higher zone.
+ * 3D only: draws the roads and the buildings as extruded blocks with deck.gl while the "3D" switch is on at street level (it needs a vector map).
+ * The flat view (roads, points, footprints) is drawn by InfraCanvas, so deck.gl is not loaded at all until 3D is used.
  */
 export function InfraOverlay({ lang, data, show, zoom }: { lang: Lang; data: Infra | null; show: InfraToggles; zoom: number }) {
   const map = useMap();
   const overlay = useRef<Overlay | null>(null);
   const tilted = useRef(false);
+  const active = buildingShape(zoom, show.threeD) === "blocks";
 
   useEffect(() => {
-    if (!map || !data) return;
+    if (!map || !data || !active) return;
     let off = false;
     (async () => {
       const { GoogleMapsOverlay } = await import("@deck.gl/google-maps");
@@ -34,13 +35,13 @@ export function InfraOverlay({ lang, data, show, zoom }: { lang: Lang; data: Inf
       overlay.current?.finalize?.();
       overlay.current = null;
     };
-  }, [map, data]);
+  }, [map, data, active]);
 
   useEffect(() => {
-    if (!map || !data) return;
+    if (!map || !data || !active) return;
     let off = false;
     (async () => {
-      const [{ PathLayer, PolygonLayer, ScatterplotLayer }] = await Promise.all([import("@deck.gl/layers")]);
+      const { PathLayer, PolygonLayer } = await import("@deck.gl/layers");
       // the overlay may still be loading: wait a moment for it
       for (let i = 0; i < 40 && !overlay.current && !off; i++) await new Promise((r) => setTimeout(r, 50));
       if (off || !overlay.current) return;
@@ -56,24 +57,11 @@ export function InfraOverlay({ lang, data, show, zoom }: { lang: Lang; data: Inf
           widthUnits: "pixels", getWidth: 7, widthMinPixels: 6, capRounded: true, jointRounded: true, pickable: true }));
       }
       if (show.buildings && data.buildings.length) {
-        const shape = buildingShape(zoom, show.threeD);
-        const extruded = shape === "blocks";
-        if (shape !== "dots") {
-          layers.push(new PolygonLayer({ id: "infra-buildings", data: data.buildings, getPolygon: (b: Infra["buildings"][number]) => squareAround(b[0], b[1], b[2]),
-            extruded, getElevation: (b: Infra["buildings"][number]) => heightOf(b[3]), getFillColor: (b: Infra["buildings"][number]) => colorOfRisk(b[4], extruded ? 240 : 235),
-            stroked: true, getLineColor: [255, 255, 255, 245], lineWidthUnits: "pixels", getLineWidth: 2, lineWidthMinPixels: 2, pickable: true,
-            // unlit with edge lines: the lit material rendered black on some GPUs, and edges still give a clear sense of volume
-            material: false, wireframe: extruded,
-            updateTriggers: { getElevation: [extruded], getFillColor: [extruded] } }));
-        } else {
-          // a dark ring behind each point, so it reads on any risk colour and on satellite imagery
-          layers.push(new ScatterplotLayer({ id: "infra-buildings-dots-ring", data: data.buildings, getPosition: (b: Infra["buildings"][number]) => [b[1], b[0]],
-            getFillColor: [20, 10, 5, 230], radiusUnits: "pixels", getRadius: dotRadius(zoom) + 3, radiusMinPixels: 7, updateTriggers: { getRadius: [zoom] } }));
-          layers.push(new ScatterplotLayer({ id: "infra-buildings-dots", data: data.buildings, getPosition: (b: Infra["buildings"][number]) => [b[1], b[0]],
-            getFillColor: (b: Infra["buildings"][number]) => colorOfRisk(b[4], 255), radiusUnits: "pixels", getRadius: dotRadius(zoom), radiusMinPixels: 4,
-            stroked: true, getLineColor: [255, 255, 255, 255], lineWidthUnits: "pixels", getLineWidth: 2, pickable: true,
-            updateTriggers: { getRadius: [zoom] } }));
-        }
+        layers.push(new PolygonLayer({ id: "infra-buildings", data: data.buildings, getPolygon: (b: Infra["buildings"][number]) => squareAround(b[0], b[1], b[2]),
+          extruded: true, getElevation: (b: Infra["buildings"][number]) => heightOf(b[3]), getFillColor: (b: Infra["buildings"][number]) => colorOfRisk(b[4], 240),
+          stroked: true, getLineColor: [255, 255, 255, 245], lineWidthUnits: "pixels", getLineWidth: 2, lineWidthMinPixels: 2, pickable: true,
+          // unlit with edge lines: the lit material rendered black on some GPUs, and edges still give a clear sense of volume
+          material: false, wireframe: true }));
       }
       overlay.current.setProps({
         layers,
@@ -86,7 +74,7 @@ export function InfraOverlay({ lang, data, show, zoom }: { lang: Lang; data: Inf
       });
     })();
     return () => { off = true; };
-  }, [map, data, show, zoom, lang]);
+  }, [map, data, show, active, lang]);
 
   // 3D on: tilt the map once (vector maps only); 3D off: level it again.
   useEffect(() => {
