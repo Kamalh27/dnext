@@ -371,7 +371,7 @@ export function AppShell() {
   return (
     <div className="flex h-[var(--app-h,100dvh)] flex-col">
       <SignInDialog lang={lang} />
-      {reportOpen && reportTarget === "scenario" && kpis && <ReportModal lang={lang} source={{ mode: "scenario", kpis, charts, tables }} provinces={provinces} onClose={closeReport} />}
+      {reportOpen && reportTarget === "scenario" && kpis && <ReportModal lang={lang} source={{ mode: "scenario", kpis }} provinces={provinces} onClose={closeReport} />}
       {reportOpen && reportTarget === "overview" && series && <ReportModal lang={lang} source={{ mode: "overview", series, day: overviewDay }} provinces={provinces} onClose={closeReport} />}
       <Header lang={lang} setLang={setLang} tab={tab} onTab={setTab} />
       {/* Below 1024px the chat and the map are tabs (full-width panels); on short screens the tabs live inside the header instead. */}
