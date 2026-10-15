@@ -260,17 +260,6 @@ function MapInner({ lang, layer, layers, staticLayers, markers, provinces, selec
 
       <div className="absolute top-3 left-3 flex flex-col items-start gap-2">
         <MapSearch lang={lang} onPin={setPin} />
-        {infraData && !safeOpen && (
-          <div role="group" aria-label={tr.layersInfra} data-map-overlay="infra-chips" data-testid="infra-chips" className="flex max-w-[min(20rem,calc(100cqw-5rem))] flex-wrap gap-1.5">
-            {([["buildings", tr.infraBuildings], ["roads", tr.infraRoads], ["facilities", tr.infraFacilities], ["threeD", tr.infra3d]] as const).map(([k, label]) => (
-              <button key={k} type="button" aria-pressed={infraOn[k]} onClick={() => setInfraOn((s) => ({ ...s, [k]: !s[k] }))}
-                className={cn("min-h-8 rounded-full border px-3 text-xs font-medium shadow-lg backdrop-blur-md outline-none focus-visible:ring-2 focus-visible:ring-ring coarse:min-h-11 coarse:text-sm",
-                  infraOn[k] ? "border-primary bg-primary text-primary-foreground" : "bg-card/90 text-foreground hover:bg-accent")}>
-                {label}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
       {safeOpen && <SafePlacesPanel lang={lang} scenarioId={scope || undefined} me={me} onDraw={setDraw} onClose={() => setSafeOpen(false)} />}
       <ReportModal lang={lang} open={reportOpen} onClose={() => setReportOpen(false)} me={me}

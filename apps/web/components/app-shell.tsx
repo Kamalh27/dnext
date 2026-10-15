@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Header } from "./header";
 import { Tour } from "./tour";
+import { newId } from "@/lib/ids";
 import { MapBoundary } from "./map-boundary";
 import { ViewTabs } from "./view-tabs";
 import { ResizeHandle } from "./resize-handle";
@@ -77,7 +78,7 @@ export function AppShell() {
   const provincesRef = useRef<Province[]>([]);
   // Bumped whenever results are cleared or replaced, so a slow scenario/forecast response for an old selection is dropped.
   const runToken = useRef(0);
-  const sessionId = useRef<string>(typeof crypto !== "undefined" ? crypto.randomUUID() : "web");
+  const sessionId = useRef<string>(newId());
   const abort = useRef<AbortController | null>(null);
   const [photoOpen, setPhotoOpen] = useState(false);
   const watchlist = useWatchlist(lang);
