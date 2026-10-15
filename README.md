@@ -53,6 +53,25 @@ flowchart LR
   A --> GCS[(Cloud Storage<br/>precomputed data files)]
 ```
 
+## Google products used
+
+| Product | What it does here |
+|---|---|
+| Gemini on Vertex AI | The chat assistant in English and Thai, and the photo check behind community reports |
+| Agent Development Kit (ADK) | Runs the assistant and the calculation tools it calls |
+| Google Earth Engine | Rainfall (GSMaP, GFS), landslide susceptibility, population and built-up layers, and the risk map tiles |
+| Open Buildings (Google Research) | Building footprints in the affected zones |
+| Google Maps Platform | The map and 3D view (Maps JavaScript API), place search (Geocoding API) and route previews (Routes API) |
+| Cloud Run | Hosts the web app and the API, and runs the daily data job |
+| Cloud Scheduler | Starts the daily job at 06:30 and 18:30 Bangkok time |
+| Cloud Storage | The precomputed data files |
+| Firestore | Cached results, saved chats, usage counters, alerts and community reports |
+| BigQuery | The daily risk history behind the 30-day trend |
+| Pub/Sub | Announces new data so alerts can go out |
+| Firebase Authentication | Sign in with Google |
+| Secret Manager, Artifact Registry, Cloud Build, Cloud Logging | Deployment and operations |
+| Google Forms | The feedback form |
+
 ## Repository layout
 
 | Path | Contents |
