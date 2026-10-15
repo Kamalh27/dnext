@@ -93,8 +93,8 @@ def _day_rain(t: dict, h: int) -> float | None:
     return max(0.0, float(f[h - 1]) - prev)
 
 
-def national(horizon_days: int = 0) -> dict:
-    return _swr((horizon_days,), lambda: _national(horizon_days))
+def national(horizon_days: int = 0, fresh: bool = False) -> dict:
+    return _national(horizon_days) if fresh else _swr((horizon_days,), lambda: _national(horizon_days))
 
 
 def _national(horizon_days: int) -> dict:
@@ -174,15 +174,15 @@ def _national(horizon_days: int) -> dict:
     return out
 
 
-def series(max_days: int = 5) -> dict:
+def series(max_days: int = 5, fresh: bool = False) -> dict:
     """The slider: day 0 (latest observed) .. max_days (cumulative forecast), one compact record per day, so the UI scrubs instantly.
 
     Risk is cumulative (observed window + forecast so far, compared with the tambon thresholds); rain_mm is that day's own rain.
     """
-    return _swr(("series", max_days), lambda: _series(max_days))
+    return _series(max_days, fresh=True) if fresh else _swr(("series", max_days), lambda: _series(max_days))
 
 
-def _series(max_days: int) -> dict:
+def _series(max_days: int, fresh: bool = False) -> dict:
     key = ("series", max_days)
     cur = obs_cache.load()
     days = []
@@ -220,3 +220,19 @@ def _day_date(data: dict, h: int) -> str:
     f = data.get("forecast") or {}
     run = datetime.fromtimestamp(f.get("run_ms", 0) / 1000, tz=timezone.utc)
     return (run + timedelta(days=h)).strftime("%Y-%m-%d")
+
+
+def tambon_snapshot(horizon_days: int = 0) -> list[dict]:
+    """One row per tambon for the history table (kept out of the cached national result: 7,425 rows)."""
+    data, ss = obs_cache.load(), static_stats.load()
+    if not data or not ss:
+        raise OverviewUnavailable("Daily rainfall precompute is missing")
+    rows = _rows(data, horizon_days)
+    prone = static_stats.prone_codes(ss)
+    for r in rows:
+        if r["adm3_pcode"] not in prone:
+            r["trigger_class"] = 0
+    st = static_stats.tambon_stats(ss, [r for r in rows if r["adm3_pcode"] in ss["tambon"]])["rows"]
+    return [{"tambon_code": r["adm3_pcode"], "province_code": r["pc"], "rain30_mm": None if r["rain30_mm"] is None else round(r["rain30_mm"], 1),
+             "trigger_class": r["trigger_class"], "risk_max": round(st.get(r["adm3_pcode"], {}).get("risk_max") or 0.0, 2),
+             "people_elevated": int(round(st.get(r["adm3_pcode"], {}).get("people_high") or 0.0))} for r in rows]

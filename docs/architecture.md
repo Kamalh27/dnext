@@ -19,6 +19,9 @@ flowchart LR
 - **Earth Engine** draws the map layers. The API asks it for tile URLs and the browser loads the tiles directly.
 - **Firestore** holds cached scenario results (`scenarios`) and the per-account usage counters (`usage`). Both collections have a TTL on `expires_at`.
 - **Cloud Storage** holds the precomputed data files described below.
+- **BigQuery** (dataset `dnext`) holds the daily history: `province_daily` and `tambon_daily`, partitioned by date. The daily job appends to them and the API reads a province's 30-day trend from `province_daily`.
+- **Pub/Sub** carries one message per job run (`dnext-new-data`). A push subscription calls `POST /internal/new-data` on the API with a Google-signed token; the API compares each province's peak risk class with the previous run and notifies the accounts that watch a province that got riskier (Firestore `watchlists`, `alerts`).
+- **Gemini vision** describes one uploaded photo (`POST /photo-check`): the image is analysed in memory and never stored.
 - **Firebase Authentication** (Google provider) handles sign-in. The API only checks the ID token.
 - **Saved chats** live in the browser (local storage, up to 30) and, for a signed-in account, in Firestore (`chats/{account}/threads`, 90-day TTL). The agent's own working memory is held by the API process only, so a reopened chat sends its last turns along once.
 

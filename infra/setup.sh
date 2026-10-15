@@ -18,7 +18,7 @@ gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregi
   aiplatform.googleapis.com earthengine.googleapis.com firestore.googleapis.com storage.googleapis.com \
   secretmanager.googleapis.com geocoding-backend.googleapis.com maps-backend.googleapis.com \
   cloudtrace.googleapis.com bigquery.googleapis.com \
-  firebase.googleapis.com identitytoolkit.googleapis.com securetoken.googleapis.com cloudscheduler.googleapis.com
+  firebase.googleapis.com identitytoolkit.googleapis.com securetoken.googleapis.com cloudscheduler.googleapis.com pubsub.googleapis.com
 
 gcloud artifacts repositories create dnext --repository-format=docker --location "$REGION" || true
 gcloud firestore databases create --location "$REGION" || true
@@ -34,7 +34,7 @@ WSA_EMAIL=dnext-web@$PROJECT_ID.iam.gserviceaccount.com                      # i
 gcloud iam service-accounts create dnext-web --display-name "LandslideWatch web (no roles)" || true
 
 # Runtime account. Maps-key secrets are granted per secret by infra/bootstrap.sh, not project-wide.
-for r in aiplatform.user serviceusage.serviceUsageConsumer earthengine.writer datastore.user logging.logWriter cloudtrace.agent; do
+for r in aiplatform.user serviceusage.serviceUsageConsumer earthengine.writer datastore.user logging.logWriter cloudtrace.agent bigquery.dataEditor bigquery.jobUser pubsub.publisher; do
   bind "$SA_EMAIL" "$r"
 done
 gsutil iam ch "serviceAccount:$SA_EMAIL:objectAdmin" "gs://$BUCKET"
@@ -55,5 +55,6 @@ fi
 gcloud firestore fields ttls update expires_at --collection-group=usage --enable-ttl --async || true
 gcloud firestore fields ttls update expires_at --collection-group=scenarios --enable-ttl --async || true
 gcloud firestore fields ttls update expires_at --collection-group=threads --enable-ttl --async || true     # saved chats: removed 90 days after the last save
+gcloud firestore fields ttls update expires_at --collection-group=items --enable-ttl --async || true       # alert notifications: removed after 30 days
 echo "Next: store the Maps keys with infra/bootstrap.sh (it also grants the runtime account access to those secrets)."
 echo "Earth Engine: ensure $PROJECT_ID is registered at https://code.earthengine.google.com/register"

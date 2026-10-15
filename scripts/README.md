@@ -12,6 +12,7 @@ Run from `apps/api`: `uv run [--group scripts] python ../../scripts/<script>.py 
 | `precompute_facilities.py` | Once | Named hospitals and schools that can reach a Low-or-higher risk, with location, tambon and risk product. Same Geofabrik extract. Needs the `geoms` step of `precompute_features.py` to have run | `.local_storage/risk/facilities.json` |
 | `build_tambon_shapes.py` | Once | Simplified outlines of all 7,425 tambons, grouped by province, for the report map. Needs the `geoms` step of `precompute_features.py` | `.local_storage/risk/tambon_shapes.json` |
 | `build_provinces_geojson.py` | Once | Simplified outlines of the 77 provinces, built from the tambon table, for map clicks | `apps/web/public/provinces.json` |
+| `daily_job.py` | Twice a day, in the cloud | The Cloud Run job: runs `precompute_rain.py`, appends the day to BigQuery (`app/history.py`) and publishes the Pub/Sub message that triggers alerts | BigQuery tables, Pub/Sub message |
 | `precompute_rain.py` | Daily | Observed (GSMaP) and forecast (GFS) rainfall per tambon. `--bucket` also uploads it | `.local_storage/risk/obs_daily.json` |
 
 `precompute_rain.py` runs in the cloud as a job; see `infra/deploy-job.sh`. Re-run the one-off scripts only when the susceptibility, vulnerability or exposure layers change. For production, upload the three JSON files to `gs://<project>-dnext/risk/`. Details are in [docs/risk_method.md](../docs/risk_method.md).

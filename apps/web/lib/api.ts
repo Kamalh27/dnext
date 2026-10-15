@@ -2,6 +2,7 @@ import { ApiError, readApiError } from "./api-error";
 import { authStatus, getAuthToken, loadAuthConfig, onAuthRequired, refreshUsage, startBurst } from "./auth";
 import { API_BASE } from "./config";
 import { parseSSE } from "./sse";
+import type { AlertItem, PhotoResult, Trend, Watchlist } from "./types";
 import type { ChatSummary, ChatThread, RunRef } from "./chat-store";
 import type { Explain, ForecastResponse, Lang, OverviewSeries, Province, ReportData, ScenarioResponse, SseEvent, StaticLayersResponse, TambonShapes } from "./types";
 
@@ -106,6 +107,18 @@ export const getRemoteChat = (id: string) => authFetch(`/chats/${encodeURICompon
 export const saveRemoteChat = (t: ChatThread) =>
   authFetch(`/chats/${encodeURIComponent(t.id)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(t) }).then((r) => json<unknown>(r));
 export const deleteRemoteChat = (id: string) => authFetch(`/chats/${encodeURIComponent(id)}`, { method: "DELETE" }).then((r) => json<unknown>(r));
+
+export const fetchTrend = (pcode: string, days = 30) => fetch(`${API_BASE}/trend/${pcode}?days=${days}`).then((r) => json<Trend>(r));
+
+/** Alerts and the watch list belong to a signed-in account. Call them only when signed in (a refusal would open the sign-in dialog). */
+export const getWatchlist = () => authFetch("/watchlist").then((r) => json<Watchlist>(r));
+export const putWatchlist = (w: { provinces: string[]; min_class: number; email: boolean; lang: Lang }) =>
+  authFetch("/watchlist", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(w) }).then((r) => json<Pick<Watchlist, "provinces" | "min_class" | "email">>(r));
+export const listAlerts = () => authFetch("/alerts").then((r) => json<{ unread: number; items: AlertItem[] }>(r));
+export const markAlertsRead = () => authFetch("/alerts/read", { method: "POST" }).then((r) => json<unknown>(r));
+
+export const photoCheck = (b: { image_b64: string; language: Lang; note?: string; scenario_id?: string }) =>
+  authFetch("/photo-check", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(b) }).then((r) => json<PhotoResult>(r));
 
 export const fetchReportData = (scenarioId: string, lang: "en" | "th") =>
   authFetch(`/report-data/${encodeURIComponent(scenarioId)}?language=${lang}`).then((r) => json<ReportData>(r));

@@ -16,6 +16,8 @@ It is a screening tool for planning and situational awareness, not a forecast or
 - **Hospitals and schools at risk.** Named hospitals and schools from OpenStreetMap that sit on susceptible ground in tambons above their rainfall trigger are listed in a table and marked on the map, with their risk class.
 - **Reference layers.** Susceptibility, vulnerability, exposure, population and province boundaries can each be switched on the map.
 - **Chat history.** Conversations are saved in the browser and, for signed-in users, in Firestore for 90 days. Scenario runs from the sliders are noted in the conversation, and the assistant knows about the result on screen, so follow-ups like "what about 400 mm?" work.
+- **30-day trend and alerts.** Each day's risk per province and tambon is appended to BigQuery by the daily job, which gives a 30-day trend for the selected province. Signed-in users can watch provinces and get an in-app alert (and optionally an email) when the risk of a watched province rises. The job announces new data through Pub/Sub.
+- **Photo check.** Take or choose a photo of a slope or road and Gemini describes the warning signs it can see next to the computed risk of the area. The photo is resized on the device, looked at once and not stored.
 - **Chat assistant.** Gemini, running through Google's Agent Development Kit, answers in English or Thai. Every number comes from a computed result, not from the model.
 - **Sign-in with daily limits (optional).** Firebase Authentication with Google accounts, with a daily budget per account to keep Gemini costs under control on a public deployment.
 - **Phone to widescreen.** English and Thai, light and dark themes.
@@ -133,7 +135,9 @@ just deploy                                     # builds and deploys the API, th
 
 The API runs under an attached service account, so there is no key file in the image. If your project cannot create more service accounts, set `RUNTIME_SA` in `infra/config.env` to an existing one and `setup.sh` will use it instead.
 
-The data files from step 3 must also be in the project's bucket, under `gs://<project>-dnext/risk/`, because the container does not include them. `just deploy-job` builds the daily rainfall job and schedules it with Cloud Scheduler for 06:30 and 18:30 Bangkok time, so the overview stays fresh without anyone running a script. Add `--run-now` (`bash infra/deploy-job.sh --run-now`) to run it once straight away.
+The data files from step 3 must also be in the project's bucket, under `gs://<project>-dnext/risk/`, because the container does not include them. After the first deploy, `just deploy-alerts` creates the BigQuery dataset, the Pub/Sub topic and the push subscription that lets the job trigger alerts.
+
+`just deploy-job` builds the daily rainfall job and schedules it with Cloud Scheduler for 06:30 and 18:30 Bangkok time, so the overview stays fresh without anyone running a script. Add `--run-now` (`bash infra/deploy-job.sh --run-now`) to run it once straight away.
 
 After the first deploy, add the web address to the Maps key's allowed websites and to Firebase's authorised domains.
 

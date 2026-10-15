@@ -76,3 +76,10 @@ def test_a_big_conversation_fits_but_other_requests_keep_the_small_cap(secured):
     with TestClient(app) as c:
         assert c.put("/chats/abcdefgh12", json=big, headers=H("alice")).status_code == 200
         assert c.post("/scenario", content=b"{" + b" " * 20_000 + b"}", headers={**H("alice"), "content-type": "application/json"}).status_code == 413
+
+
+def test_the_browser_may_save_and_delete_chats_from_another_origin():
+    with TestClient(app) as c:
+        for method in ("PUT", "DELETE"):
+            r = c.options("/chats/abcdefgh12", headers={"Origin": "http://localhost:3000", "Access-Control-Request-Method": method, "Access-Control-Request-Headers": "authorization,content-type"})
+            assert r.status_code == 200 and method in r.headers["access-control-allow-methods"]

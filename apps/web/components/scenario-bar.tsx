@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { FileText, MapPin, RotateCcw } from "lucide-react";
+import { Bell, BellRing, FileText, MapPin, RotateCcw } from "lucide-react";
 import { fmt, t } from "@/lib/i18n";
 import { runLabel } from "@/lib/overview";
 import type { Kpis, Lang, Province } from "@/lib/types";
@@ -32,7 +32,7 @@ function chipsOf(kpis: Kpis, lang: Lang): string[] {
 }
 
 /** Pinned above the chat: province picker plus a one-glance description of the active scenario. */
-export function ScenarioBar({ lang, provinces, selected, kpis, hasResults, onSelect, onReset, report }: {
+export function ScenarioBar({ lang, provinces, selected, kpis, hasResults, onSelect, onReset, report, watch }: {
   lang: Lang;
   provinces: Province[];
   selected: Province | null;
@@ -42,6 +42,8 @@ export function ScenarioBar({ lang, provinces, selected, kpis, hasResults, onSel
   onReset: () => void;
   /** The report button: for the shown result when there is one, otherwise for the national overview. */
   report: { target: "scenario" | "overview" | null; busy: boolean; error: string | null; onClick: () => void };
+  /** Alerts for the selected province (signed-in accounts only). */
+  watch: { enabled: boolean; watching: boolean; full: boolean; busy: boolean; onToggle: () => void };
 }) {
   const tr = t(lang);
   const sorted = useMemo(() => {
@@ -77,6 +79,20 @@ export function ScenarioBar({ lang, provinces, selected, kpis, hasResults, onSel
           <FileText className="size-3.5" aria-hidden />
           <span className="max-[380px]:sr-only">{tr.exportShort}</span>
         </button>
+        {selected && watch.enabled && (
+          <button
+            type="button"
+            onClick={watch.onToggle}
+            disabled={watch.busy || (watch.full && !watch.watching)}
+            aria-pressed={watch.watching}
+            data-testid="watch-button"
+            aria-label={watch.watching ? tr.watchOn : tr.watchOff}
+            title={watch.watching ? tr.watchOn : watch.full ? tr.watchFull : tr.watchOff}
+            className="flex h-8 shrink-0 items-center rounded-[4px] border bg-background px-2 outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 aria-pressed:border-primary aria-pressed:text-primary coarse:h-11 coarse:px-3"
+          >
+            {watch.watching ? <BellRing className="size-4" aria-hidden /> : <Bell className="size-4" aria-hidden />}
+          </button>
+        )}
         {selected && hasResults && (
           <button
             type="button"

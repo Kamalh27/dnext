@@ -16,4 +16,4 @@ RUN mkdir -p /app/.local_storage && chown app /app/.local_storage
 ENV PATH="/app/.venv/bin:$PATH" PYTHONPATH=/app PYTHONUNBUFFERED=1
 USER app
 # the bucket argument is added by the job definition (infra/cloudbuild-job.yaml)
-ENTRYPOINT ["python", "scripts/precompute_rain.py"]
+ENTRYPOINT ["python", "scripts/daily_job.py"]
