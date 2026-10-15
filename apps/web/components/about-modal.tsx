@@ -18,6 +18,10 @@ export function AboutModal({ lang, open, onClose }: { lang: Lang; open: boolean;
         </div>
         <p>{tr.aboutIntro}</p>
         <section>
+          <h3 className="mb-1.5 font-semibold">{tr.aboutBenefitsTitle}</h3>
+          <ul className="list-disc space-y-1 pl-5">{tr.aboutBenefits.map((x) => <li key={x}>{x}</li>)}</ul>
+        </section>
+        <section>
           <h3 className="mb-1.5 font-semibold">{tr.aboutHowTitle}</h3>
           <ul className="list-disc space-y-1 pl-5">{tr.aboutHow.map((x) => <li key={x}>{x}</li>)}</ul>
         </section>
@@ -27,7 +31,12 @@ export function AboutModal({ lang, open, onClose }: { lang: Lang; open: boolean;
         </section>
         <section>
           <h3 className="mb-1.5 font-semibold">{tr.aboutBuiltTitle}</h3>
-          <p className="text-muted-foreground">{tr.aboutBuilt}</p>
+          <ul className="space-y-1" data-testid="about-built">
+            {tr.aboutBuilt.map((x) => {
+              const [name, what] = x.split(" | ");
+              return <li key={x}><span className="font-medium">{name}</span><span className="text-muted-foreground"> — {what}</span></li>;
+            })}
+          </ul>
         </section>
       </div>
     </Modal>
