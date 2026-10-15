@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { MapPin, RotateCcw } from "lucide-react";
+import { FileText, MapPin, RotateCcw } from "lucide-react";
 import { fmt, t } from "@/lib/i18n";
 import { runLabel } from "@/lib/overview";
 import type { Kpis, Lang, Province } from "@/lib/types";
@@ -32,7 +32,7 @@ function chipsOf(kpis: Kpis, lang: Lang): string[] {
 }
 
 /** Pinned above the chat: province picker plus a one-glance description of the active scenario. */
-export function ScenarioBar({ lang, provinces, selected, kpis, hasResults, onSelect, onReset }: {
+export function ScenarioBar({ lang, provinces, selected, kpis, hasResults, onSelect, onReset, report }: {
   lang: Lang;
   provinces: Province[];
   selected: Province | null;
@@ -40,6 +40,8 @@ export function ScenarioBar({ lang, provinces, selected, kpis, hasResults, onSel
   hasResults: boolean;
   onSelect: (pcode: string | null) => void;
   onReset: () => void;
+  /** The report button: for the shown result when there is one, otherwise for the national overview. */
+  report: { target: "scenario" | "overview" | null; busy: boolean; error: string | null; onClick: () => void };
 }) {
   const tr = t(lang);
   const sorted = useMemo(() => {
@@ -63,6 +65,18 @@ export function ScenarioBar({ lang, provinces, selected, kpis, hasResults, onSel
             {sorted.map((p) => <option key={p.pcode} value={p.pcode}>{provinceName(p, lang)}</option>)}
           </select>
         </label>
+        <button
+          type="button"
+          onClick={report.onClick}
+          disabled={!report.target || report.busy}
+          data-testid="report-button"
+          aria-label={tr.export}
+          title={report.target === "scenario" ? tr.reportScenarioTip : report.target === "overview" ? tr.reportOverviewTip : tr.reportNone}
+          className="flex h-8 shrink-0 items-center gap-1.5 rounded-[4px] border bg-background px-2.5 text-xs font-medium outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 coarse:h-11 coarse:px-3.5 coarse:text-sm"
+        >
+          <FileText className="size-3.5" aria-hidden />
+          <span className="max-[380px]:sr-only">{tr.exportShort}</span>
+        </button>
         {selected && hasResults && (
           <button
             type="button"
@@ -75,6 +89,7 @@ export function ScenarioBar({ lang, provinces, selected, kpis, hasResults, onSel
           </button>
         )}
       </div>
+      {report.error && <p role="alert" className="text-xs text-destructive">{report.error}</p>}
       {!selected ? (
         <p className="text-xs text-muted-foreground short:max-w-[40%] short:truncate" title={tr.chooseHint}>{tr.chooseHint}</p>
       ) : chips.length > 0 ? (

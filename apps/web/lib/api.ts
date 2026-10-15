@@ -98,6 +98,28 @@ export const fetchOverviewSeries = (signal?: AbortSignal) =>
 export const explain = (lat: number, lng: number, scenarioId: string) =>
   authFetch(`/explain?${new URLSearchParams({ lat: String(lat), lng: String(lng), scenario_id: scenarioId })}`).then((r) => json<Explain>(r));
 
+/** Opens the print-ready national overview report (a public page, no sign-in) for one slider day. */
+export async function openOverviewReport(day: number, lang: "en" | "th") {
+  const tab = window.open("", "_blank");
+  try {
+    const res = await fetch(`${API_BASE}/overview/report?day=${day}&language=${lang}&print=1`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const html = await res.text();
+    if (tab) {
+      tab.document.open();
+      tab.document.write(html);
+      tab.document.close();
+    } else {
+      const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+      Object.assign(document.createElement("a"), { href: url, download: `national-overview-day${day}.html` }).click();
+      URL.revokeObjectURL(url);
+    }
+  } catch (e) {
+    tab?.close();
+    throw e;
+  }
+}
+
 /** Opens the print-ready report in a new tab; the browser's print dialog then offers "Save as PDF". The tab is opened inside the click so pop-up blockers allow it. */
 export async function openReport(scenarioId: string, lang: "en" | "th") {
   const tab = window.open("", "_blank");

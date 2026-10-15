@@ -123,6 +123,20 @@ async def overview(horizon_days: int = 0):
         raise HTTPException(503, str(e))
 
 
+@app.get("/overview/report")
+async def overview_report(day: int = 0, language: str = "en", print: int = 0):
+    """Print-ready national overview report for one slider day (0 = latest observed, 1..5 = forecast days). Public, like the overview itself."""
+    from app.geo import overview as ov
+    if not (0 <= day <= 10) or language not in ("en", "th"):
+        raise HTTPException(422, "day must be 0..10 and language en|th")
+    try:
+        o = await asyncio.to_thread(ov.national, day)
+    except ov.OverviewUnavailable as e:
+        raise HTTPException(503, str(e))
+    md = briefing_mod.build_overview_report(o, language)
+    return HTMLResponse(briefing_mod.to_html(md, language, auto_print=bool(print)))
+
+
 @app.get("/overview/series")
 async def overview_series(days: int = 5):
     """Slider data: national current conditions for day 0 (observed) .. +days (forecast), by province. Instant after the first call."""
