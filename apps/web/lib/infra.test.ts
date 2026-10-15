@@ -1,7 +1,7 @@
 // Run: node --test lib/infra.test.ts   (Node type stripping)
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildingShape, colorOfRisk, counts, dotRadius, heightOf, hotspot, squareAround, type Infra } from "./infra.ts";
+import { buildingShape, liftPx, colorOfRisk, counts, dotRadius, heightOf, hotspot, squareAround, type Infra } from "./infra.ts";
 
 test("a footprint is a closed square of about the right size", () => {
   const ring = squareAround(18.8, 99.0, 100);
@@ -49,4 +49,11 @@ test("dots stay between 4 and 8 pixels and grow with zoom", () => {
   assert.equal(dotRadius(6), 4);
   assert.ok(dotRadius(14) > dotRadius(11));
   assert.equal(dotRadius(20), 8);
+});
+
+test("a block rises with its height and the exaggeration, and not at all on a flat map", () => {
+  const tilt = (55 * Math.PI) / 180;
+  assert.equal(liftPx(4, 1, 0.5, 0), 0);
+  assert.ok(Math.abs(liftPx(4, 1, 0.5, tilt) - 8 * Math.sin(tilt)) < 1e-9);
+  assert.ok(Math.abs(liftPx(4, 3, 0.5, tilt) - 3 * liftPx(4, 1, 0.5, tilt)) < 1e-9);
 });

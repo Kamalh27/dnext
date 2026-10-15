@@ -3,7 +3,7 @@
 import { useMap } from "@vis.gl/react-google-maps";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { buildingShape, colorOfRisk, dotRadius, heightOf, squareAround, type Infra, type InfraToggles } from "@/lib/infra";
+import { buildingShape, colorOfRisk, dotRadius, heightOf, liftPx, squareAround, type Infra, type InfraToggles } from "@/lib/infra";
 import { t } from "@/lib/i18n";
 import { riskName } from "@/lib/overview";
 import { classOfRisk } from "@/lib/svgmap";
@@ -21,11 +21,11 @@ type Hit = { x: number; y: number; text: string };
  * With 3D on, buildings are drawn as blocks: each footprint is raised by its height along the screen's vertical, which is what a tilted
  * camera shows, so it works with Google's own tilt and needs no 3D library.
  */
-export function InfraCanvas({ lang, data, show, zoom }: { lang: Lang; data: Infra | null; show: InfraToggles; zoom: number }) {
+export function InfraCanvas({ lang, data, show, zoom, heightScale }: { lang: Lang; data: Infra | null; show: InfraToggles; zoom: number; heightScale: number }) {
   const map = useMap();
   const [tip, setTip] = useState<Hit | null>(null);
   const draw = useRef<() => void>(() => {});
-  const items = useRef({ data, show, zoom, lang });
+  const items = useRef({ data, show, zoom, lang, heightScale });
 
   // Bounding box of every road piece, once per result, so off-screen roads are skipped quickly.
   const roadBoxes = useMemo(() => (data?.roads ?? []).map((r) => {
@@ -35,7 +35,7 @@ export function InfraCanvas({ lang, data, show, zoom }: { lang: Lang; data: Infr
   }), [data]);
   const boxes = useRef(roadBoxes);
 
-  useEffect(() => { items.current = { data, show, zoom, lang }; boxes.current = roadBoxes; draw.current(); }, [data, show, zoom, lang, roadBoxes]);
+  useEffect(() => { items.current = { data, show, zoom, lang, heightScale }; boxes.current = roadBoxes; draw.current(); }, [data, show, zoom, lang, heightScale, roadBoxes]);
 
   useEffect(() => {
     if (!map || !data) return;
@@ -48,7 +48,7 @@ export function InfraCanvas({ lang, data, show, zoom }: { lang: Lang; data: Infr
       const proj = view.getProjection();
       const div = map.getDiv();
       const w = div.clientWidth, h = div.clientHeight;
-      const { data: d, show: sh, zoom: z } = items.current;
+      const { data: d, show: sh, zoom: z, heightScale: hs } = items.current;
       const ctx = canvas.getContext("2d");
       if (!proj || !ctx || !d || w === 0 || h === 0) return;
       const dpr = window.devicePixelRatio || 1;
@@ -93,7 +93,7 @@ export function InfraCanvas({ lang, data, show, zoom }: { lang: Lang; data: Infr
           const items2 = sel.map((q) => {
             const ring = squareAround(q[0], q[1], q[2]).map(([lng, lat]) => px(lat, lng));
             const mPerPx = (156543.03392 * Math.cos((q[0] * Math.PI) / 180)) / 2 ** zoomNow;
-            const lift = (heightOf(q[3]) / mPerPx) * Math.sin(tilt);   // screen pixels this building rises
+            const lift = liftPx(heightOf(q[3]), hs, mPerPx, tilt);   // screen pixels this building rises
             const cy = ring.reduce((a, p) => a + (p ? p.y : 0), 0) / ring.length;
             return { q, ring, lift, cy };
           }).filter((b) => b.ring.every(Boolean)).sort((a, b) => a.cy - b.cy);   // far (high on screen) first

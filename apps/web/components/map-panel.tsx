@@ -19,7 +19,7 @@ import { apiErrorText } from "@/lib/limit-text";
 import { fmt, t } from "@/lib/i18n";
 import { DEFAULT_VIEW, findProvince } from "@/lib/geo";
 import { fetchInfrastructure } from "@/lib/api";
-import { DEFAULT_TOGGLES, hotspot, type Infra, type InfraToggles } from "@/lib/infra";
+import { DEFAULT_HEIGHT_SCALE, DEFAULT_TOGGLES, hotspot, type Infra, type InfraToggles } from "@/lib/infra";
 import { localLayer, markerTitle, pick } from "@/lib/lang";
 import { InfraTilt } from "./infra-overlay";
 import { InfraCanvas } from "./infra-canvas";
@@ -118,6 +118,7 @@ function MapInner({ lang, layer, layers, staticLayers, markers, provinces, selec
   // Affected infrastructure (Moderate risk or higher) of the result on screen, loaded once per result.
   const [infra, setInfra] = useState<{ sid: string; data: Infra | null }>({ sid: "", data: null });
   const [infraOn, setInfraOn] = useState<InfraToggles>(DEFAULT_TOGGLES);
+  const [heightScale, setHeightScale] = useState<number>(DEFAULT_HEIGHT_SCALE);
   useEffect(() => {
     if (!scope) return;
     let live = true;
@@ -243,7 +244,7 @@ function MapInner({ lang, layer, layers, staticLayers, markers, provinces, selec
         )}
         <ReportMarkers lang={lang} version={reportsVersion} />
         {safeOpen && <SafeOverlay lang={lang} draw={draw} />}
-        {infraData && <InfraCanvas lang={lang} data={infraData} show={infraOn} zoom={cam.zoom} />}
+        {infraData && <InfraCanvas lang={lang} data={infraData} show={infraOn} zoom={cam.zoom} heightScale={heightScale} />}
         {infraData && <InfraTilt show={infraOn} zoom={cam.zoom} />}
         {shownMarkers.map((m, i) => {
           const s = KIND_STYLE[m.kind] ?? KIND_STYLE.bridge;
@@ -267,7 +268,7 @@ function MapInner({ lang, layer, layers, staticLayers, markers, provinces, selec
       <ReportModal lang={lang} open={reportOpen} onClose={() => setReportOpen(false)} me={me}
         centre={() => { const c = gmap?.getCenter(); return c ? { lat: c.lat(), lng: c.lng() } : null; }} onDone={() => setReportsVersion((v) => v + 1)} />
       <MapControls lang={lang} onLocate={setMe} onGlobe={() => setGlobe(true)} onResetView={() => setGlobe(false)} boundaries={{ visible: outlines, onChange: setOutlines }} overviewLayer={ovLegend ? { name: ovLegend.title, visible: overviewShown, onChange: setOverviewShown } : undefined} fullscreenTarget={wrap} layers={items} reference={staticItems} onLayerChange={onLayerChange} safe={{ open: safeOpen, onToggle: () => setSafeOpen((o) => !o) }} onReport={() => setReportOpen(true)}
-        infra={{ needsRun: !scope, onZoom: infraData ? zoomToHotspot : undefined, counts: { buildings: infraData?.buildings.length ?? 0, roadKm: infraData?.road_km ?? 0, facilities: shownMarkers.length }, state: infraOn, zoom: cam.zoom, loading: !!scope && infra.sid !== scope, truncated: !!infraData?.truncated, onChange: (p) => setInfraOn((s) => ({ ...s, ...p })) }} />
+        infra={{ needsRun: !scope, heightScale, onHeightScale: setHeightScale, onZoom: infraData ? zoomToHotspot : undefined, counts: { buildings: infraData?.buildings.length ?? 0, roadKm: infraData?.road_km ?? 0, facilities: shownMarkers.length }, state: infraOn, zoom: cam.zoom, loading: !!scope && infra.sid !== scope, truncated: !!infraData?.truncated, onChange: (p) => setInfraOn((s) => ({ ...s, ...p })) }} />
 
       {overview && hover && (
         <OverviewTip lang={lang} hover={hover} wrap={wrap} province={provinces.find((p) => p.pcode === hover.pcode)} data={byPcode[hover.pcode]} metric={metric} />

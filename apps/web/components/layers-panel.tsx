@@ -5,7 +5,7 @@ import { Slider } from "@/components/ui/slider";
 import { t } from "@/lib/i18n";
 import type { Lang, MapLayerItem } from "@/lib/types";
 import { MQ, useMedia } from "@/lib/use-media";
-import { Z_3D, type InfraToggles } from "@/lib/infra";
+import { HEIGHT_SCALES, Z_3D, type InfraToggles } from "@/lib/infra";
 import { cn } from "@/lib/utils";
 
 export type LayerPatch = { visible?: boolean; opacity?: number };
@@ -98,7 +98,8 @@ export function LayersPanel({ id, lang, scenario, reference, onChange, boundarie
   /** Affected infrastructure of the result on screen (Moderate risk or higher): toggles and what is available. */
   infra?: { counts: { buildings: number; roadKm: number; facilities: number }; state: InfraToggles; zoom: number; loading: boolean; truncated: boolean; onChange: (p: Partial<InfraToggles>) => void;
     /** No scenario or forecast on screen yet: the section only explains what is needed. */ needsRun?: boolean;
-    /** Fly to the riskiest building (3D tilt when the 3D switch is on). */ onZoom?: () => void };
+    /** Fly to the riskiest building (3D tilt when the 3D switch is on). */ onZoom?: () => void;
+    /** Vertical exaggeration of the 3D blocks. */ heightScale?: number; onHeightScale?: (n: number) => void };
 }) {
   const tr = t(lang);
   // Phones and short screens: a full-width panel at the bottom of the map, above the Google logo (the other overlays hide while it is open, see globals.css); otherwise a popover beside the button.
@@ -165,6 +166,21 @@ export function LayersPanel({ id, lang, scenario, reference, onChange, boundarie
                 <span className={cn("min-w-0 flex-1 font-medium", !infra.state.threeD && "text-muted-foreground")}>{tr.infra3d}</span>
               </li>
             </ul>
+            {infra.state.threeD && infra.onHeightScale && (
+              <div className="space-y-1 px-3 py-1.5" data-testid="infra-height">
+                <p className="text-[11px] font-medium">{tr.infraHeightScale}</p>
+                <div role="group" aria-label={tr.infraHeightScale} className="flex gap-1.5">
+                  {HEIGHT_SCALES.map((n) => (
+                    <button key={n} type="button" aria-pressed={infra.heightScale === n} onClick={() => infra.onHeightScale?.(n)}
+                      className={cn("min-h-8 min-w-10 rounded-[4px] border px-2 text-[12px] font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring coarse:min-h-11",
+                        infra.heightScale === n ? "border-primary bg-primary text-primary-foreground" : "bg-background hover:bg-accent")}>
+                      ×{n}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[11px] text-muted-foreground">{tr.infraHeightNote}</p>
+              </div>
+            )}
             {infra.onZoom && infra.counts.buildings > 0 && (
               <div className="px-3 py-1.5">
                 <button type="button" onClick={infra.onZoom} data-testid="infra-zoom" className="min-h-8 rounded-[4px] border px-2.5 text-[12px] outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring coarse:min-h-11">{tr.infraZoom}</button>
