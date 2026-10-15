@@ -34,6 +34,10 @@ def main(argv=None) -> int:
     except Exception as e:  # noqa: BLE001
         c.log.warning("history and alerts skipped: %s", e)
         return 0
+    try:
+        overview.save_series(series, a.bucket)   # the API reads this instead of computing the 5-day overview itself
+    except Exception as e:  # noqa: BLE001
+        c.log.warning("overview file not saved: %s", str(e)[:200])
     run_time = datetime.now(timezone.utc)
     try:
         snap = overview.tambon_snapshot(0)
