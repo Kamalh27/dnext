@@ -7,10 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ApiError, openReport } from "@/lib/api";
-import { gate, useBurstLeft } from "@/lib/auth";
 import { t } from "@/lib/i18n";
-import { apiErrorText } from "@/lib/limit-text";
 import { areaName, chartTexts, extrasText, limitationsOf, localTable, pick } from "@/lib/lang";
 import { shareParams } from "@/lib/share";
 import type { ChartData, Kpis, Lang, TableData } from "@/lib/types";
@@ -20,9 +17,6 @@ const SERIES_COLORS = ["#d95f0e", "#2c7fb8", "#7b3294", "#4d4d4d"]; // colour-bl
 export function ResultCards({ lang, kpis, charts, tables, loading }: { lang: Lang; kpis: Kpis | null; charts: ChartData[]; tables: TableData[]; loading: boolean }) {
   const tr = t(lang);
   const nf = new Intl.NumberFormat(lang === "th" ? "th-TH" : "en-US");
-  const [exporting, setExporting] = useState(false);
-  const [exportErr, setExportErr] = useState<ApiError | boolean>(false);
-  const burstLeft = useBurstLeft();
   const [copied, setCopied] = useState<"ok" | "fail" | null>(null);
 
   if (!kpis && !charts.length && !tables.length) {
@@ -50,13 +44,6 @@ export function ResultCards({ lang, kpis, charts, tables, loading }: { lang: Lan
         note: [exText.rainWindow, exText.triggerSource && `${tr.triggerSource}: ${exText.triggerSource}`].filter(Boolean).join(" · ") }
     : null;
 
-  const onExport = async () => {
-    if (!kpis || burstLeft > 0) return;
-    if (!gate()) return;   // signed out: the sign-in dialog opens instead of calling the API
-    setExporting(true);
-    setExportErr(false);
-    try { await openReport(kpis.scenario_id, lang); } catch (e) { setExportErr(e instanceof ApiError ? (e.isAuthRequired ? false : e) : true); } finally { setExporting(false); }
-  };
 
   const share = kpis ? shareParams(kpis) : null;
   const onCopy = async () => {
@@ -118,23 +105,11 @@ export function ResultCards({ lang, kpis, charts, tables, loading }: { lang: Lan
                 <ul className="list-disc pl-5">{limitationsOf(kpis, lang).map((s, i) => <li key={i}>{s}</li>)}</ul>
               </CollapsibleContent>
             </Collapsible>
-            <div className="flex flex-wrap gap-2">
-              <span title={kpis.scenario_id ? undefined : tr.exportNA} className="inline-block">
-                <Button variant="outline" size="default" disabled={!kpis.scenario_id || exporting || burstLeft > 0} onClick={onExport} aria-label={tr.export}>
-                  {tr.export}
-                </Button>
-              </span>
-              {share && (
-                <Button variant="outline" size="default" onClick={onCopy} aria-label={tr.copyLink}>
-                  {copied === "ok" ? <Check className="size-4" aria-hidden /> : <Link2 className="size-4" aria-hidden />}
-                  {copied === "ok" ? tr.linkCopied : copied === "fail" ? tr.linkFailed : tr.copyLink}
-                </Button>
-              )}
-            </div>
-            {exportErr && (
-              <p role="alert" className="text-xs text-destructive">
-                {exportErr instanceof ApiError && (exportErr.isBurst || exportErr.isDaily) ? apiErrorText(exportErr, lang, burstLeft) : tr.error}
-              </p>
+            {share && (
+              <Button variant="outline" size="default" onClick={onCopy} aria-label={tr.copyLink}>
+                {copied === "ok" ? <Check className="size-4" aria-hidden /> : <Link2 className="size-4" aria-hidden />}
+                {copied === "ok" ? tr.linkCopied : copied === "fail" ? tr.linkFailed : tr.copyLink}
+              </Button>
             )}
           </CardContent>
         </Card>

@@ -126,6 +126,83 @@ def build_briefing(r: dict, language: str = "en") -> str:
     return _polish(md)
 
 
+OV = {
+    "en": {
+        "title": "National landslide risk overview", "obs": "Observed rainfall to {d} (satellite estimate, last 30 days)",
+        "fc": "Day +{h} forecast: observed rain plus GFS forecast, model run {run}", "head": "Headline",
+        "trig": "Tambons above their rainfall trigger", "prov": "Provinces with at least one triggered tambon",
+        "ppl": "People in the elevated zone (est.)", "bld": "Buildings in the elevated zone (est.)", "hosp": "Hospitals in the elevated zone",
+        "sch": "Schools in the elevated zone", "road": "Main road in the elevated zone (km)",
+        "top": "Provinces ranked by peak risk", "col_prov": "Province", "col_cls": "Risk class", "col_risk": "Peak risk 0-5",
+        "col_trig": "Tambons triggered", "col_ppl": "People in elevated zone (est.)", "none": "No tambon is above its rainfall trigger.",
+        "fac_prov": "Province",
+    },
+    "th": {
+        "title": "ภาพรวมความเสี่ยงดินถล่มระดับประเทศ", "obs": "ฝนตรวจวัดถึงวันที่ {d} (ประมาณจากดาวเทียม สะสม 30 วัน)",
+        "fc": "พยากรณ์วันที่ +{h}: ฝนตรวจวัดรวมกับพยากรณ์ GFS รอบการคำนวณ {run}", "head": "ตัวเลขหลัก",
+        "trig": "ตำบลที่ฝนเกินเกณฑ์", "prov": "จังหวัดที่มีตำบลเกินเกณฑ์อย่างน้อยหนึ่งแห่ง",
+        "ppl": "ประชากรในพื้นที่เสี่ยงสูง (ประมาณ)", "bld": "อาคารในพื้นที่เสี่ยงสูง (ประมาณ)", "hosp": "โรงพยาบาลในพื้นที่เสี่ยงสูง",
+        "sch": "โรงเรียนในพื้นที่เสี่ยงสูง", "road": "ถนนสายหลักในพื้นที่เสี่ยงสูง (กม.)",
+        "top": "จังหวัดเรียงตามความเสี่ยงสูงสุด", "col_prov": "จังหวัด", "col_cls": "ระดับความเสี่ยง", "col_risk": "ความเสี่ยงสูงสุด 0-5",
+        "col_trig": "ตำบลที่เกินเกณฑ์", "col_ppl": "ประชากรในพื้นที่เสี่ยงสูง (ประมาณ)", "none": "ไม่มีตำบลใดที่ฝนเกินเกณฑ์",
+        "fac_prov": "จังหวัด",
+    },
+}
+PROVINCE_ROWS = 25
+
+
+def build_overview_report(o: dict, language: str = "en") -> str:
+    """Markdown report of the national overview for one slider day (observed day 0, or a forecast day)."""
+    from app.geo import tambon_risk
+    t = L["th" if language == "th" else "en"]
+    v = OV["th" if language == "th" else "en"]
+    th = language == "th"
+    names = tambon_risk.cfg()["risk"]["class_names_th" if th else "class_names"]
+    ap = t["approx"]
+    out = [f"# {v['title']}", ""]
+    out.append(f"- {v['obs'].format(d=o['date_of_data'])}")
+    if o.get("horizon_days"):
+        out.append(f"- {v['fc'].format(h=o['horizon_days'], run=o.get('model_run_time') or '?')}")
+    out += ["", f"## {v['head']}", ""]
+    if not o["triggered"]:
+        out.append(v["none"])
+    out += [f"- {v['trig']}: {_n(o['triggered'])} / {_n(o['tambons_total'])}", f"- {v['prov']}: {_n(o['provinces_triggered'])} / {_n(o['provinces_total'])}",
+            f"- {v['ppl']}: {ap}{_n(o['people_elevated'])}"]
+    el = o.get("elevated")
+    if el:
+        out += [f"- {v['bld']}: {ap}{_n(el['buildings'])}", f"- {v['hosp']}: {_n(el['hospitals'])}", f"- {v['sch']}: {_n(el['schools'])}",
+                f"- {v['road']}: {_n(el['road_km'], 1)}"]
+    ranked = [p for p in o["provinces"] if p["risk_class"] > 0][:PROVINCE_ROWS]
+    if ranked:
+        out += ["", f"## {v['top']}", "", f"| # | {v['col_prov']} | {v['col_cls']} | {v['col_risk']} | {v['col_trig']} | {v['col_ppl']} |", "|---|---|---|---|---|---|"]
+        for i, p in enumerate(ranked, 1):
+            nm = p["name_th"] if th and p.get("name_th") else p["name"]
+            out.append(f"| {i} | {_cell(nm)} | {names[p['risk_class'] - 1]} | {_n(p['risk_max'], 1)} | {_n(p['triggered'])} / {_n(p['tambons'])} | {ap}{_n(p['people_elevated'])} |")
+    named = [f for f in o.get("facilities") or [] if "risk" in f]
+    if named:
+        counts = o.get("facilities_named") or {}
+        shown = named[:FACILITY_ROWS]
+        out += ["", f"## {t['fac']}", "", t["fac_count"].format(h=counts.get("hospitals", 0), s=counts.get("schools", 0), n=len(shown)), "",
+                f"| # | {t['fac_name']} | {t['fac_type']} | {v['fac_prov']} | {t['fac_tambon']} | {t['fac_risk']} | {t['fac_class']} |", "|---|---|---|---|---|---|---|"]
+        for i, f in enumerate(shown, 1):
+            nm = f.get("name_th") if th and f.get("name_th") else f["name"]
+            pv = f.get("province_th") if th and f.get("province_th") else f.get("province", "")
+            tb = f.get("tambon_th") if th and f.get("tambon_th") else f["tambon"]
+            cl = f.get("risk_class_name_th") if th else f.get("risk_class_name")
+            out.append(f"| {i} | {_cell(nm)} | {t['kind'].get(f['kind'], f['kind'])} | {_cell(pv)} | {_cell(tb)} | {_n(f['risk'], 1)} | {_cell(cl or '-')} |")
+        out += ["", f"_{t['fac_note']}_"]
+    peak = max((p["risk_max"] for p in o["provinces"]), default=0)
+    g = guidance.sections({"exposure": {"people": o["people_elevated"], "tambon_table": [{"risk_max": peak}], "facilities": named}}, language)
+    out += ["", f"## {g['title']}", "", f"_{g['note']}_"]
+    for heading, bullets in g["sections"]:
+        out += ["", f"### {heading}", ""] + [f"- {b}" for b in bullets]
+    out += ["", f"## {t['limits']}", ""] + [f"- {_cell(s)}" for s in o.get("limitations", [])]
+    out += ["", f"## {t['sources']}", "", "- Landslide susceptibility, vulnerability, exposure and tambon rainfall thresholds (ADPC)",
+            "- JAXA GSMaP (observed rainfall), NOAA GFS (forecast rainfall)", "- WorldPop 2020 (population), JRC GHSL (built-up area)", "- OpenStreetMap (hospitals, schools, roads)"]
+    out += ["", f"## {t['note']}", "", t["note_txt"], "", f"_{t['generated']}_", ""]
+    return "\n".join(out)
+
+
 _NUM = re.compile(r"\d[\d,]*\.?\d*")
 
 

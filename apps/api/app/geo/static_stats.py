@@ -140,6 +140,7 @@ def facilities_at_risk(fac: dict | None, rows: list[dict], cutoffs: list[float],
             out["items"].append({"kind": kind, "lat": lat, "lng": lng, "name": name, "name_th": name_th, "risk": round(risk, 2), "risk_class": cls,
                                  **({"risk_class_name": names[cls - 1]} if names else {}), **({"risk_class_name_th": names_th[cls - 1]} if names_th else {}),
                                  "tambon": row["adm3_name"], "tambon_th": row["adm3_name1"], "amphoe": row["adm2_name"], "amphoe_th": row["adm2_name1"],
+                                 "province": row.get("adm1_name", ""), "province_th": row.get("adm1_name1", ""),
                                  "admin_code": row["adm3_pcode"]})
     out["items"].sort(key=lambda f: (-f["risk"], f["kind"] != "hospital", f["name"]))
     return out

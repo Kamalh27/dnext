@@ -72,3 +72,26 @@ def test_html_report_has_a_save_as_pdf_button_and_can_open_the_print_dialog():
     html = briefing.to_html("# T\n\n- a", "en")
     assert "Save as PDF" in html and "window.print()" in html and "addEventListener" not in html
     assert "addEventListener" in briefing.to_html("# T", "en", auto_print=True)
+
+
+def _national():
+    prov = {"pcode": "TH20", "name": "Chon Buri", "name_th": "ชลบุรี", "risk_class": 4, "risk_max": 3.0, "triggered": 90, "tambons": 92, "people_elevated": 3400}
+    items = static_stats.facilities_at_risk(FAC, ROWS, CUT, 125.0, NAMES)["items"]
+    for f in items:
+        f.update(province="Chon Buri", province_th="ชลบุรี")
+    return {"kind": "observed", "horizon_days": 0, "date_of_data": "2026-10-12", "tambons_total": 7425, "triggered": 2068, "provinces_triggered": 43,
+            "provinces_total": 77, "people_elevated": 6000, "elevated": {"buildings": 1000, "hospitals": 0, "schools": 0, "road_km": 1.7},
+            "provinces": [prov], "facilities": items, "facilities_named": {"hospitals": 1, "schools": 1}, "limitations": ["A limit."]}
+
+
+def test_national_report_ranks_provinces_and_lists_facilities_in_both_languages():
+    en = briefing.build_overview_report(_national(), "en")
+    assert "National landslide risk overview" in en and "| 1 | Chon Buri | High | 3.0 | 90 / 92 |" in en and "A Hospital" in en and "General guidance" in en
+    th = briefing.build_overview_report(_national(), "th")
+    assert "ชลบุรี" in th and "สูง" in th and "แนวทางทั่วไป" in th
+
+
+def test_national_report_for_a_forecast_day_names_the_model_run():
+    o = _national()
+    o.update(kind="forecast", horizon_days=3, model_run_time="2026-10-14T12:00Z")
+    assert "Day +3 forecast" in briefing.build_overview_report(o, "en") and "2026-10-14T12:00Z" in briefing.build_overview_report(o, "en")

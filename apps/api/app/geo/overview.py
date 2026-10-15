@@ -14,6 +14,7 @@ from app.settings import load_yaml
 log = logging.getLogger("api")
 _memo: dict = {}
 _TTL_S = 3600          # results stay valid for an hour while the daily files are unchanged
+FACILITY_CAP = 50        # most at-risk named facilities kept in the national result (for the report)
 _MAX_STALE_S = 6 * 3600  # a stale result is still served (and refreshed in the background) for this long
 _lock = threading.Lock()
 _inflight: set = set()
@@ -75,7 +76,8 @@ def _rows(data: dict, horizon: int) -> list[dict]:
                 f = t.get("f") or []
                 rain = rain + float(f[horizon - 1] or 0.0) if len(f) >= horizon else None
         rows.append({"adm3_pcode": code, "rain30_mm": rain, "trigger_class": tambon_risk.trigger_class(rain, t["thr"]), "pc": t["pc"], "p": t["p"], "pt": t["pt"],
-                     "day_rain_mm": _day_rain(t, horizon)})
+                     "adm3_name": t.get("n", ""), "adm3_name1": t.get("nt", ""), "adm2_name": t.get("a", ""), "adm2_name1": t.get("at", ""),
+                     "adm1_name": t["p"], "adm1_name1": t["pt"], "day_rain_mm": _day_rain(t, horizon)})
     return rows
 
 
@@ -125,6 +127,8 @@ def _national(horizon_days: int) -> dict:
         for k in ("buildings", "hospitals", "schools", "road_km"):          # inside the elevated zone; absent without the features precompute
             if s.get(k) is not None:
                 p[k] = p.get(k, 0.0) + s[k]
+    rk = tambon_risk.cfg()["risk"]
+    fac = static_stats.facilities_at_risk(static_stats.load_facilities(), rows, rk["cutoffs"], rk["divisor"], rk["class_names"], rk["class_names_th"])
     provinces = []
     for p in prov.values():
         p["triggered_share"] = round(p["triggered"] / p["tambons"], 3) if p["tambons"] else 0.0
@@ -142,6 +146,7 @@ def _national(horizon_days: int) -> dict:
     provinces.sort(key=lambda p: (-p["risk_max"], -p["people_elevated"], -p["triggered_share"], p["name"]))
     out = {
         "kind": "forecast" if horizon_days else "observed", "horizon_days": horizon_days,
+        "facilities": fac["items"][:FACILITY_CAP], "facilities_named": {"hospitals": fac["hospitals"], "schools": fac["schools"]},
         "date_of_data": data["date_of_data"], "source": data["source"], "dataset": data["dataset"],
         "model_run_time": f.get("model_run_time") if horizon_days else None,
         "tambons_total": len(rows), "triggered": sum(r["trigger_class"] > 0 for r in rows),
