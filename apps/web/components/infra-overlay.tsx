@@ -12,7 +12,7 @@ type Overlay = { setMap: (m: google.maps.Map | null) => void; setProps: (p: Reco
 
 /**
  * Draws the affected buildings and roads on the Google map with deck.gl (loaded only when needed): roads as coloured lines, buildings as dots,
- * as flat squares from zoom 14 and as extruded blocks from zoom 15 when "3D" is on. Everything shown is in the Moderate-or-higher zone.
+ * as flat squares from zoom 16 and as extruded blocks from zoom 16 when "3D" is on. Everything has a white outline so it stands out on the risk colours. Everything shown is in the Moderate-or-higher zone.
  */
 export function InfraOverlay({ lang, data, show, zoom }: { lang: Lang; data: Infra | null; show: InfraToggles; zoom: number }) {
   const map = useMap();
@@ -48,24 +48,24 @@ export function InfraOverlay({ lang, data, show, zoom }: { lang: Lang; data: Inf
       const label = (risk: number) => riskName(Math.max(3, classOfRisk(risk)), lang);
       const layers = [];
       if (show.roads && data.roads.length) {
-        layers.push(new PathLayer({ id: "infra-roads-casing", data: data.roads, getPath: (d: Infra["roads"][number]) => d[1], getColor: [25, 15, 10, 210],
-          widthUnits: "pixels", getWidth: 8, widthMinPixels: 5, capRounded: true, jointRounded: true }));
+        layers.push(new PathLayer({ id: "infra-roads-casing", data: data.roads, getPath: (d: Infra["roads"][number]) => d[1], getColor: [255, 255, 255, 235],
+          widthUnits: "pixels", getWidth: 9, widthMinPixels: 7, capRounded: true, jointRounded: true }));
         layers.push(new PathLayer({ id: "infra-roads", data: data.roads, getPath: (d: Infra["roads"][number]) => d[1], getColor: (d: Infra["roads"][number]) => colorOfRisk(d[0]),
-          widthUnits: "pixels", getWidth: 5, widthMinPixels: 3, capRounded: true, jointRounded: true, pickable: true }));
+          widthUnits: "pixels", getWidth: 5, widthMinPixels: 4, capRounded: true, jointRounded: true, pickable: true }));
       }
       if (show.buildings && data.buildings.length) {
         const extruded = show.threeD && zoom >= Z_3D;
         if (zoom >= Z_POLY) {
           layers.push(new PolygonLayer({ id: "infra-buildings", data: data.buildings, getPolygon: (b: Infra["buildings"][number]) => squareAround(b[0], b[1], b[2]),
-            extruded, getElevation: (b: Infra["buildings"][number]) => heightOf(b[3]), getFillColor: (b: Infra["buildings"][number]) => colorOfRisk(b[4], extruded ? 235 : 215),
-            stroked: !extruded, getLineColor: [40, 20, 10, 220], lineWidthMinPixels: 1, pickable: true,
+            extruded, getElevation: (b: Infra["buildings"][number]) => heightOf(b[3]), getFillColor: (b: Infra["buildings"][number]) => colorOfRisk(b[4], extruded ? 240 : 235),
+            stroked: true, getLineColor: [255, 255, 255, 245], lineWidthUnits: "pixels", getLineWidth: 2, lineWidthMinPixels: 2, pickable: true,
             // unlit with edge lines: the lit material rendered black on some GPUs, and edges still give a clear sense of volume
             material: false, wireframe: extruded,
             updateTriggers: { getElevation: [extruded], getFillColor: [extruded] } }));
         } else {
           layers.push(new ScatterplotLayer({ id: "infra-buildings-dots", data: data.buildings, getPosition: (b: Infra["buildings"][number]) => [b[1], b[0]],
-            getFillColor: (b: Infra["buildings"][number]) => colorOfRisk(b[4]), radiusUnits: "pixels", getRadius: 3.5, radiusMinPixels: 2.5,
-            stroked: true, getLineColor: [40, 20, 10, 230], lineWidthUnits: "pixels", getLineWidth: 1, pickable: true }));
+            getFillColor: (b: Infra["buildings"][number]) => colorOfRisk(b[4], 255), radiusUnits: "pixels", getRadius: 5, radiusMinPixels: 4,
+            stroked: true, getLineColor: [255, 255, 255, 255], lineWidthUnits: "pixels", getLineWidth: 2, pickable: true }));
         }
       }
       overlay.current.setProps({

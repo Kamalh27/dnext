@@ -5,6 +5,7 @@ import { deleteRemoteChat, getRemoteChat, listRemoteChats, saveRemoteChat } from
 import { useAuth } from "./auth";
 import { contextOf, mergeLists, readLocal, removeLocal, snapshotLocal, subscribeLocal, summarize, summariesOf, titleOf, toStored, upsertLocal, type ChatMessage, type ChatSummary, type ChatThread } from "./chat-store";
 import type { Lang } from "./types";
+import { newId } from "./ids";
 
 /** Keeps the conversation saved in the browser and, for a signed-in account, on the server; and opens, starts and deletes saved chats. */
 export function useChatHistory<M extends ChatMessage>({ messages, setMessages, sessionRef, lang, areaCode, busy }: {
@@ -88,7 +89,7 @@ export function useChatHistory<M extends ChatMessage>({ messages, setMessages, s
   }, [signedIn, remote, sessionRef, setMessages]);
 
   const newChat = useCallback(() => {
-    sessionRef.current = typeof crypto !== "undefined" ? crypto.randomUUID() : `web-${Date.now()}`;
+    sessionRef.current = newId();
     lastSaved.current = "";
     context.current = "";
     setMessages([]);

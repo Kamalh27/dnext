@@ -107,6 +107,18 @@ export function LayersPanel({ id, lang, scenario, reference, onChange, boundarie
     { key: "scenario", title: tr.layersScenario, items: scenario },
     { key: "reference", title: tr.layersReference, items: reference },
   ].filter((x) => x.items.length > 0 || (x.key === "reference" && boundaries) || (x.key === "scenario" && overviewLayer));
+  const renderSection = (sec: (typeof sections)[number]) => (
+      <section key={sec.key} aria-labelledby={`${id}-${sec.key}`} className="border-b last:border-b-0">
+        <h3 id={`${id}-${sec.key}`} className="bg-muted/60 px-3 py-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+          {sec.title}
+        </h3>
+        <ul className="divide-y">
+          {sec.key === "scenario" && overviewLayer && <OverviewRow lang={lang} {...overviewLayer} />}
+          {sec.key === "reference" && boundaries && <BoundariesRow lang={lang} visible={boundaries.visible} onChange={boundaries.onChange} />}
+          {sec.items.map((l) => <LayerRow key={l.id} l={l} lang={lang} onChange={onChange} />)}
+        </ul>
+      </section>
+  );
   return (
     <div
       id={id}
@@ -134,18 +146,7 @@ export function LayersPanel({ id, lang, scenario, reference, onChange, boundarie
         </button>
       </div>
       <div className="overflow-y-auto overscroll-contain">
-        {sections.map((sec) => (
-          <section key={sec.key} aria-labelledby={`${id}-${sec.key}`} className="border-b last:border-b-0">
-            <h3 id={`${id}-${sec.key}`} className="bg-muted/60 px-3 py-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-              {sec.title}
-            </h3>
-            <ul className="divide-y">
-              {sec.key === "scenario" && overviewLayer && <OverviewRow lang={lang} {...overviewLayer} />}
-              {sec.key === "reference" && boundaries && <BoundariesRow lang={lang} visible={boundaries.visible} onChange={boundaries.onChange} />}
-              {sec.items.map((l) => <LayerRow key={l.id} l={l} lang={lang} onChange={onChange} />)}
-            </ul>
-          </section>
-        ))}
+        {sections.filter((x) => x.key === "scenario").map(renderSection)}
         {infra && (
           <section aria-labelledby={`${id}-infra`} className="border-b last:border-b-0" data-testid="infra-section">
             <h3 id={`${id}-infra`} className="bg-muted/60 px-3 py-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">{tr.layersInfra}</h3>
@@ -175,6 +176,7 @@ export function LayersPanel({ id, lang, scenario, reference, onChange, boundarie
             </>)}
           </section>
         )}
+        {sections.filter((x) => x.key === "reference").map(renderSection)}
         {sections.length === 0 && !infra && <p className="px-3 py-3 text-muted-foreground">{tr.layersNone}</p>}
       </div>
     </div>

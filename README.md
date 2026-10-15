@@ -101,6 +101,8 @@ just web-check  # web type-check and lint
 
 Without `just`: `cd apps/api && uv sync && uv run uvicorn app.main:app --reload --port 8080`, then `cd apps/web && pnpm install && pnpm dev`.
 
+Open the app at `http://localhost:3000` or over https. On a plain-http address that is not localhost, browsers switch off some features: the affected-buildings layer and 3D blocks did not draw in testing there.
+
 The default `GEO_BACKEND=mock` serves fixed test data, so the UI and API run offline. The chat assistant itself needs Vertex AI access (step 2).
 
 ### 2. Connect your Google Cloud project
