@@ -39,3 +39,11 @@ export const heightOf = (h: number) => (h > 0 ? Math.min(60, h) : 4);
 export function counts(d: Infra | null) {
   return { buildings: d?.buildings.length ?? 0, roadKm: d?.road_km ?? 0 };
 }
+
+/** Where to look first: the building with the highest risk (the first one when several tie), or null when there are none. */
+export function hotspot(d: Infra | null): { lat: number; lng: number } | null {
+  if (!d || d.buildings.length === 0) return null;
+  let best = d.buildings[0];
+  for (const b of d.buildings) if (b[4] > best[4]) best = b;
+  return { lat: best[0], lng: best[1] };
+}

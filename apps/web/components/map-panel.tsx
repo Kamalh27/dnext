@@ -19,7 +19,7 @@ import { apiErrorText } from "@/lib/limit-text";
 import { fmt, t } from "@/lib/i18n";
 import { DEFAULT_VIEW, findProvince } from "@/lib/geo";
 import { fetchInfrastructure } from "@/lib/api";
-import { DEFAULT_TOGGLES, type Infra, type InfraToggles } from "@/lib/infra";
+import { DEFAULT_TOGGLES, hotspot, type Infra, type InfraToggles } from "@/lib/infra";
 import { localLayer, markerTitle, pick } from "@/lib/lang";
 import { InfraOverlay } from "./infra-overlay";
 import { NO_DRAW, SafeOverlay, SafePlacesPanel, type SafeDraw } from "./safe-places";
@@ -126,6 +126,12 @@ function MapInner({ lang, layer, layers, staticLayers, markers, provinces, selec
   const infraData = infra.sid === scope && scope ? infra.data : null;
   // Facility markers: hospitals and schools at Moderate risk or higher only (a marker without a class, e.g. test data, is kept).
   const shownMarkers = useMemo(() => (infraOn.facilities ? markers.filter((m) => m.risk_class == null || m.risk_class >= 3) : []), [markers, infraOn.facilities]);
+  // "Zoom to affected area": fly to the riskiest building at street level so the footprints (and the 3D blocks, when switched on) can be checked at once.
+  const zoomToHotspot = () => {
+    const h = hotspot(infraData);
+    if (!gmap || !h) return;
+    gmap.moveCamera({ center: h, zoom: 18, tilt: infraOn.threeD ? 55 : 0, heading: 0 });
+  };
   const bbox = layers?.bbox ?? layer?.bbox ?? null;
   const items = useMemo<MapLayerItem[]>(() => {
     const base: MapLayerItem[] = layers
@@ -259,7 +265,7 @@ function MapInner({ lang, layer, layers, staticLayers, markers, provinces, selec
       <ReportModal lang={lang} open={reportOpen} onClose={() => setReportOpen(false)} me={me}
         centre={() => { const c = gmap?.getCenter(); return c ? { lat: c.lat(), lng: c.lng() } : null; }} onDone={() => setReportsVersion((v) => v + 1)} />
       <MapControls lang={lang} onLocate={setMe} onGlobe={() => setGlobe(true)} onResetView={() => setGlobe(false)} boundaries={{ visible: outlines, onChange: setOutlines }} overviewLayer={ovLegend ? { name: ovLegend.title, visible: overviewShown, onChange: setOverviewShown } : undefined} fullscreenTarget={wrap} layers={items} reference={staticItems} onLayerChange={onLayerChange} safe={{ open: safeOpen, onToggle: () => setSafeOpen((o) => !o) }} onReport={() => setReportOpen(true)}
-        infra={scope ? { counts: { buildings: infraData?.buildings.length ?? 0, roadKm: infraData?.road_km ?? 0, facilities: shownMarkers.length }, state: infraOn, zoom: cam.zoom, loading: !!scope && infra.sid !== scope, truncated: !!infraData?.truncated, onChange: (p) => setInfraOn((s) => ({ ...s, ...p })) } : undefined} />
+        infra={{ needsRun: !scope, onZoom: infraData ? zoomToHotspot : undefined, counts: { buildings: infraData?.buildings.length ?? 0, roadKm: infraData?.road_km ?? 0, facilities: shownMarkers.length }, state: infraOn, zoom: cam.zoom, loading: !!scope && infra.sid !== scope, truncated: !!infraData?.truncated, onChange: (p) => setInfraOn((s) => ({ ...s, ...p })) }} />
 
       {overview && hover && (
         <OverviewTip lang={lang} hover={hover} wrap={wrap} province={provinces.find((p) => p.pcode === hover.pcode)} data={byPcode[hover.pcode]} metric={metric} />
