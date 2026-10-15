@@ -31,6 +31,7 @@ Computing statistics straight from the 12 m source layers took 34 to 81 seconds 
 | `static_stats.json` | `scripts/precompute_static_stats.py` | Area and population per tambon for each value of the static risk product | Once |
 | `static_features.json` | `scripts/precompute_features.py` | Built-up area, hospitals, schools and road length per tambon and risk product | Once |
 | `facilities.json` | `scripts/precompute_facilities.py` | Named hospitals and schools with their location, tambon and risk product | Once |
+| `tambon_shapes.json` | `scripts/build_tambon_shapes.py` | Simplified tambon outlines by province, for the report map | Once |
 
 The daily file is rebuilt by a Cloud Run job (`dnext-rain`) that Cloud Scheduler starts at 06:30 and 18:30 Bangkok time (`infra/deploy-job.sh`).
 

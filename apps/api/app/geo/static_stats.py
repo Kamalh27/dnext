@@ -146,6 +146,37 @@ def facilities_at_risk(fac: dict | None, rows: list[dict], cutoffs: list[float],
     return out
 
 
+SHAPES_LOCAL = Path(".local_storage/risk/tambon_shapes.json")
+SHAPES_GCS_BLOB = "risk/tambon_shapes.json"
+_smem: dict = {"data": None}
+
+
+def load_shapes() -> dict | None:
+    """Simplified tambon outlines grouped by province ({"TH50": {"TH500101": geometry, ...}}), for the report map. Loaded once."""
+    with _lock:
+        if _smem["data"] is not None:
+            return _smem["data"]
+    data = None
+    p = os.environ.get("RISK_SHAPES_PATH")
+    for path in ([Path(p)] if p else []) + [SHAPES_LOCAL]:
+        if path.is_file():
+            data = json.loads(path.read_text())
+            break
+    if data is None and (settings().project_id or settings().ee_project):
+        try:
+            from google.cloud import storage
+            project = settings().project_id or settings().ee_project
+            blob = storage.Client(project=project).bucket(f"{project}-dnext").blob(SHAPES_GCS_BLOB)
+            if blob.exists():
+                data = json.loads(blob.download_as_text())
+        except Exception as e:  # noqa: BLE001
+            log.info("tambon shapes: GCS not available (%s)", str(e)[:80])
+    if data is not None:
+        with _lock:
+            _smem["data"] = data
+    return data
+
+
 _prone_memo: dict = {"id": None, "codes": set()}
 
 

@@ -212,3 +212,18 @@ export type SseEvent =
   | { event: "kpis"; data: Kpis }
   | { event: "final"; data: { session_id: string } }
   | { event: "error"; data: { message: string } };
+
+/** What the report editor needs besides the result already on screen (GET /report-data/{id}, GET /overview/report-data). */
+export interface ReportGuidance { title: string; note: string; sections: [string, string[]][] }
+export interface ReportFacility {
+  kind: MarkerKind; lat: number; lng: number; name: string; name_th?: string; risk: number; risk_class: number;
+  risk_class_name?: string; risk_class_name_th?: string; tambon: string; tambon_th?: string; province?: string; province_th?: string;
+}
+export interface ReportData {
+  guidance: ReportGuidance;
+  facilities: ReportFacility[];
+  facilities_named: { hospitals?: number; schools?: number };
+  tambon_risks?: { code: string; risk: number; trigger: number }[];
+  limitations?: string[];
+}
+export interface TambonShapes { pcode: string; tambons: Record<string, import("./svgmap").Geometry> }

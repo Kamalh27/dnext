@@ -15,6 +15,9 @@ def _hash(*parts) -> str:
     return hashlib.sha256(json.dumps(parts).encode()).hexdigest()[:16]
 
 
+RESULT_VERSION = "v2"
+
+
 def scenario_id(area: Area, rainfall_mm: float, duration_h: float, min_class: str = "High") -> str:
     parts = [area.admin_code, rainfall_mm, duration_h, date.today().isoformat()]
     parts += _model_part()
@@ -29,7 +32,8 @@ def forecast_id(area: Area, horizon_days: int) -> str:
 
 def _model_part() -> list[str]:
     """Cache-key part so results from different hazard models never mix (keeps old ids stable for screening)."""
-    return ["tambon"] if settings().geo_backend == "ee" and settings().hazard_model == "tambon" else []
+    # RESULT_VERSION: bump it when the method or the shape of a result changes, so results cached by older code are not served any more
+    return ["tambon", RESULT_VERSION] if settings().geo_backend == "ee" and settings().hazard_model == "tambon" else []
 
 
 def _backend():

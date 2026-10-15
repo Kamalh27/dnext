@@ -95,3 +95,20 @@ def test_national_report_for_a_forecast_day_names_the_model_run():
     o = _national()
     o.update(kind="forecast", horizon_days=3, model_run_time="2026-10-14T12:00Z")
     assert "Day +3 forecast" in briefing.build_overview_report(o, "en") and "2026-10-14T12:00Z" in briefing.build_overview_report(o, "en")
+
+
+def test_report_data_endpoints_and_tambon_shapes(monkeypatch):
+    from fastapi.testclient import TestClient
+    from app.geo import service
+    from app.main import app
+    r = _result()
+    r["exposure"]["tambon_risks"] = [{"code": "T1", "risk": 3.2, "trigger": 4}]
+    monkeypatch.setattr(service, "get_cached", lambda sid: r if sid == "s1" else None)
+    monkeypatch.setattr(static_stats, "load_shapes", lambda: {"TH50": {"TH500101": {"type": "Polygon", "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 0]]]}}})
+    with TestClient(app) as c:
+        d = c.get("/report-data/s1?language=th").json()
+        assert d["guidance"]["title"] == "แนวทางทั่วไป" and d["tambon_risks"][0]["risk"] == 3.2 and d["facilities"][0]["name"] == "A Hospital"
+        assert c.get("/report-data/nope").status_code == 404 and c.get("/report-data/s1?language=fr").status_code == 422
+        t = c.get("/geo/tambons/TH50")
+        assert t.status_code == 200 and "TH500101" in t.json()["tambons"] and "max-age" in t.headers["cache-control"]
+        assert c.get("/geo/tambons/TH99").status_code == 404 and c.get("/geo/tambons/bad").status_code == 422

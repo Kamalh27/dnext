@@ -120,7 +120,7 @@ export function ResultCards({ lang, kpis, charts, tables, loading }: { lang: Lan
   );
 }
 
-function TableCard({ table, lang }: { table: TableData; lang: Lang }) {
+export function TableCard({ table, lang }: { table: TableData; lang: Lang }) {
   const { title, columns, rows } = localTable(table, lang);
   return (
     <Card size="sm">
@@ -139,7 +139,7 @@ function TableCard({ table, lang }: { table: TableData; lang: Lang }) {
   );
 }
 
-function BarCard({ chart, lang }: { chart: ChartData; lang: Lang }) {
+export function BarCard({ chart, lang }: { chart: ChartData; lang: Lang }) {
   const [box, setBox] = useState<HTMLDivElement | null>(null);
   const width = useWidth(box);
   const narrow = width > 0 && width < 320;   // phones: fewer ticks, a narrower label column

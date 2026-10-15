@@ -41,6 +41,9 @@ For forecasts it also has `forecast_rain_mm`, `observed_rain_mm`, `horizon_days`
 | `GET /explain?lat&lng&scenario_id?` | What drives the result at a point, with its limitations |
 | `GET /briefing/{scenario_id}?language=en\|th&format=md\|html&print=1` | A briefing as Markdown or print-ready HTML. With `print=1` the HTML page opens the browser's print dialog, where the user can save it as a PDF. The report has the headline numbers, the tambon ranking, the hospitals and schools at risk and general guidance. Answers 404 when the scenario is unknown or has expired. A copy is stored under `gs://<project>-dnext/briefings/` (locally in `.local_storage/`) |
 | `GET /overview?horizon_days=0` | National conditions by province, observed or observed plus forecast, from the daily files |
+| `GET /report-data/{scenario_id}?language=en\|th` | What the report editor needs besides the result on screen: the guidance text, the named facilities, every tambon's risk and the area. Needs sign-in when it is required |
+| `GET /overview/report-data?day=0&language=en\|th` | The same for the national overview: guidance text and named facilities. Public |
+| `GET /geo/tambons/{pcode}` | Simplified outlines of one province's tambons, as `{pcode, tambons: {code: geometry}}`, cached for a day. Public |
 | `GET /overview/report?day=0&language=en\|th&print=1` | A print-ready national overview report for one slider day: headline numbers, provinces ranked by peak risk, hospitals and schools at risk and general guidance. Public, like the overview. Answers 503 when the daily data is missing or stale |
 | `GET /overview/series?days=5` | The same for day 0 to day N, for the slider |
 | `GET /layers/static` | Reference layers for the layers panel: susceptibility, vulnerability, exposure and population |

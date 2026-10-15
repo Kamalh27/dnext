@@ -12,7 +12,7 @@ It is a screening tool for planning and situational awareness, not a forecast or
 
 - **National overview.** The first screen colours the provinces by risk, with a five-day slider for forecast risk or rainfall and a dashboard of key figures, trends and the most affected provinces.
 - **Province and tambon detail.** Pick a province from the list or the map, then run a rainfall what-if or a forecast. You get risk, rainfall and trigger layers, a ranked tambon table, and people, buildings, hospitals, schools and main roads in the risk zone.
-- **Report and sharing.** The Report button next to the province picker opens a print-ready page in English or Thai, which the browser saves as a PDF. It covers the result on screen (headline numbers, tambon ranking, hospitals and schools at risk, general safety guidance) or, when nothing is selected, the national overview for the day on the slider (provinces ranked by risk). A copy-link button on a result gives an address that runs the same scenario or forecast again.
+- **Report and sharing.** The Report button next to the province picker opens a report editor: a map of risk by tambon (or by province for the national overview), key figures, charts, tables, the hospitals and schools at risk and general safety guidance. Every piece of text can be edited before you click Export PDF, which saves the page through the browser's print dialog in English or Thai. It covers the result on screen or, when nothing is selected, the national overview for the day on the slider. A copy-link button on a result gives an address that runs the same scenario or forecast again.
 - **Hospitals and schools at risk.** Named hospitals and schools from OpenStreetMap that sit on susceptible ground in tambons above their rainfall trigger are listed in a table and marked on the map, with their risk class.
 - **Reference layers.** Susceptibility, vulnerability, exposure, population and province boundaries can each be switched on the map.
 - **Chat assistant.** Gemini, running through Google's Agent Development Kit, answers in English or Thai. Every number comes from a computed result, not from the model.
@@ -107,6 +107,7 @@ uv run python ../../scripts/precompute_static_stats.py                      # pe
 uv run python ../../scripts/build_provinces_geojson.py                      # province outlines for the map
 uv run --group scripts python ../../scripts/precompute_features.py          # buildings, hospitals, schools, roads (needs a Geofabrik extract; see the script header)
 uv run --group scripts python ../../scripts/precompute_facilities.py        # named hospitals and schools at risk (same extract)
+uv run --group scripts python ../../scripts/build_tambon_shapes.py          # tambon outlines for the report map
 
 # daily: rainfall
 uv run python ../../scripts/precompute_rain.py
