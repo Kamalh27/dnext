@@ -49,7 +49,7 @@ Set in `apps/web/.env.local` and baked in at build time (the Cloud Build web ste
 
 | File | Committed | Purpose |
 |---|---|---|
-| `tambon_risk.yaml` | yes | The tambon-level method: class rules, scaling, trigger settings, layer styles |
+| `tambon_risk.yaml` | yes | The tambon-level method: class rules, scaling, trigger settings, the landslide-prone cut-offs (`landslide_prone`), layer styles |
 | `risk_layers.local.yaml` | no | Earth Engine paths of the susceptibility, vulnerability, exposure, threshold and boundary layers. Template: `risk_layers.local.yaml.example` |
 | `assets.local.yaml` | no | Written by the scripts. Holds `risk_static_asset` and other generated asset IDs. Template: `assets.local.yaml.example` |
 | `thresholds.yaml` | yes | Input limits (rainfall up to 1,500 mm, duration 1 to 720 hours), average building footprint, household size |

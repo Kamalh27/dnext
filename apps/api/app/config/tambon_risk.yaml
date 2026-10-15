@@ -8,6 +8,12 @@ assets:
   exposure: ""
   thailand_adm1: WM/geoLab/geoBoundaries/600/ADM1   # filtered to shapeGroup THA: border mask for layers whose source covers neighbouring countries
 
+# A tambon counts as having landslide-prone ground only when enough of it is susceptible. Stray susceptible pixels (embankments, ramps) in
+# flat urban areas would otherwise rank places like Bangkok as at risk. This is our adjustment to the method; set both to 0 to switch it off.
+landslide_prone:
+  min_area_km2: 1.0
+  min_share: 0.02
+
 susceptibility_threshold: 10      # pixels below this are "not susceptible" (masked)
 
 # Susceptibility classes: z-score ("Standardize") method on pixels >= threshold.
