@@ -19,7 +19,6 @@ export function ChatHistoryPanel({ lang, summaries, loading, signedIn, accountHi
   const where = { device: tr.historyDevice, account: tr.historyAccount, both: tr.historyBoth } as const;
   return (
     <div className="space-y-3 px-4 py-4" data-testid="chat-history">
-      <h2 className="text-sm font-semibold">{tr.historyTitle}</h2>
       {summaries.length === 0 ? (
         <p className="rounded-xl border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">{tr.historyEmpty}</p>
       ) : (
