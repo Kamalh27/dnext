@@ -4,9 +4,11 @@ Observed 30-day rainfall per tambon (GSMaP) vs the tambon's rainfall thresholds 
 risk, people in the elevated zone and class areas per tambon, aggregated to provinces. horizon_days > 0 swaps the last
 `horizon_days` observed days for the GFS forecast of the next `horizon_days` days (same rule as the forecast scenario).
 """
+import json
 import logging
 import threading
 import time
+from pathlib import Path
 
 from app.geo import tambon_risk, obs_cache, static_stats
 from app.settings import load_yaml
@@ -18,6 +20,9 @@ FACILITY_CAP = 50        # most at-risk named facilities kept in the national re
 _MAX_STALE_S = 6 * 3600  # a stale result is still served (and refreshed in the background) for this long
 _lock = threading.Lock()
 _inflight: set = set()
+_flights: dict = {}     # key -> Event while that value is being computed inline, so simultaneous requests share one computation
+SERIES_LOCAL = Path(".local_storage/risk/overview_series.json")
+SERIES_BLOB = "risk/overview_series.json"
 
 
 def _sig(data: dict | None):
@@ -48,7 +53,24 @@ def _swr(key, compute):
                         _inflight.discard(key)
             threading.Thread(target=refresh, daemon=True).start()
         return hit[1]
-    return compute()
+    # Nothing usable: compute once. Requests that arrive meanwhile (and the start-up warm-up) wait for that one result instead of repeating the work.
+    with _lock:
+        ev = _flights.get(key)
+        leader = ev is None
+        if leader:
+            ev = _flights[key] = threading.Event()
+    if not leader:
+        ev.wait(timeout=55)
+        hit = _memo.get(key)
+        if hit:
+            return hit[1]
+        return compute()
+    try:
+        return compute()
+    finally:
+        with _lock:
+            _flights.pop(key, None)
+        ev.set()
 
 
 def warm() -> None:
@@ -182,9 +204,50 @@ def series(max_days: int = 5, fresh: bool = False) -> dict:
     return _series(max_days, fresh=True) if fresh else _swr(("series", max_days), lambda: _series(max_days))
 
 
+def _series_file(max_days: int, sig) -> dict | None:
+    """The 5-day overview computed by the daily job, when it belongs to the rainfall file in use (the job writes both, so a visitor never waits for it)."""
+    try:
+        raw = None
+        if SERIES_LOCAL.is_file():
+            raw = json.loads(SERIES_LOCAL.read_text())
+        else:
+            from app.settings import settings
+            project = settings().project_id or settings().ee_project
+            if project:
+                from google.cloud import storage
+                blob = storage.Client(project=project).bucket(f"{project}-dnext").blob(SERIES_BLOB)
+                if blob.exists():
+                    raw = json.loads(blob.download_as_text())
+        if raw and raw.get("sig") == list(sig) and raw.get("series", {}).get("max_days", 0) >= max_days:
+            s = dict(raw["series"])
+            s["days"] = s["days"][: max_days + 1]
+            s["max_days"] = max_days
+            return s
+    except Exception as e:  # noqa: BLE001
+        log.info("precomputed overview not used: %s", str(e)[:100])
+    return None
+
+
+def save_series(series: dict, bucket: str = "") -> None:
+    """Called by the daily job: keep the computed overview next to the rainfall file it was made from."""
+    cur = obs_cache.load()
+    doc = {"sig": list(_sig(cur) or ()), "series": series}
+    SERIES_LOCAL.parent.mkdir(parents=True, exist_ok=True)
+    SERIES_LOCAL.write_text(json.dumps(doc, separators=(",", ":")))
+    if bucket:
+        from google.cloud import storage
+        storage.Client().bucket(bucket).blob(SERIES_BLOB).upload_from_filename(str(SERIES_LOCAL), content_type="application/json")
+        log.info("uploaded gs://%s/%s", bucket, SERIES_BLOB)
+
+
 def _series(max_days: int, fresh: bool = False) -> dict:
     key = ("series", max_days)
     cur = obs_cache.load()
+    if not fresh:
+        ready = _series_file(max_days, _sig(cur))
+        if ready is not None:
+            _memo[key] = (time.time(), ready, _sig(cur))
+            return ready
     days = []
     forecast_note = None
     for h in range(0, max_days + 1):

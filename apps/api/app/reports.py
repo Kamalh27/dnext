@@ -159,8 +159,13 @@ def _published(box: tuple[float, float, float, float] | None) -> list[dict]:
     rows: list[dict] = []
     if c is not None:
         try:
-            for s in c.collection(COLLECTION).where("status", "==", "published").where("expires_at", ">", now).limit(500).stream():
-                rows.append(s.to_dict() or {})
+            from google.cloud.firestore_v1.base_query import FieldFilter
+            # One equality filter needs no composite index; expiry is checked here (the TTL policy removes old documents, but not instantly).
+            for s in c.collection(COLLECTION).where(filter=FieldFilter("status", "==", "published")).limit(500).stream():
+                d = s.to_dict() or {}
+                exp = d.get("expires_at")
+                if exp is None or exp > now:
+                    rows.append(d)
         except Exception as e:  # noqa: BLE001
             _break(e)
             c = None
