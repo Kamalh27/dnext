@@ -31,7 +31,7 @@ export const legal: Record<Lang, { updated: string; docs: Record<LegalKind, Lega
             ],
           },
           { h: "What we do not do", ul: ["We do not sell personal data.", "We do not run advertising or analytics trackers.", "We do not use your Google sign-in for anything except identifying your account for fair-use limits.", "We do not make decisions about individuals or target individual households."] },
-          { h: "Retention", p: ["Chat sessions are held in server memory and are discarded when the service restarts or the session expires. Cached scenarios follow the periods above. Usage counters are kept for about 3 days. Your sign-in session stays in your browser until you sign out. Cloud logs are typically kept for up to 30 days."] },
+          { h: "Retention", p: ["The assistant's working memory is held in server memory and is discarded when the service restarts or the session expires. Your chat history is saved in your browser (local storage) so that you can reopen a conversation, and you can delete any chat from the History list. If you are signed in, a copy of each chat is also saved in Cloud Firestore under your one-way hashed account ID for 90 days after the last message; deleting a chat removes both copies. Cached scenarios follow the periods above. Usage counters are kept for about 3 days. Your sign-in session stays in your browser until you sign out. Cloud logs are typically kept for up to 30 days."] },
           { h: "Service providers", p: ["We use Google Cloud (Cloud Run, Vertex AI, Earth Engine, Firestore, Cloud Storage, Cloud Logging) and Google Maps Platform. These providers process data on our behalf under their own terms."] },
           { h: "Your choices and rights", p: ["You can ask what we hold about you, or ask us to delete it, using the Send feedback button in the header. We aim to handle requests in line with Thailand's Personal Data Protection Act (PDPA) and other applicable law."] },
           { h: "Changes", p: ["We will update this page when our practices change and show the date above."] },
@@ -45,6 +45,7 @@ export const legal: Record<Lang, { updated: string; docs: Record<LegalKind, Lega
             h: "What is stored",
             ul: [
               "dnext-theme (local storage, ours): remembers your light or dark theme choice. It stays in your browser until you clear it.",
+              "dnext-chats-v1 (local storage, ours): your saved chat history (up to 30 chats). It stays in your browser until you delete the chats or clear site data.",
               "Google Maps (Google): the map may use cookies or local storage that Google needs to deliver map tiles, prevent abuse and measure usage. See Google's policies.",
               "Google Forms (Google): opening the feedback form loads content from google.com, which may set cookies.",
               "Sign in with Google (Firebase Authentication, Google): signing in opens a Google window, and Google or Firebase may set cookies. After you sign in, Firebase keeps your session in your browser's storage (IndexedDB / local storage, keys starting with firebase:) until you sign out.",
@@ -106,7 +107,7 @@ export const legal: Record<Lang, { updated: string; docs: Record<LegalKind, Lega
             ],
           },
           { h: "สิ่งที่เราไม่ทำ", ul: ["ไม่ขายข้อมูลส่วนบุคคล", "ไม่ใช้ตัวติดตามเพื่อโฆษณาหรือวิเคราะห์การใช้งาน", "ไม่ใช้การลงชื่อเข้าใช้ Google ของคุณเพื่อสิ่งอื่นนอกจากระบุบัญชีสำหรับขีดจำกัดการใช้งานที่เป็นธรรม", "ไม่ตัดสินใจเกี่ยวกับรายบุคคล และไม่ระบุเป้าหมายรายครัวเรือน"] },
-          { h: "ระยะเวลาเก็บรักษา", p: ["เซสชันแชทอยู่ในหน่วยความจำของเซิร์ฟเวอร์และถูกทิ้งเมื่อบริการรีสตาร์ตหรือเซสชันหมดอายุ แคชของสถานการณ์เป็นไปตามระยะเวลาข้างต้น ตัวนับการใช้งานเก็บไว้ประมาณ 3 วัน เซสชันการลงชื่อเข้าใช้ของคุณอยู่ในเบราว์เซอร์จนกว่าคุณจะออกจากระบบ บันทึกบนคลาวด์โดยทั่วไปเก็บไว้ไม่เกิน 30 วัน"] },
+          { h: "ระยะเวลาเก็บรักษา", p: ["หน่วยความจำการทำงานของผู้ช่วยอยู่ในหน่วยความจำของเซิร์ฟเวอร์และถูกทิ้งเมื่อบริการรีสตาร์ตหรือเซสชันหมดอายุ ประวัติการแชทของคุณถูกบันทึกในเบราว์เซอร์ (local storage) เพื่อให้เปิดบทสนทนากลับมาดูได้ และคุณลบแชทใดก็ได้จากรายการประวัติ หากคุณลงชื่อเข้าใช้ สำเนาของแต่ละแชทจะถูกบันทึกใน Cloud Firestore ภายใต้รหัสบัญชีที่แฮชแบบทางเดียวเป็นเวลา 90 วันหลังข้อความล่าสุด การลบแชทจะลบทั้งสองสำเนา แคชของสถานการณ์เป็นไปตามระยะเวลาข้างต้น ตัวนับการใช้งานเก็บไว้ประมาณ 3 วัน เซสชันการลงชื่อเข้าใช้ของคุณอยู่ในเบราว์เซอร์จนกว่าคุณจะออกจากระบบ บันทึกบนคลาวด์โดยทั่วไปเก็บไว้ไม่เกิน 30 วัน"] },
           { h: "ผู้ให้บริการ", p: ["เราใช้ Google Cloud (Cloud Run, Vertex AI, Earth Engine, Firestore, Cloud Storage, Cloud Logging) และ Google Maps Platform ผู้ให้บริการเหล่านี้ประมวลผลข้อมูลแทนเราภายใต้ข้อกำหนดของตนเอง"] },
           { h: "ทางเลือกและสิทธิของคุณ", p: ["คุณสามารถขอทราบว่าเราเก็บข้อมูลใดเกี่ยวกับคุณ หรือขอให้ลบ ได้ผ่านปุ่ม \"ส่งความคิดเห็น\" ที่แถบด้านบน เรามุ่งดำเนินการตามพระราชบัญญัติคุ้มครองข้อมูลส่วนบุคคล (PDPA) และกฎหมายที่เกี่ยวข้อง"] },
           { h: "การเปลี่ยนแปลง", p: ["เราจะปรับปรุงหน้านี้เมื่อแนวปฏิบัติเปลี่ยน และแสดงวันที่ไว้ด้านบน"] },
@@ -120,6 +121,7 @@ export const legal: Record<Lang, { updated: string; docs: Record<LegalKind, Lega
             h: "สิ่งที่ถูกจัดเก็บ",
             ul: [
               "dnext-theme (local storage ของเรา): จำธีมสว่างหรือมืดที่คุณเลือก อยู่ในเบราว์เซอร์ของคุณจนกว่าจะล้าง",
+              "dnext-chats-v1 (local storage ของเรา): ประวัติการแชทที่บันทึกไว้ (สูงสุด 30 แชท) อยู่ในเบราว์เซอร์ของคุณจนกว่าจะลบแชทหรือล้างข้อมูลไซต์",
               "Google Maps (Google): แผนที่อาจใช้คุกกี้หรือ local storage ที่ Google ต้องใช้เพื่อส่งภาพแผนที่ ป้องกันการใช้งานผิดปกติ และวัดการใช้งาน ดูนโยบายของ Google",
               "Google Forms (Google): การเปิดแบบฟอร์มความคิดเห็นจะโหลดเนื้อหาจาก google.com ซึ่งอาจตั้งคุกกี้",
               "ลงชื่อเข้าใช้ด้วย Google (Firebase Authentication, Google): การลงชื่อเข้าใช้จะเปิดหน้าต่างของ Google ซึ่ง Google หรือ Firebase อาจตั้งคุกกี้ หลังลงชื่อเข้าใช้ Firebase จะเก็บเซสชันของคุณในที่เก็บข้อมูลของเบราว์เซอร์ (IndexedDB / local storage คีย์ที่ขึ้นต้นด้วย firebase:) จนกว่าคุณจะออกจากระบบ",

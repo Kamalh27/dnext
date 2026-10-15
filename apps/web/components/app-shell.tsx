@@ -7,13 +7,15 @@ import { ResizeHandle } from "./resize-handle";
 import { ChatPanel, type Message } from "./chat-panel";
 import { MapPanel } from "./map-panel";
 import { ReportModal } from "./report-modal";
+import { useChatHistory } from "@/lib/chat-history";
+import type { RunRef } from "@/lib/chat-store";
 import { ScenarioBar } from "./scenario-bar";
 import { SignInDialog } from "./sign-in-dialog";
 import type { RunError, RunKind } from "./scenario-card";
 import { parseShare, type ShareRun } from "@/lib/share";
 import { ApiError, fetchOverviewSeries, fetchProvinces, fetchStaticLayers, runForecast as apiForecast, runScenario, streamChat } from "@/lib/api";
 import { burstLeftS, gate, loadAuthConfig, requestSignIn } from "@/lib/auth";
-import { t } from "@/lib/i18n";
+import { fmt, t } from "@/lib/i18n";
 import { hasThai } from "@/lib/lang";
 import type { OverviewMetric } from "@/lib/overview";
 import type { ChartData, Kpis, Lang, MapLayer, MapLayersEvent, MapMarkers, OverviewSeries, Province, ScenarioResponse, SseEvent, StaticLayerItem, TableData } from "@/lib/types";
@@ -31,6 +33,19 @@ function primaryOf(set: MapLayersEvent): MapLayer | null {
 const asList = <T,>(v: T | T[] | undefined): T[] => (v === undefined ? [] : Array.isArray(v) ? v : [v]);
 
 const OVERVIEW_RETRY_DELAYS_MS = [1500, 4000, 8000, 15000];
+
+/** The result on screen, as a recipe the API can recompute (never the numbers themselves). */
+function recipeOf(k: Kpis | null): RunRef | undefined {
+  if (!k?.area_code) return undefined;
+  if (k.kind === "forecast") return k.horizon_days ? { kind: "forecast", area: k.area_code, horizon_days: k.horizon_days, scenario_id: k.scenario_id } : undefined;
+  return k.rainfall_mm && k.duration_h ? { kind: "what_if", area: k.area_code, rainfall_mm: k.rainfall_mm, duration_h: k.duration_h, scenario_id: k.scenario_id } : undefined;
+}
+
+function activityText(ref: RunRef, p: Province, lang: Lang): string {
+  const tr = t(lang);
+  const area = lang === "th" ? p.name_th || p.name : p.name;
+  return ref.kind === "forecast" ? fmt(tr.activityForecast, { n: ref.horizon_days ?? "", area }) : fmt(tr.activityWhatIf, { mm: ref.rainfall_mm ?? "", h: ref.duration_h ?? "", area });
+}
 
 export function AppShell() {
   const [lang, setLang] = useState<Lang>("en");
@@ -59,6 +74,7 @@ export function AppShell() {
   const runToken = useRef(0);
   const sessionId = useRef<string>(typeof crypto !== "undefined" ? crypto.randomUUID() : "web");
   const abort = useRef<AbortController | null>(null);
+  const history = useChatHistory({ messages, setMessages, sessionRef: sessionId, lang, areaCode: selected?.pcode, busy });
   const lastPrompt = useRef("");
   const tr = t(lang);
   const row = useRef<HTMLElement>(null);
@@ -278,7 +294,7 @@ export function AppShell() {
       setMarkers([]);
       setMessages((ms) => [...ms, { role: "user", text: message }, { role: "assistant", text: "" }]);
       try {
-        await streamChat({ message, session_id: sessionId.current, language, area: selected?.pcode }, onEvent, abort.current.signal);
+        await streamChat({ message, session_id: sessionId.current, language, area: selected?.pcode, current: recipeOf(kpis), context: history.takeContext() }, onEvent, abort.current.signal);
       } catch (err) {
         if ((err as Error).name === "AbortError") return;
         if (err instanceof ApiError && err.isAuthRequired) {
@@ -292,7 +308,7 @@ export function AppShell() {
         setStatus([]);
       }
     },
-    [lang, selected, onEvent],
+    [lang, selected, onEvent, kpis, history],
   );
 
   /** Returns false when nothing was sent (empty, busy, waiting out a burst limit, or signed out), so the composer keeps the draft. */
@@ -323,14 +339,18 @@ export function AppShell() {
       setRunError(null);
       try {
         const r = await call(selected.pcode);
-        if (token === runToken.current) applyPayload(r, true);
+        if (token === runToken.current) {
+          applyPayload(r, true);
+          const ref = recipeOf(r.kpis ?? null);          // note it in the conversation, so chat and slider runs form one history
+          if (ref) setMessages((ms) => [...ms, { role: "activity", text: activityText(ref, selected, lang), run: { ...ref, area_name: selected.name } }]);
+        }
       } catch (err) {
         if (token === runToken.current && !(err instanceof ApiError && err.isAuthRequired)) setRunError({ kind, message: (err as Error).message, apiError: err instanceof ApiError ? err : undefined });
       } finally {
         if (token === runToken.current) setRunBusy(null);
       }
     },
-    [selected, applyPayload],
+    [selected, applyPayload, lang],
   );
   const scenario = useCallback((rainfall_mm: number, duration_h: number) => run("scenario", (area) => runScenario({ area, rainfall_mm, duration_h })), [run]);
   const forecast = useCallback((horizon_days: number) => run("forecast", (area) => apiForecast({ area, horizon_days })), [run]);
@@ -355,6 +375,26 @@ export function AppShell() {
     const go = () => (s.forecast ? forecast(s.forecast) : scenario(s.mm!, s.h!));
     if (gate(go)) go();      // signed out: the sign-in dialog opens and the run follows
   }, [sharedRun, selected, scenario, forecast]);
+
+  // Saved chats: open one (and its province), start a new one, or show a past run again.
+  const openChat = useCallback(async (id: string) => {
+    abort.current?.abort();
+    const thread = await history.open(id);
+    if (!thread) return false;
+    setBusy(false);
+    setStatus([]);
+    const prov = thread.area ? provincesRef.current.find((x) => x.pcode === thread.area) : undefined;
+    if (prov) setSelected(prov);
+    return true;
+  }, [history]);
+  const newChat = useCallback(() => { abort.current?.abort(); setBusy(false); setStatus([]); history.newChat(); }, [history]);
+  const restoreRun = useCallback((run: RunRef) => {
+    if (!/^TH\d{2}$/i.test(run.area)) return;
+    const p = provincesRef.current.find((x) => x.pcode === run.area.toUpperCase());
+    if (!p) return;
+    setSelected(p);
+    setSharedRun(run.kind === "forecast" && run.horizon_days ? { area: p.pcode, forecast: run.horizon_days } : run.rainfall_mm && run.duration_h ? { area: p.pcode, mm: run.rainfall_mm, h: run.duration_h } : null);
+  }, []);
 
   // The report button next to the province picker: this result's report when one is showing, otherwise the national overview's.
   const [reportOpen, setReportOpen] = useState(false);
@@ -395,6 +435,8 @@ export function AppShell() {
           <div className="min-h-0 flex-1 short:flex-none">
           <ChatPanel
             lang={lang}
+            history={{ summaries: history.summaries, loading: history.loading, signedIn: history.signedIn, accountHistory: history.accountHistory, onOpen: openChat, onNew: newChat, onDelete: history.remove }}
+            onRestore={restoreRun}
             messages={messages}
             busy={busy}
             status={status}

@@ -2,6 +2,7 @@ import { ApiError, readApiError } from "./api-error";
 import { authStatus, getAuthToken, loadAuthConfig, onAuthRequired, refreshUsage, startBurst } from "./auth";
 import { API_BASE } from "./config";
 import { parseSSE } from "./sse";
+import type { ChatSummary, ChatThread, RunRef } from "./chat-store";
 import type { Explain, ForecastResponse, Lang, OverviewSeries, Province, ReportData, ScenarioResponse, SseEvent, StaticLayersResponse, TambonShapes } from "./types";
 
 export { API_BASE };
@@ -41,7 +42,7 @@ async function authFetch(path: string, init: RequestInit = {}): Promise<Response
 }
 
 export async function streamChat(
-  body: { message: string; session_id: string; language: Lang; area?: string },
+  body: { message: string; session_id: string; language: Lang; area?: string; current?: RunRef; context?: string },
   onEvent: (e: SseEvent) => void,
   signal: AbortSignal,
 ) {
@@ -99,6 +100,13 @@ export const explain = (lat: number, lng: number, scenarioId: string) =>
   authFetch(`/explain?${new URLSearchParams({ lat: String(lat), lng: String(lng), scenario_id: scenarioId })}`).then((r) => json<Explain>(r));
 
 /** Opens the print-ready national overview report (a public page, no sign-in) for one slider day. */
+/** Saved chats of the signed-in account. Call only when signed in: a refusal here would open the sign-in dialog. */
+export const listRemoteChats = () => authFetch("/chats").then((r) => json<{ threads: Omit<ChatSummary, "where">[] }>(r)).then((x) => x.threads);
+export const getRemoteChat = (id: string) => authFetch(`/chats/${encodeURIComponent(id)}`).then((r) => json<ChatThread>(r));
+export const saveRemoteChat = (t: ChatThread) =>
+  authFetch(`/chats/${encodeURIComponent(t.id)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(t) }).then((r) => json<unknown>(r));
+export const deleteRemoteChat = (id: string) => authFetch(`/chats/${encodeURIComponent(id)}`, { method: "DELETE" }).then((r) => json<unknown>(r));
+
 export const fetchReportData = (scenarioId: string, lang: "en" | "th") =>
   authFetch(`/report-data/${encodeURIComponent(scenarioId)}?language=${lang}`).then((r) => json<ReportData>(r));
 
