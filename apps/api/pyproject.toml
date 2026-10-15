@@ -24,7 +24,7 @@ scripts = [
     "geopandas>=1.0",
     "osmium>=4.3.1",
     "pyogrio>=0.9",
-    "rasterio>=1.4",
+    "rasterio>=1.5.2",
     "shapely>=2.2.0",
 ]
 [tool.pytest.ini_options]
