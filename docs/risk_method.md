@@ -42,6 +42,7 @@ The Earth Engine paths of the layers are project-specific and are kept in `apps/
 
 ## Choices worth knowing about
 
+- **Landslide-prone ground (our adjustment).** The susceptibility map has a few stray susceptible pixels even in flat cities (embankments, ramps), and those sit among many people. Without a check, Bangkok came out as "Moderate" risk with about 2,600 people in the elevated zone, from 0.2 km² of pixels. A tambon now counts as landslide-prone only if at least 1 km² and at least 2 % of it is susceptible (`landslide_prone` in `tambon_risk.yaml`, set both to 0 to switch it off). Other tambons are shown with no risk, are left out of the triggered counts and the people and facility figures, and are left out of the risk layer. With these settings 3,107 of the 7,425 tambons in 67 provinces count as prone.
 - A tambon with no threshold in the table gets trigger class 0. Treating a missing value as 0 would make any rainfall exceed every threshold and give class 5.
 - Trigger classes are worked out once per tambon and then used as a lookup, so the rainfall reduction is not repeated for every layer.
 - The what-if rule above (adding the scenario rain to the observed rain of the earlier days) and the elevated-zone cut-off are our choices. They have not been checked against another reference.

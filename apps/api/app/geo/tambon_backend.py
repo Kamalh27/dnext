@@ -93,10 +93,15 @@ def _compute(area, extra_mm: float, window_obs_days: int, forecast: tuple | None
         else:
             stats = tambon_risk.tambon_stats(tfc, trig, tambon_risk.worldpop(), region, high_from=_min_high_from(min_class))
         sid = f"{area.admin_code}-{int(extra_mm)}-{window_obs_days}"
-        layers = tambon_risk.build_layers(region, rain_img, trig, tambon_risk.risk_image(trig), sid)
+        prone = static_stats.prone_codes(ss) if static_stats.covers(ss, rows) else None
+        if prone is not None:      # the risk layer leaves out tambons without landslide-prone ground, like the statistics do
+            trig_risk = tambon_risk.trigger_raster(tambon_risk.with_trigger(fc, [{**r, "trigger_class": r["trigger_class"] if r["adm3_pcode"] in prone else 0} for r in rows]))
+        else:
+            trig_risk = trig
+        layers = tambon_risk.build_layers(region, rain_img, trig, tambon_risk.risk_image(trig_risk), sid)
         rk = tambon_risk.cfg()["risk"]
-        facilities = static_stats.facilities_at_risk(static_stats.load_facilities(), rows, rk["cutoffs"], rk["divisor"], rk["class_names"], rk["class_names_th"])
-        return {"meta": meta, "fmeta": fmeta, "rows": rows, "stats": stats, "layers": layers, "region_days": window_obs_days, "facilities": facilities}
+        facilities = static_stats.facilities_at_risk(static_stats.load_facilities(), rows, rk["cutoffs"], rk["divisor"], rk["class_names"], rk["class_names_th"], prone)
+        return {"meta": meta, "fmeta": fmeta, "rows": rows, "stats": stats, "layers": layers, "region_days": window_obs_days, "facilities": facilities, "prone": prone}
 
     return _memo(key, _BUNDLE_TTL_S, build)
 
@@ -167,7 +172,8 @@ def _payload_common(b: dict) -> dict:
 def _hazard_payload(b: dict, extra: dict | None = None) -> dict:
     rows = b["rows"]
     obs_mm = [r["mean"] for r in rows if r["mean"] is not None]
-    triggered = sum(1 for r in rows if r["trigger_class"] > 0)
+    prone = b.get("prone")
+    triggered = sum(1 for r in rows if r["trigger_class"] > 0 and (prone is None or r["adm3_pcode"] in prone))
     risk_layer = next(l for l in b["layers"] if l["key"] == "risk")
     out = {
         "model": "tambon",

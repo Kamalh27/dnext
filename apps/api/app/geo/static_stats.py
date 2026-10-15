@@ -119,7 +119,7 @@ def load_facilities() -> dict | None:
 
 
 def facilities_at_risk(fac: dict | None, rows: list[dict], cutoffs: list[float], divisor: float = 125.0,
-                       names: list[str] | None = None, names_th: list[str] | None = None) -> dict:
+                       names: list[str] | None = None, names_th: list[str] | None = None, prone: set | None = None) -> dict:
     """Named hospitals and schools whose risk (tambon trigger x product / divisor) reaches the lowest risk-class cutoff.
 
     Returns {"items": [...sorted by risk then type...], "hospitals": n, "schools": n}; `items` carries every match (callers cap them)
@@ -129,7 +129,7 @@ def facilities_at_risk(fac: dict | None, rows: list[dict], cutoffs: list[float],
         return out
     for row in rows:
         t = row["trigger_class"]
-        if t <= 0:
+        if t <= 0 or (prone is not None and row["adm3_pcode"] not in prone):
             continue
         for kind, lat, lng, name, name_th, prod in fac["tambon"].get(row["adm3_pcode"], ()):
             risk = t * prod / divisor
@@ -144,6 +144,25 @@ def facilities_at_risk(fac: dict | None, rows: list[dict], cutoffs: list[float],
                                  "admin_code": row["adm3_pcode"]})
     out["items"].sort(key=lambda f: (-f["risk"], f["kind"] != "hospital", f["name"]))
     return out
+
+
+_prone_memo: dict = {"id": None, "codes": set()}
+
+
+def prone_codes(data: dict) -> set:
+    """Tambons with enough susceptible ground to be at landslide risk at all (see `landslide_prone` in tambon_risk.yaml)."""
+    if _prone_memo["id"] == id(data):
+        return _prone_memo["codes"]
+    c = tambon_risk.cfg().get("landslide_prone") or {}
+    min_km2, min_share = float(c.get("min_area_km2", 0)), float(c.get("min_share", 0))
+    codes = set()
+    for code, s in data["tambon"].items():
+        sus = sum(v[0] for p, v in s["h"].items() if int(p) >= 1)
+        total = s["area"] or 0.0
+        if sus > 0 and sus >= min_km2 and (total <= 0 or sus / total >= min_share):
+            codes.add(code)
+    _prone_memo.update(id=id(data), codes=codes)
+    return codes
 
 
 def covers(data: dict | None, rows: list[dict]) -> bool:
@@ -161,17 +180,18 @@ def tambon_stats(data: dict, rows: list[dict], high_value: float | None = None, 
     by_class = [{"class": i + 1, "name": n, "area_km2": 0.0, "people": 0.0, "buildings": 0.0, "hospitals": 0.0, "schools": 0.0, "road_km": 0.0}
                 for i, n in enumerate(names)]
     out: dict[str, dict] = {}
+    prone = prone_codes(data)
     for row in rows:
         code, t = row["adm3_pcode"], row["trigger_class"]
         s = data["tambon"][code]
         hist = {int(p): v for p, v in s["h"].items()}
         total = s["area"] or 0.0
         rec = {"adm3_pcode": code, "rain30_mm": row["rain30_mm"], "trigger_class": t, "expo": s.get("ex"), "expo_class": s.get("ec"),
-               "risk": None, "risk_max": None, "share_high": 0.0, "people_high": 0.0}
+               "risk": None, "risk_max": None, "share_high": 0.0, "people_high": 0.0, "prone": code in prone}
         if features is not None:
             rec.update(buildings=0.0, hospitals=0.0, schools=0.0, road_km=0.0)
         valid = {p: v for p, v in hist.items() if p >= 1}
-        if t > 0 and valid:
+        if t > 0 and valid and code in prone:
             va = sum(v[0] for v in valid.values())
             rec["risk"] = (sum(v[0] * (t * p / divisor) for p, v in valid.items()) / va) if va > 0 else None
             rec["risk_max"] = t * max(valid) / divisor

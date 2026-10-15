@@ -31,8 +31,8 @@ def caches(monkeypatch):
 
 def test_overview_ranks_by_risk_not_by_rain(caches):
     o = overview.national(0)
-    assert o["tambons_total"] == 3 and o["triggered"] == 2 and o["provinces_triggered"] == 2
-    assert [p["name"] for p in o["provinces"]][:2] == ["Hilly", "Flat"]          # equal rain share, but only Hilly has risk
+    assert o["tambons_total"] == 3 and o["triggered"] == 1 and o["provinces_triggered"] == 1     # the flat tambon is above its rain threshold but cannot slide
+    assert o["provinces"][0]["name"] == "Hilly"          # only Hilly has risk; the flat province is above its rain threshold too but cannot slide
     hilly = o["provinces"][0]
     assert hilly["risk_max"] == 5.0 and hilly["risk_class"] == 5 and hilly["people_elevated"] == 100   # 140 people, rounded to the nearest 100
     assert o["provinces"][1]["risk_class"] == 0 and [p["name"] for p in o["top"]] == ["Hilly"]
@@ -56,7 +56,7 @@ def test_overview_unavailable_without_caches(monkeypatch):
 def test_overview_endpoint(caches):
     with TestClient(app) as c:
         r = c.get("/overview")
-        assert r.status_code == 200 and r.json()["triggered"] == 2
+        assert r.status_code == 200 and r.json()["triggered"] == 1
         assert c.get("/overview?horizon_days=99").status_code == 422
 
 
@@ -69,7 +69,7 @@ def test_series_gives_one_record_per_day_with_cumulative_risk_and_daily_rain(cac
     assert dry(0)["rain_mm"] == 1.0 and dry(1)["rain_mm"] == 100.0 and dry(2)["rain_mm"] == 150.0 and dry(3)["rain_mm"] == 50.0
     trig = [d["totals"]["triggered"] for d in s["days"]]
     assert trig == sorted(trig)                  # synthetic data has no rain rolling out of the 30-day window, so it only grows
-    assert s["days"][5]["totals"]["triggered"] == 3 and "not a forecast" in s["limitations"][0]
+    assert s["days"][5]["totals"]["triggered"] == 2 and "not a forecast" in s["limitations"][0]
 
 
 def test_series_endpoint(caches):
@@ -98,3 +98,19 @@ def test_forecast_up_to_36_hours_old_is_still_used(caches):
     caches["forecast"]["horizons"] = {str(h): 24 * h for h in range(1, 6)}
     s = overview.series(5)
     assert len(s["days"]) == 6 and s["forecast_available"] is True
+
+
+def test_a_tambon_without_landslide_prone_ground_is_never_at_risk(caches):
+    o = overview.national(0)
+    flat = next(p for p in o["provinces"] if p["name"] == "Flat")
+    assert flat["triggered"] == 0 and flat["risk_class"] == 0 and flat["people_elevated"] == 0
+    assert "B1" not in static_stats.prone_codes(static_stats.load()) and "A1" in static_stats.prone_codes(static_stats.load())
+
+
+def test_stray_susceptible_pixels_do_not_make_a_tambon_prone(monkeypatch):
+    data = {"tambon": {"city": {"area": 100.0, "h": {"50": [0.4, 2500.0]}},          # 0.4 km2 of 100: stray pixels
+                       "hills": {"area": 100.0, "h": {"50": [30.0, 900.0]}}}}         # 30 % susceptible
+    assert static_stats.prone_codes(data) == {"hills"}
+    assert static_stats.facilities_at_risk({"tambon": {"city": [["hospital", 1, 1, "H", "", 50]], "hills": [["school", 2, 2, "S", "", 50]]}},
+                                           [{"adm3_pcode": c, "trigger_class": 5, "adm3_name": c, "adm3_name1": "", "adm2_name": "", "adm2_name1": ""}
+                                            for c in ("city", "hills")], [1, 2, 3, 4], 125.0, None, None, {"hills"})["schools"] == 1

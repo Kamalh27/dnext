@@ -107,6 +107,10 @@ def _national(horizon_days: int) -> dict:
     if horizon_days and (str(horizon_days) not in {str(k) for k in f.get("horizons", {})} or time.time() * 1000 - f.get("run_ms", 0) > obs_cache.MAX_FORECAST_AGE_MS):
         raise OverviewUnavailable("No fresh GFS forecast in the precompute for this horizon")
     rows = _rows(data, horizon_days)
+    prone = static_stats.prone_codes(ss)
+    for r in rows:             # rain above a threshold on ground that cannot slide is not a landslide trigger: count it as none
+        if r["adm3_pcode"] not in prone:
+            r["rain_trigger_class"], r["trigger_class"] = r["trigger_class"], 0
     feats = static_stats.load_features()
     res = static_stats.tambon_stats(ss, [r for r in rows if r["adm3_pcode"] in ss["tambon"]], features=feats,
                                     footprint_m2=load_yaml("thresholds.yaml")["exposure"].get("avg_footprint_m2", 60.0))
@@ -128,7 +132,7 @@ def _national(horizon_days: int) -> dict:
             if s.get(k) is not None:
                 p[k] = p.get(k, 0.0) + s[k]
     rk = tambon_risk.cfg()["risk"]
-    fac = static_stats.facilities_at_risk(static_stats.load_facilities(), rows, rk["cutoffs"], rk["divisor"], rk["class_names"], rk["class_names_th"])
+    fac = static_stats.facilities_at_risk(static_stats.load_facilities(), rows, rk["cutoffs"], rk["divisor"], rk["class_names"], rk["class_names_th"], prone)
     provinces = []
     for p in prov.values():
         p["triggered_share"] = round(p["triggered"] / p["tambons"], 3) if p["tambons"] else 0.0
