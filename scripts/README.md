@@ -10,6 +10,7 @@ Run from `apps/api`: `uv run [--group scripts] python ../../scripts/<script>.py 
 | `precompute_static_stats.py` | Once | Per-tambon area and population for each value of the static risk product. `--bucket` also uploads it | `.local_storage/risk/static_stats.json` |
 | `precompute_features.py` | Once | Built-up area, hospitals, schools and main roads per tambon and risk product. Needs `scripts/out/osm/thailand-latest.osm.pbf` from Geofabrik. Runs in cached steps: `geoms, osm, sample, ghsl, merge` | `.local_storage/risk/static_features.json` |
 | `precompute_facilities.py` | Once | Named hospitals and schools that can reach a Low-or-higher risk, with location, tambon and risk product. Same Geofabrik extract. Needs the `geoms` step of `precompute_features.py` to have run | `.local_storage/risk/facilities.json` |
+| `build_tambon_shapes.py` | Once | Simplified outlines of all 7,425 tambons, grouped by province, for the report map. Needs the `geoms` step of `precompute_features.py` | `.local_storage/risk/tambon_shapes.json` |
 | `build_provinces_geojson.py` | Once | Simplified outlines of the 77 provinces, built from the tambon table, for map clicks | `apps/web/public/provinces.json` |
 | `precompute_rain.py` | Daily | Observed (GSMaP) and forecast (GFS) rainfall per tambon. `--bucket` also uploads it | `.local_storage/risk/obs_daily.json` |
 

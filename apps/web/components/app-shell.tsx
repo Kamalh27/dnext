@@ -6,11 +6,12 @@ import { ViewTabs } from "./view-tabs";
 import { ResizeHandle } from "./resize-handle";
 import { ChatPanel, type Message } from "./chat-panel";
 import { MapPanel } from "./map-panel";
+import { ReportModal } from "./report-modal";
 import { ScenarioBar } from "./scenario-bar";
 import { SignInDialog } from "./sign-in-dialog";
 import type { RunError, RunKind } from "./scenario-card";
 import { parseShare, type ShareRun } from "@/lib/share";
-import { ApiError, fetchOverviewSeries, openOverviewReport, openReport, fetchProvinces, fetchStaticLayers, runForecast as apiForecast, runScenario, streamChat } from "@/lib/api";
+import { ApiError, fetchOverviewSeries, fetchProvinces, fetchStaticLayers, runForecast as apiForecast, runScenario, streamChat } from "@/lib/api";
 import { burstLeftS, gate, loadAuthConfig, requestSignIn } from "@/lib/auth";
 import { t } from "@/lib/i18n";
 import { hasThai } from "@/lib/lang";
@@ -356,31 +357,22 @@ export function AppShell() {
   }, [sharedRun, selected, scenario, forecast]);
 
   // The report button next to the province picker: this result's report when one is showing, otherwise the national overview's.
-  const [reportBusy, setReportBusy] = useState(false);
-  const [reportError, setReportError] = useState<string | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
   const reportTarget: "scenario" | "overview" | null = kpis?.scenario_id ? "scenario" : series?.days.some((d) => d.h === overviewDay) ? "overview" : null;
-  const onReport = useCallback(async () => {
-    if (reportBusy || !reportTarget) return;
-    if (reportTarget === "scenario" && kpis) {
-      if (burstLeftS() > 0 || !gate()) return;      // limit pending, or signed out (the sign-in dialog opens instead)
-    }
-    setReportBusy(true);
-    setReportError(null);
-    try {
-      if (reportTarget === "scenario" && kpis) await openReport(kpis.scenario_id, lang);
-      else await openOverviewReport(overviewDay, lang);
-    } catch (err) {
-      if (!(err instanceof ApiError && err.isAuthRequired)) setReportError(err instanceof ApiError && (err.isBurst || err.isDaily) ? err.message : t(lang).error);
-    } finally {
-      setReportBusy(false);
-    }
-  }, [reportBusy, reportTarget, kpis, lang, overviewDay]);
+  const onReport = useCallback(() => {
+    if (!reportTarget) return;
+    if (reportTarget === "scenario" && (burstLeftS() > 0 || !gate(() => setReportOpen(true)))) return;      // limit pending, or signed out (sign-in opens first)
+    setReportOpen(true);
+  }, [reportTarget]);
+  const closeReport = useCallback(() => setReportOpen(false), []);
 
   const allMarkers = useMemo(() => markers.flatMap((m) => m.markers), [markers]);
 
   return (
     <div className="flex h-[var(--app-h,100dvh)] flex-col">
       <SignInDialog lang={lang} />
+      {reportOpen && reportTarget === "scenario" && kpis && <ReportModal lang={lang} source={{ mode: "scenario", kpis, charts, tables }} provinces={provinces} onClose={closeReport} />}
+      {reportOpen && reportTarget === "overview" && series && <ReportModal lang={lang} source={{ mode: "overview", series, day: overviewDay }} provinces={provinces} onClose={closeReport} />}
       <Header lang={lang} setLang={setLang} tab={tab} onTab={setTab} />
       {/* Below 1024px the chat and the map are tabs (full-width panels); on short screens the tabs live inside the header instead. */}
       <div className="lg:hidden short:hidden">
@@ -399,7 +391,7 @@ export function AppShell() {
           )}
         >
           <ScenarioBar lang={lang} provinces={provinces} selected={selected} kpis={kpis} hasResults={hasResults} onSelect={selectByCode} onReset={clearScenario}
-            report={{ target: reportTarget, busy: reportBusy, error: reportError, onClick: onReport }} />
+            report={{ target: reportTarget, busy: false, error: null, onClick: onReport }} />
           <div className="min-h-0 flex-1 short:flex-none">
           <ChatPanel
             lang={lang}

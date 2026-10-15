@@ -83,7 +83,8 @@ PIPE=(
   "$RUN/build_provinces_geojson.py                           # one-off: province outlines for the map"
   "$RUN/precompute_features.py                               # one-off: buildings, hospitals, schools, roads (needs the Geofabrik extract)"
   "$RUN/precompute_facilities.py                             # one-off: named hospitals and schools at risk"
-  "gcloud storage cp .local_storage/risk/static_features.json .local_storage/risk/facilities.json gs://$BUCKET/risk/   # upload the features files"
+  "$RUN/build_tambon_shapes.py                               # one-off: tambon outlines for the report map"
+  "gcloud storage cp .local_storage/risk/static_features.json .local_storage/risk/facilities.json .local_storage/risk/tambon_shapes.json gs://$BUCKET/risk/   # upload the features files"
   "$RUN/precompute_rain.py --bucket $BUCKET                  # daily: rainfall per tambon"
 )
 echo

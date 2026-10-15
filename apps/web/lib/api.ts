@@ -2,7 +2,7 @@ import { ApiError, readApiError } from "./api-error";
 import { authStatus, getAuthToken, loadAuthConfig, onAuthRequired, refreshUsage, startBurst } from "./auth";
 import { API_BASE } from "./config";
 import { parseSSE } from "./sse";
-import type { Explain, ForecastResponse, Lang, OverviewSeries, Province, ScenarioResponse, SseEvent, StaticLayersResponse } from "./types";
+import type { Explain, ForecastResponse, Lang, OverviewSeries, Province, ReportData, ScenarioResponse, SseEvent, StaticLayersResponse, TambonShapes } from "./types";
 
 export { API_BASE };
 export { ApiError };
@@ -99,6 +99,14 @@ export const explain = (lat: number, lng: number, scenarioId: string) =>
   authFetch(`/explain?${new URLSearchParams({ lat: String(lat), lng: String(lng), scenario_id: scenarioId })}`).then((r) => json<Explain>(r));
 
 /** Opens the print-ready national overview report (a public page, no sign-in) for one slider day. */
+export const fetchReportData = (scenarioId: string, lang: "en" | "th") =>
+  authFetch(`/report-data/${encodeURIComponent(scenarioId)}?language=${lang}`).then((r) => json<ReportData>(r));
+
+export const fetchOverviewReportData = (day: number, lang: "en" | "th") =>
+  fetch(`${API_BASE}/overview/report-data?day=${day}&language=${lang}`).then((r) => json<ReportData>(r));
+
+export const fetchTambonShapes = (pcode: string) => fetch(`${API_BASE}/geo/tambons/${pcode}`).then((r) => json<TambonShapes>(r));
+
 export async function openOverviewReport(day: number, lang: "en" | "th") {
   const tab = window.open("", "_blank");
   try {

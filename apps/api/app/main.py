@@ -6,7 +6,7 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse, HTMLResponse
 from fastapi.sse import EventSourceResponse, ServerSentEvent
@@ -21,6 +21,7 @@ from slowapi.util import get_remote_address
 
 from app.agent.agent import build_agent
 from app import briefing as briefing_mod
+from app import guidance as guidance_mod
 from app.agent.events import events_for_tool_result, forecast_events, scenario_events, status_for
 from app.geo import service, storage
 from app.geo.areas import AreaError, resolve
@@ -159,6 +160,50 @@ async def static_layers():
              "population": "Population (WorldPop 2020)"}
     return {"layers": [{"id": f"static-{k}", "key": k, "name": n, "tile_url": "", "opacity": 0.7, "visible": False, "legend": _l(), "group": "static"}
                        for k, n in names.items()], "expires_in_s": 3600}
+
+
+@app.get("/geo/tambons/{pcode}")
+async def tambon_shapes(pcode: str, response: Response):
+    """Simplified outlines of one province's tambons ({code: geometry}), for the map in the report."""
+    import re
+    from app.geo import static_stats
+    if not re.fullmatch(r"TH\d{2}", pcode.upper()):
+        raise HTTPException(422, "pcode must look like TH50")
+    shapes = await asyncio.to_thread(static_stats.load_shapes)
+    if not shapes or pcode.upper() not in shapes:
+        raise HTTPException(404, "No outlines for this province")
+    response.headers["Cache-Control"] = "public, max-age=86400"
+    return {"pcode": pcode.upper(), "tambons": shapes[pcode.upper()]}
+
+
+@app.get("/report-data/{scenario_id}")
+async def report_data(scenario_id: str, language: str = "en", account=Depends(gate("light"))):
+    """What the report editor needs besides the result the page already holds: guidance text, the named facilities and every tambon's risk."""
+    if language not in ("en", "th"):
+        raise HTTPException(422, "language must be en|th")
+    sc = service.get_cached(scenario_id)
+    if sc is None:
+        raise HTTPException(404, "Unknown or expired scenario_id")
+    x = sc["exposure"]
+    return {"guidance": guidance_mod.sections(sc, language), "facilities": x.get("facilities") or [], "facilities_named": x.get("facilities_named") or {},
+            "tambon_risks": x.get("tambon_risks") or [], "area": {k: sc["area"].get(k) for k in ("name", "name_th", "admin_code", "bbox")}}
+
+
+@app.get("/overview/report-data")
+async def overview_report_data(day: int = 0, language: str = "en"):
+    """The same for the national overview: guidance text and the named facilities at risk for one slider day."""
+    from app.geo import overview as ov
+    if not (0 <= day <= 10) or language not in ("en", "th"):
+        raise HTTPException(422, "day must be 0..10 and language en|th")
+    try:
+        o = await asyncio.to_thread(ov.national, day)
+    except ov.OverviewUnavailable as e:
+        raise HTTPException(503, str(e))
+    peak = max((p["risk_max"] for p in o["provinces"]), default=0)
+    named = [f for f in o.get("facilities") or [] if "risk" in f]
+    g = guidance_mod.sections({"exposure": {"people": o["people_elevated"], "tambon_table": [{"risk_max": peak}], "facilities": named}}, language)
+    return {"guidance": g, "facilities": named, "facilities_named": o.get("facilities_named") or {}, "limitations": o.get("limitations", []),
+            "date_of_data": o["date_of_data"], "model_run_time": o.get("model_run_time")}
 
 
 @app.get("/readyz")

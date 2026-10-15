@@ -28,7 +28,7 @@ Read by `apps/api/app/settings.py`, from the environment or from `.env`.
 | `GOOGLE_GENAI_USE_VERTEXAI` | `true` | Use Vertex AI rather than an API key |
 | `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION` | project, `global` | Used by the Gemini SDK |
 | `GOOGLE_MAPS_SERVER_KEY` | unset | Turns on the geocoding fallback for places that are not in the built-in list. Read from the environment |
-| `RISK_OBS_PATH`, `RISK_STATIC_STATS_PATH`, `RISK_STATIC_FEATURES_PATH`, `RISK_FACILITIES_PATH` | unset | Use a specific precomputed file instead of the local or Cloud Storage copy |
+| `RISK_OBS_PATH`, `RISK_STATIC_STATS_PATH`, `RISK_STATIC_FEATURES_PATH`, `RISK_FACILITIES_PATH`, `RISK_SHAPES_PATH` | unset | Use a specific precomputed file instead of the local or Cloud Storage copy |
 
 ## Web environment variables
 
