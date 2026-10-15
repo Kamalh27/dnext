@@ -1,7 +1,7 @@
 // Run: node --test lib/infra.test.ts   (Node type stripping)
 import test from "node:test";
 import assert from "node:assert/strict";
-import { colorOfRisk, counts, heightOf, squareAround } from "./infra.ts";
+import { colorOfRisk, counts, heightOf, hotspot, squareAround, type Infra } from "./infra.ts";
 
 test("a footprint is a closed square of about the right size", () => {
   const ring = squareAround(18.8, 99.0, 100);
@@ -27,4 +27,12 @@ test("only Moderate and above get a hot colour; heights are bounded", () => {
 
 test("counts of nothing are zero", () => {
   assert.deepEqual(counts(null), { buildings: 0, roadKm: 0 });
+});
+
+test("the hotspot is the riskiest building, and there is none without buildings", () => {
+  const d = { scenario_id: "x", min_risk: 2, available: true, road_km: 0, truncated: false, roads: [],
+    buildings: [[18.1, 98.1, 100, 4, 2.1], [18.2, 98.2, 100, 4, 3.4], [18.3, 98.3, 100, 4, 2.9]] } as Infra;
+  assert.deepEqual(hotspot(d), { lat: 18.2, lng: 98.2 });
+  assert.equal(hotspot({ ...d, buildings: [] }), null);
+  assert.equal(hotspot(null), null);
 });

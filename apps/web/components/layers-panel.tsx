@@ -96,7 +96,9 @@ export function LayersPanel({ id, lang, scenario, reference, onChange, boundarie
   /** National overview only: the province colours, which have no tiles of their own. */
   overviewLayer?: { name: string; visible: boolean; onChange: (v: boolean) => void };
   /** Affected infrastructure of the result on screen (Moderate risk or higher): toggles and what is available. */
-  infra?: { counts: { buildings: number; roadKm: number; facilities: number }; state: InfraToggles; zoom: number; loading: boolean; truncated: boolean; onChange: (p: Partial<InfraToggles>) => void };
+  infra?: { counts: { buildings: number; roadKm: number; facilities: number }; state: InfraToggles; zoom: number; loading: boolean; truncated: boolean; onChange: (p: Partial<InfraToggles>) => void;
+    /** No scenario or forecast on screen yet: the section only explains what is needed. */ needsRun?: boolean;
+    /** Fly to the riskiest building (3D tilt when the 3D switch is on). */ onZoom?: () => void };
 }) {
   const tr = t(lang);
   // Phones and short screens: a full-width panel at the bottom of the map, above the Google logo (the other overlays hide while it is open, see globals.css); otherwise a popover beside the button.
@@ -148,6 +150,7 @@ export function LayersPanel({ id, lang, scenario, reference, onChange, boundarie
           <section aria-labelledby={`${id}-infra`} className="border-b last:border-b-0" data-testid="infra-section">
             <h3 id={`${id}-infra`} className="bg-muted/60 px-3 py-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">{tr.layersInfra}</h3>
             <p className="px-3 pt-1.5 text-[11px] text-muted-foreground">{tr.infraSubtitle}</p>
+            {infra.needsRun ? <p className="px-3 py-2 text-[11px] text-muted-foreground" data-testid="infra-needs-run">{tr.infraNeedsRun}</p> : (<>
             <ul className="divide-y">
               {([["buildings", tr.infraBuildings, infra.counts.buildings.toLocaleString()], ["roads", tr.infraRoads, `${infra.counts.roadKm} km`], ["facilities", tr.infraFacilities, infra.counts.facilities.toLocaleString()]] as const).map(([k, label, n]) => (
                 <li key={k} className="flex items-center gap-2 px-2 py-1">
@@ -161,9 +164,15 @@ export function LayersPanel({ id, lang, scenario, reference, onChange, boundarie
                 <span className={cn("min-w-0 flex-1 font-medium", !infra.state.threeD && "text-muted-foreground")}>{tr.infra3d}</span>
               </li>
             </ul>
+            {infra.onZoom && infra.counts.buildings > 0 && (
+              <div className="px-3 py-1.5">
+                <button type="button" onClick={infra.onZoom} data-testid="infra-zoom" className="min-h-8 rounded-[4px] border px-2.5 text-[12px] outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring coarse:min-h-11">{tr.infraZoom}</button>
+              </div>
+            )}
             {infra.state.threeD && infra.zoom < Z_3D && <p className="px-3 py-1.5 text-[11px] text-muted-foreground">{tr.infra3dHint}</p>}
             {infra.truncated && <p className="px-3 py-1.5 text-[11px] text-muted-foreground">{tr.infraTruncated}</p>}
             {!infra.loading && infra.counts.buildings + infra.counts.roadKm + infra.counts.facilities === 0 && <p className="px-3 py-1.5 text-[11px] text-muted-foreground">{tr.infraNone}</p>}
+            </>)}
           </section>
         )}
         {sections.length === 0 && !infra && <p className="px-3 py-3 text-muted-foreground">{tr.layersNone}</p>}
