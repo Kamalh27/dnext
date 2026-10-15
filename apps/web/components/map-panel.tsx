@@ -22,6 +22,8 @@ import { fetchInfrastructure } from "@/lib/api";
 import { DEFAULT_TOGGLES, type Infra, type InfraToggles } from "@/lib/infra";
 import { localLayer, markerTitle, pick } from "@/lib/lang";
 import { InfraOverlay } from "./infra-overlay";
+import { NO_DRAW, SafeOverlay, SafePlacesPanel, type SafeDraw } from "./safe-places";
+import { ReportMarkers, ReportModal } from "./community-report";
 import { countsOf, fillsFor, legendFor, numFmt, riskName, type Fill, type OverviewMetric } from "@/lib/overview";
 import { MQ, useMedia } from "@/lib/use-media";
 import type { Explain, Lang, MapLayer, MapLayerItem, MapLayersEvent, MapMarkers, OverviewProvinceDay, OverviewSeries, Province, StaticLayerItem } from "@/lib/types";
@@ -87,6 +89,11 @@ function MapInner({ lang, layer, layers, staticLayers, markers, provinces, selec
   const [me, setMe] = useState<Pt | null>(null);
   const [pin, setPin] = useState<(Pt & { label: string }) | null>(null);
   const [wrap, setWrap] = useState<HTMLDivElement | null>(null);
+  const gmap = useMap();
+  const [safeOpen, setSafeOpen] = useState(false);
+  const [draw, setDraw] = useState<SafeDraw>(NO_DRAW);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportsVersion, setReportsVersion] = useState(0);
   // The globe is opt-in (Globe button). A new result (layer) closes it so the hazard map is never hidden behind it.
   const [globe, setGlobe] = useState(false);
   // Thin outlines of every province are a toggleable reference layer (per session). The selected province stays highlighted regardless.
@@ -224,6 +231,8 @@ function MapInner({ lang, layer, layers, staticLayers, markers, provinces, selec
             <Pin background="#8a4b24" borderColor="#fff" glyphColor="#fff" />
           </AdvancedMarker>
         )}
+        <ReportMarkers lang={lang} version={reportsVersion} />
+        {safeOpen && <SafeOverlay lang={lang} draw={draw} />}
         {infraData && <InfraOverlay lang={lang} data={infraData} show={infraOn} zoom={cam.zoom} />}
         {shownMarkers.map((m, i) => {
           const s = KIND_STYLE[m.kind] ?? KIND_STYLE.bridge;
@@ -243,7 +252,10 @@ function MapInner({ lang, layer, layers, staticLayers, markers, provinces, selec
       <div className="absolute top-3 left-3 flex flex-col items-start gap-2">
         <MapSearch lang={lang} onPin={setPin} />
       </div>
-      <MapControls lang={lang} onLocate={setMe} onGlobe={() => setGlobe(true)} onResetView={() => setGlobe(false)} boundaries={{ visible: outlines, onChange: setOutlines }} fullscreenTarget={wrap} layers={items} reference={staticItems} onLayerChange={onLayerChange}
+      {safeOpen && <SafePlacesPanel lang={lang} scenarioId={scope || undefined} me={me} onDraw={setDraw} onClose={() => setSafeOpen(false)} />}
+      <ReportModal lang={lang} open={reportOpen} onClose={() => setReportOpen(false)} me={me}
+        centre={() => { const c = gmap?.getCenter(); return c ? { lat: c.lat(), lng: c.lng() } : null; }} onDone={() => setReportsVersion((v) => v + 1)} />
+      <MapControls lang={lang} onLocate={setMe} onGlobe={() => setGlobe(true)} onResetView={() => setGlobe(false)} boundaries={{ visible: outlines, onChange: setOutlines }} fullscreenTarget={wrap} layers={items} reference={staticItems} onLayerChange={onLayerChange} safe={{ open: safeOpen, onToggle: () => setSafeOpen((o) => !o) }} onReport={() => setReportOpen(true)}
         infra={scope ? { counts: { buildings: infraData?.buildings.length ?? 0, roadKm: infraData?.road_km ?? 0, facilities: shownMarkers.length }, state: infraOn, zoom: cam.zoom, loading: !!scope && infra.sid !== scope, truncated: !!infraData?.truncated, onChange: (p) => setInfraOn((s) => ({ ...s, ...p })) } : undefined} />
 
       {overview && hover && (

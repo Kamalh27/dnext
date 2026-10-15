@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     firebase_app_id: str = ""
     limit_chat_per_day: int = 30
     limit_run_per_day: int = 200                # scenario + forecast runs
+    limit_route_per_day: int = 40               # route previews (Google Routes API) per account
+    route_daily_cap: int = 400                  # route previews per instance and day, whoever asks
+    limit_report_per_day: int = 6               # community reports per account
     limit_burst_per_min: int = 6                # per account, per instance
     usage_timezone: str = "Asia/Bangkok"        # daily counters reset at local midnight
     request_timeout_s: float = 60.0

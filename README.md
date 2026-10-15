@@ -19,6 +19,8 @@ It is a screening tool for planning and situational awareness, not a forecast or
 - **Chat history.** Conversations are saved in the browser and, for signed-in users, in Firestore for 90 days. Scenario runs from the sliders are noted in the conversation, and the assistant knows about the result on screen, so follow-ups like "what about 400 mm?" work.
 - **30-day trend and alerts.** Each day's risk per province and tambon is appended to BigQuery by the daily job, which gives a 30-day trend for the selected province. Signed-in users can watch provinces and get an in-app alert (and optionally an email) when the risk of a watched province rises. The job announces new data through Pub/Sub.
 - **Photo check.** Take or choose a photo of a slope or road and Gemini describes the warning signs it can see next to the computed risk of the area. The photo is resized on the device, looked at once and not stored.
+- **Safe places and route preview.** A panel lists the nearest candidate shelters, community buildings, schools, temples and hospitals (from OpenStreetMap) that sit on ground with very low landslide risk, with distance and direction. A place can be opened in Google Maps for directions, or previewed on the map with the Google Routes API: up to three routes, ranked by how little of them follows main roads in the Moderate-or-higher zone of the result on screen. These are candidates from open data, not a confirmed list of shelters, and a route is never a guarantee of safety.
+- **Community reports.** Signed-in users can report a landslide, a blocked road or slope damage with a photo. Gemini reads the photo, the data for the place is checked (is the ground landslide-prone, is the rain above the tambon's trigger) and a report is shown on the map only when both agree. Photos are never stored, places are rounded to about 100 m, reports expire after 48 hours (7 days for slope damage), and three flags from different accounts hide one. They are labelled as checked by AI and not verified by authorities.
 - **Chat assistant.** Gemini, running through Google's Agent Development Kit, answers in English or Thai. Every number comes from a computed result, not from the model.
 - **Sign-in with daily limits (optional).** Firebase Authentication with Google accounts, with a daily budget per account to keep Gemini costs under control on a public deployment.
 - **Phone to widescreen.** English and Thai, light and dark themes.
@@ -37,7 +39,7 @@ Rainfall comes from JAXA GSMaP (observed) and NOAA GFS (forecast). A what-if amo
 
 Most of the work is done ahead of time. Daily rainfall per tambon and two tables of per-tambon statistics are precomputed into small files, so a scenario needs a few milliseconds of Python plus map tiles from Earth Engine, and a request takes roughly 1 to 8 seconds.
 
-Data comes from ADPC layers accessed through Google Earth Engine, WorldPop, GHSL built-up area, OpenStreetMap (hospitals, schools, main roads) and Google Maps. See [docs/data_sources.md](docs/data_sources.md).
+Data comes from ADPC layers accessed through Google Earth Engine, WorldPop, GHSL built-up area, OpenStreetMap (hospitals, schools, main roads, candidate safe places) and Google Maps Platform (maps, Routes API). See [docs/data_sources.md](docs/data_sources.md).
 
 ```mermaid
 flowchart LR
@@ -113,6 +115,7 @@ uv run --group scripts python ../../scripts/precompute_features.py          # bu
 uv run --group scripts python ../../scripts/precompute_facilities.py        # named hospitals and schools at risk (same extract)
 uv run --group scripts python ../../scripts/build_tambon_shapes.py          # tambon outlines for the report map
 uv run --group scripts python ../../scripts/precompute_infrastructure.py    # buildings and main roads on ground that can reach Moderate risk (about 10 minutes)
+uv run --group scripts python ../../scripts/precompute_shelters.py          # candidate safe places on very-low-risk ground (same extract)
 
 # daily: rainfall
 uv run python ../../scripts/precompute_rain.py

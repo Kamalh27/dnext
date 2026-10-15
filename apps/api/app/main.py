@@ -215,23 +215,74 @@ async def trend(pcode: str, days: int = 30):
     return await asyncio.to_thread(history.trend, pcode.upper(), days)
 
 
+def _infrastructure_of(sc: dict) -> dict:
+    """Buildings and road pieces inside the Moderate-or-higher zone of a cached result."""
+    from app.geo import static_stats, tambon_risk
+    r = tambon_risk.cfg()["risk"]
+    ss = static_stats.load()
+    res = static_stats.infrastructure_at_risk(static_stats.load_infrastructure(), sc["exposure"].get("tambon_risks") or [], r["cutoffs"][r["exposure_from"] - 2], r["divisor"],
+                                              static_stats.prone_codes(ss) if ss else None)
+    return {"min_risk": r["cutoffs"][r["exposure_from"] - 2], "available": static_stats.load_infrastructure() is not None, **res}
+
+
 @app.get("/infrastructure/{scenario_id}")
 async def infrastructure(scenario_id: str, account=Depends(gate("light"))):
     """Buildings and main-road pieces inside the Moderate-or-higher risk zone of a result, for the map (3D buildings, affected roads)."""
-    from app.geo import static_stats, tambon_risk
     sc = service.get_cached(scenario_id)
     if sc is None:
         raise HTTPException(404, "Unknown or expired scenario_id")
-    risks = sc["exposure"].get("tambon_risks") or []
+    return {"scenario_id": scenario_id, **await asyncio.to_thread(_infrastructure_of, sc)}
 
-    def build() -> dict:
-        r = tambon_risk.cfg()["risk"]
-        ss = static_stats.load()
-        res = static_stats.infrastructure_at_risk(static_stats.load_infrastructure(), risks, r["cutoffs"][r["exposure_from"] - 2], r["divisor"],
-                                                  static_stats.prone_codes(ss) if ss else None)
-        return {"scenario_id": scenario_id, "min_risk": r["cutoffs"][r["exposure_from"] - 2], "available": static_stats.load_infrastructure() is not None, **res}
 
-    return await asyncio.to_thread(build)
+SHELTER_KINDS = {"shelter", "community", "school", "temple", "hospital"}
+
+
+@app.get("/shelters/near")
+@limiter.limit("60/minute")
+async def shelters_near(request: Request, lat: float, lng: float, k: int = 6, kind: str | None = None):
+    """The nearest candidate safe places (OpenStreetMap, on ground that stays at Very low risk). Candidates from open data, not a confirmed list."""
+    from app import routing, shelters
+    kinds = {x for x in (kind or "").split(",") if x}
+    if not routing.in_thailand(lat, lng) or not (1 <= k <= 12) or not kinds <= SHELTER_KINDS:
+        raise HTTPException(422, "lat/lng must be in Thailand, k 1..12 and kind one of " + ",".join(sorted(SHELTER_KINDS)))
+    places = await asyncio.to_thread(shelters.nearest, lat, lng, k, kinds or None)
+    data, _ = await asyncio.to_thread(shelters.load)
+    return {"available": data is not None, "places": places,
+            "note": "Candidates from OpenStreetMap, on ground that stays at Very low risk. This is not a confirmed list of shelters: confirm with local authorities."}
+
+
+class LatLng(BaseModel):
+    lat: float
+    lng: float
+
+
+class RouteIn(BaseModel):
+    origin: LatLng
+    destination: LatLng
+    mode: str = Field(default="DRIVE", pattern="^(DRIVE|WALK)$")
+    scenario_id: str | None = Field(default=None, max_length=64)
+
+
+@app.post("/route")
+async def route_preview(body: RouteIn, account=Depends(gate("route"))):
+    """Routes between two points with the Google Routes API, ranked by how much of each runs along risky main-road sections of the result on screen."""
+    from app import routing, shelters
+    o, d = (body.origin.lat, body.origin.lng), (body.destination.lat, body.destination.lng)
+    if not (routing.in_thailand(*o) and routing.in_thailand(*d)):
+        raise HTTPException(422, "Both points must be in Thailand.")
+    if shelters.distance_m(*o, *d) > 150_000:
+        raise HTTPException(422, "The two points are more than 150 km apart.")
+    risky = None
+    if body.scenario_id:
+        sc = service.get_cached(body.scenario_id)
+        if sc is not None:
+            risky = (await asyncio.to_thread(_infrastructure_of, sc))["roads"]
+    try:
+        out = await asyncio.to_thread(routing.routes, o, d, body.mode, risky)
+    except routing.RouteUnavailable as e:
+        raise HTTPException(503, str(e))
+    return {"routes": out, "scored": risky is not None,
+            "note": "Routes are ranked by how much of them follows main roads in the Moderate-or-higher risk zone. A route is never a guarantee of safety: check local conditions and follow your local authorities."}
 
 
 @app.get("/overview/report-data")
@@ -425,6 +476,52 @@ async def photo_check(body: PhotoIn, account=Depends(gate("chat"))):
         peak = max((t.get("risk") or 0 for t in sc["exposure"].get("tambon_risks") or []), default=0)
         ctx = {"area": sc["area"].get("name"), "area_th": sc["area"].get("name_th"), "peak_risk": peak, "scenario_id": body.scenario_id}
     return {"analysis": analysis.model_dump(), "context": ctx, "disclaimer": photo.DISCLAIMER[body.language]}
+
+
+class ReportIn(BaseModel):
+    image_b64: str = Field(max_length=2_900_000)
+    lat: float
+    lng: float
+    language: str = Field(default="en", pattern="^(en|th)$")
+    note: str = Field(default="", max_length=300)
+
+
+@app.post("/reports")
+async def reports_submit(body: ReportIn, request: Request, account=Depends(gate("report"))):
+    """A community report: Gemini reads the photo, the data says whether the place could have a landslide, and the result decides if it is shown."""
+    from app import photo, reports, routing
+    if not routing.in_thailand(body.lat, body.lng):
+        raise HTTPException(422, "The place must be in Thailand.")
+    acct = account.uid if not account.anonymous else request.client.host if request.client else "anon"
+    try:
+        return await asyncio.to_thread(reports.submit, acct, body.image_b64, body.lat, body.lng, body.language, body.note)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+    except Exception:  # noqa: BLE001
+        log.exception("report failed")
+        raise HTTPException(502, "The report could not be checked. Please try again.")
+
+
+@app.get("/reports")
+async def reports_list(west: float | None = None, south: float | None = None, east: float | None = None, north: float | None = None):
+    """Community reports that are shown: AI-checked, not expired, not flagged away. Not verified by authorities."""
+    from app import reports
+    box = (west, south, east, north) if None not in (west, south, east, north) else None
+    return {"reports": await asyncio.to_thread(reports.listing, box),
+            "note": "Community reports, checked by AI and not verified by authorities. They stay for 48 hours (7 days for slope damage)."}
+
+
+@app.post("/reports/{report_id}/flag")
+async def reports_flag(report_id: str, request: Request):
+    """Mark a report as wrong. Three different accounts hide it."""
+    import re
+    from app import reports
+    acct, _ = _signed_in(request)
+    if not re.fullmatch(r"[0-9a-f]{16}", report_id):
+        raise HTTPException(422, "bad report id")
+    if not await asyncio.to_thread(reports.flag, acct, report_id):
+        raise HTTPException(404, "Unknown report")
+    return {"ok": True}
 
 
 @app.get("/me")

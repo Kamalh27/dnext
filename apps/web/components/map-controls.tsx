@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useMap, useMapsLibrary } from "@vis.gl/react-google-maps";
-import { Box, EllipsisVertical, Globe, House, Layers, LoaderCircle, LocateFixed, Map as MapIcon, Maximize2, Minimize2, Minus, Plus, Search, X } from "lucide-react";
+import { Box, EllipsisVertical, Globe, House, Layers, LoaderCircle, LocateFixed, Map as MapIcon, Maximize2, Minimize2, Minus, Plus, Search, ShieldCheck, TriangleAlert, X } from "lucide-react";
 import { t } from "@/lib/i18n";
 import { usePersistedOpen } from "@/lib/panel-state";
 import { MQ, useMedia } from "@/lib/use-media";
@@ -28,11 +28,14 @@ function MapButton({ label, onClick, children, disabled, pressed, className }: {
 }
 
 /** Zoom, my location, 2D/3D and fullscreen. Must render under <APIProvider> (uses the default map instance). */
-export function MapControls({ lang, onLocate, onGlobe, onResetView, fullscreenTarget, layers, reference, onLayerChange, boundaries, infra }: {
+export function MapControls({ lang, onLocate, onGlobe, onResetView, fullscreenTarget, layers, reference, onLayerChange, boundaries, infra, safe, onReport }: {
   lang: Lang; onLocate: (p: Pt) => void; onGlobe: () => void; onResetView: () => void; fullscreenTarget: HTMLElement | null;
   layers: MapLayerItem[]; reference: MapLayerItem[]; onLayerChange: (id: string, p: LayerPatch) => void;
   boundaries: { visible: boolean; onChange: (v: boolean) => void };
   infra?: React.ComponentProps<typeof LayersPanel>["infra"];
+  /** Safe places panel (open state and toggle) and the community report button. */
+  safe?: { open: boolean; onToggle: () => void };
+  onReport?: () => void;
 }) {
   const tr = t(lang);
   const panelId = useId();
@@ -144,6 +147,8 @@ export function MapControls({ lang, onLocate, onGlobe, onResetView, fullscreenTa
   const view3dBtn = <MapButton label={is3d ? tr.view2d : tr.view3d} onClick={() => { toggle3d(); setMenuOpen(false); }} pressed={is3d} className={cn(is3d && "bg-primary text-primary-foreground hover:bg-primary")}>{is3d ? <MapIcon /> : <Box />}</MapButton>;
   const globeBtn = <MapButton label={tr.globeView} onClick={() => { onGlobe(); setMenuOpen(false); }}><Globe /></MapButton>;
   const fullBtn = <MapButton label={full ? tr.exitFullscreen : tr.fullscreen} onClick={() => { toggleFull(); setMenuOpen(false); }}>{full ? <Minimize2 /> : <Maximize2 />}</MapButton>;
+  const safeBtn = safe ? <MapButton label={tr.safeOpen} onClick={() => { safe.onToggle(); setMenuOpen(false); }} pressed={safe.open} className={cn(safe.open && "bg-primary text-primary-foreground hover:bg-primary")}><ShieldCheck /></MapButton> : null;
+  const reportBtn = onReport ? <MapButton label={tr.reportOpen} onClick={() => { onReport(); setMenuOpen(false); }}><TriangleAlert /></MapButton> : null;
   const homeBtn = <MapButton label={tr.resetView} onClick={() => { resetView(); setMenuOpen(false); }}><House /></MapButton>;
 
   return (
@@ -189,14 +194,14 @@ export function MapControls({ lang, onLocate, onGlobe, onResetView, fullscreenTa
           </div>
           {showMenu && (
             <div data-map-overlay="tools-menu" role="group" aria-label={tr.moreTools} className={cn("absolute top-0 right-full mr-2 flex divide-x overflow-hidden rounded-[4px]", glass)}>
-              {locateBtn}{view3dBtn}{globeBtn}{fullBtn}{homeBtn}
+              {locateBtn}{safeBtn}{reportBtn}{view3dBtn}{globeBtn}{fullBtn}{homeBtn}
             </div>
           )}
         </div>
       ) : (
         <>
           <div data-map-overlay="tools" className={cn("flex flex-col divide-y overflow-hidden rounded-[4px]", glass)}>
-            {locateBtn}{view3dBtn}{globeBtn}{fullBtn}
+            {locateBtn}{safeBtn}{reportBtn}{view3dBtn}{globeBtn}{fullBtn}
           </div>
           <span data-map-overlay="tools" className="pointer-events-none -mt-1 text-xs font-semibold tracking-wide text-foreground/70 uppercase" aria-hidden>{is3d ? "3D" : "2D"}</span>
         </>

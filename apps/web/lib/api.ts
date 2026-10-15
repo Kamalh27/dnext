@@ -3,6 +3,7 @@ import { authStatus, getAuthToken, loadAuthConfig, onAuthRequired, refreshUsage,
 import { API_BASE } from "./config";
 import { parseSSE } from "./sse";
 import type { Infra } from "./infra";
+import type { CommunityReport, ReportVerdict, RouteResponse, SafePlace } from "./types";
 import type { AlertItem, PhotoResult, Trend, Watchlist } from "./types";
 import type { ChatSummary, ChatThread, RunRef } from "./chat-store";
 import type { Explain, ForecastResponse, Lang, OverviewSeries, Province, ReportData, ScenarioResponse, SseEvent, StaticLayersResponse, TambonShapes } from "./types";
@@ -122,6 +123,19 @@ export const photoCheck = (b: { image_b64: string; language: Lang; note?: string
   authFetch("/photo-check", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(b) }).then((r) => json<PhotoResult>(r));
 
 export const fetchInfrastructure = (scenarioId: string) => authFetch(`/infrastructure/${encodeURIComponent(scenarioId)}`).then((r) => json<Infra>(r));
+
+/** Candidate safe places near a point (open data, public). */
+export const fetchShelters = (lat: number, lng: number, k = 8) =>
+  fetch(`${API_BASE}/shelters/near?lat=${lat}&lng=${lng}&k=${k}`).then((r) => json<{ available: boolean; places: SafePlace[]; note: string }>(r));
+
+/** Route preview (Google Routes API through the server), ranked against the risky roads of the result on screen. */
+export const previewRoute = (b: { origin: { lat: number; lng: number }; destination: { lat: number; lng: number }; mode: "DRIVE" | "WALK"; scenario_id?: string }) =>
+  authFetch("/route", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(b) }).then((r) => json<RouteResponse>(r));
+
+export const fetchCommunityReports = () => fetch(`${API_BASE}/reports`).then((r) => json<{ reports: CommunityReport[]; note: string }>(r));
+export const submitCommunityReport = (b: { image_b64: string; lat: number; lng: number; language: Lang; note?: string }) =>
+  authFetch("/reports", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(b) }).then((r) => json<ReportVerdict>(r));
+export const flagCommunityReport = (id: string) => authFetch(`/reports/${encodeURIComponent(id)}/flag`, { method: "POST" }).then((r) => json<unknown>(r));
 
 export const fetchReportData = (scenarioId: string, lang: "en" | "th") =>
   authFetch(`/report-data/${encodeURIComponent(scenarioId)}?language=${lang}`).then((r) => json<ReportData>(r));
