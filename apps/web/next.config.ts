@@ -1,7 +1,6 @@
 import type { NextConfig } from "next";
 
-// Headers for every page. The Content-Security-Policy is the part that does not get in the way of Google Maps, Firebase sign-in and the deck.gl
-// layers: no plugins, no <base> tricks, forms only to ourselves and no framing by other sites. A script-src policy would need 'unsafe-inline'
+// Headers for every page. The Content-Security-Policy is the part that does not get in the way of Google Maps and Firebase sign-in: no plugins, no <base> tricks, forms only to ourselves and no framing by other sites. A script-src policy would need 'unsafe-inline'
 // for Next.js and the map loader, so it would not add protection here and is left out.
 const security = [
   { key: "Content-Security-Policy", value: "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" },

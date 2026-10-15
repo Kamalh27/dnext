@@ -17,8 +17,9 @@ type Hit = { x: number; y: number; text: string };
 
 /**
  * Roads, building points and close-range footprints, drawn on a plain 2D canvas that sits in the map's overlay pane and is sized and placed here
- * (no WebGL, so it behaves the same on raster and vector maps and on any address). It redraws when the map moves or zooms.
- * deck.gl is only used for the 3D blocks (see infra-overlay.tsx); while those are on, this layer steps aside.
+ * (no WebGL of our own, so it behaves the same on raster and vector maps and on any address). It redraws when the map moves, zooms or tilts.
+ * With 3D on, buildings are drawn as blocks: each footprint is raised by its height along the screen's vertical, which is what a tilted
+ * camera shows, so it works with Google's own tilt and needs no 3D library.
  */
 export function InfraCanvas({ lang, data, show, zoom }: { lang: Lang; data: Infra | null; show: InfraToggles; zoom: number }) {
   const map = useMap();
@@ -52,18 +53,17 @@ export function InfraCanvas({ lang, data, show, zoom }: { lang: Lang; data: Infr
       if (!proj || !ctx || !d || w === 0 || h === 0) return;
       const dpr = window.devicePixelRatio || 1;
       // Place the canvas exactly over the map area (overlay pane coordinates) and size it to the map.
-      const origin = proj.fromContainerPixelToLatLng(new google.maps.Point(0, 0));
-      const at = origin && proj.fromLatLngToDivPixel(origin);
-      if (!origin || !at) return;
-      canvas.style.left = `${at.x}px`;
-      canvas.style.top = `${at.y}px`;
+      const c0 = map.getCenter();
+      const inDiv = c0 && proj.fromLatLngToDivPixel(c0);
+      const inBox = c0 && proj.fromLatLngToContainerPixel(c0);
+      if (!inDiv || !inBox) return;
+      canvas.style.left = `${inDiv.x - inBox.x}px`;
+      canvas.style.top = `${inDiv.y - inBox.y}px`;
       canvas.style.width = `${w}px`;
       canvas.style.height = `${h}px`;
       if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) { canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr); }
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, w, h);
-      const tilted = (map.getTilt() ?? 0) > 0 || (map.getHeading() ?? 0) !== 0;
-      if (tilted && sh.threeD) return;   // deck.gl draws everything while 3D is on
       const b = map.getBounds();
       if (!b) return;
       const ne = b.getNorthEast(), sw = b.getSouthWest();
@@ -86,7 +86,32 @@ export function InfraCanvas({ lang, data, show, zoom }: { lang: Lang; data: Infr
 
       if (sh.buildings) {
         const sel = d.buildings.filter((q) => q[1] >= west && q[1] <= east && q[0] >= south && q[0] <= north).slice(0, MAX_DRAWN);
-        if (buildingShape(z, sh.threeD) === "footprints") {
+        const shape = buildingShape(z, sh.threeD);
+        if (shape === "blocks") {
+          const tilt = ((map.getTilt() ?? 0) * Math.PI) / 180;
+          const zoomNow = map.getZoom() ?? z;
+          const items2 = sel.map((q) => {
+            const ring = squareAround(q[0], q[1], q[2]).map(([lng, lat]) => px(lat, lng));
+            const mPerPx = (156543.03392 * Math.cos((q[0] * Math.PI) / 180)) / 2 ** zoomNow;
+            const lift = (heightOf(q[3]) / mPerPx) * Math.sin(tilt);   // screen pixels this building rises
+            const cy = ring.reduce((a, p) => a + (p ? p.y : 0), 0) / ring.length;
+            return { q, ring, lift, cy };
+          }).filter((b) => b.ring.every(Boolean)).sort((a, b) => a.cy - b.cy);   // far (high on screen) first
+          ctx.lineJoin = "round";
+          for (const { q, ring, lift } of items2) {
+            const base = ring as google.maps.Point[];
+            const top = base.map((p) => ({ x: p.x, y: p.y - lift }));
+            const [r, g, bl, a] = colorOfRisk(q[4], 245);
+            ctx.strokeStyle = "rgba(255,255,255,0.95)"; ctx.lineWidth = 1.5;
+            ctx.fillStyle = `rgba(${Math.round(r * 0.62)},${Math.round(g * 0.62)},${Math.round(bl * 0.62)},${a / 255})`;
+            for (let i = 0; i < base.length - 1; i++) {   // the ring repeats its first point at the end
+              ctx.beginPath(); ctx.moveTo(base[i].x, base[i].y); ctx.lineTo(base[i + 1].x, base[i + 1].y); ctx.lineTo(top[i + 1].x, top[i + 1].y); ctx.lineTo(top[i].x, top[i].y); ctx.closePath();
+              ctx.fill(); ctx.stroke();
+            }
+            ctx.beginPath(); top.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y))); ctx.closePath();
+            ctx.fillStyle = css(colorOfRisk(q[4], 245)); ctx.fill(); ctx.stroke();
+          }
+        } else if (shape === "footprints") {
           for (const q of sel) {
             ctx.beginPath();
             squareAround(q[0], q[1], q[2]).forEach(([lng, lat], k) => { const p = px(lat, lng); if (!p) return; if (k === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y); });
