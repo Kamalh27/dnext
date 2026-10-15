@@ -37,7 +37,7 @@ jobs:
         run: |
           uv export --frozen --no-hashes --no-emit-project --all-groups -o /tmp/requirements.txt
           uvx pip-audit -r /tmp/requirements.txt --no-deps --disable-pip
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           package_json_file: apps/web/package.json
       - name: Web packages that ship to users (dev tools are not audited)
@@ -69,7 +69,7 @@ jobs:
         working-directory: apps/web
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4          # version comes from packageManager in package.json
+      - uses: pnpm/action-setup@v6          # version comes from packageManager in package.json
         with:
           package_json_file: apps/web/package.json
       - uses: actions/setup-node@v4
