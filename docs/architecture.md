@@ -22,6 +22,8 @@ flowchart LR
 - **BigQuery** (dataset `dnext`) holds the daily history: `province_daily` and `tambon_daily`, partitioned by date. The daily job appends to them and the API reads a province's 30-day trend from `province_daily`.
 - **Pub/Sub** carries one message per job run (`dnext-new-data`). A push subscription calls `POST /internal/new-data` on the API with a Google-signed token; the API compares each province's peak risk class with the previous run and notifies the accounts that watch a province that got riskier (Firestore `watchlists`, `alerts`).
 - **Gemini vision** describes one uploaded photo (`POST /photo-check`): the image is analysed in memory and never stored.
+- **Routes API** gives the route preview (`POST /route`). The API calls it with its own service account, asks for up to three alternatives, and ranks them by how much of each follows risky main-road pieces from the result on screen. Results are cached for 10 minutes and the calls are limited per account and per instance.
+- **Community reports** (`POST /reports`) go through Gemini vision and a check against the area's data before anything is saved. Published reports are kept in Firestore (`reports`, TTL on `expires_at`) and shown on the map. The photo is never stored.
 - **Firebase Authentication** (Google provider) handles sign-in. The API only checks the ID token.
 - **Saved chats** live in the browser (local storage, up to 30) and, for a signed-in account, in Firestore (`chats/{account}/threads`, 90-day TTL). The agent's own working memory is held by the API process only, so a reopened chat sends its last turns along once.
 
@@ -36,6 +38,7 @@ Computing statistics straight from the 12 m source layers took 34 to 81 seconds 
 | `static_features.json` | `scripts/precompute_features.py` | Built-up area, hospitals, schools and road length per tambon and risk product | Once |
 | `facilities.json` | `scripts/precompute_facilities.py` | Named hospitals and schools with their location, tambon and risk product | Once |
 | `infrastructure.json` | `scripts/precompute_infrastructure.py` | Buildings (Google Open Buildings, with footprint area and an estimated height) and main-road pieces (OpenStreetMap) on ground that can reach Moderate risk, per tambon. About 1 MB | Once |
+| `shelters.json` | `scripts/precompute_shelters.py` | Named OpenStreetMap places (shelters, community buildings, schools, temples, hospitals) on ground whose risk stays below Low even at the highest rainfall trigger. About 26,000 places, 3 MB | Once |
 | `tambon_shapes.json` | `scripts/build_tambon_shapes.py` | Simplified tambon outlines by province, for the report map | Once |
 
 The daily file is rebuilt by a Cloud Run job (`dnext-rain`) that Cloud Scheduler starts at 06:30 and 18:30 Bangkok time (`infra/deploy-job.sh`).

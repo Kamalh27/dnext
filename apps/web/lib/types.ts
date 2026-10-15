@@ -238,3 +238,17 @@ export interface PhotoAnalysis {
   summary: string; confidence: "low" | "medium" | "high"; looks_manipulated_or_unrelated: boolean;
 }
 export interface PhotoResult { analysis: PhotoAnalysis; context: { area?: string; area_th?: string; peak_risk: number; scenario_id: string } | null; disclaimer: string }
+
+export type SafeKind = "shelter" | "community" | "school" | "temple" | "hospital";
+export interface SafePlace { kind: SafeKind; name: string; name_th: string; lat: number; lng: number; distance_m: number; bearing: number }
+export interface RouteOption { distance_m: number; duration_s: number; path: [number, number][]; risk_km: number | null; recommended: boolean; flagged: boolean }
+export interface RouteResponse { routes: RouteOption[]; scored: boolean; note: string }
+export type ReportKind = "landslide" | "road_blocked" | "slope_damage";
+export interface CommunityReport {
+  id: string; created: string; kind: ReportKind; lat: number; lng: number; summary: string; observations: PhotoObservation[]; confidence: "low" | "medium" | "high";
+  tambon?: string | null; tambon_th?: string | null; province?: string | null; province_th?: string | null; confirmations: number;
+}
+export interface ReportVerdict {
+  status: "published" | "review" | "rejected"; reason: string; kind: ReportKind | "none"; summary: string; observations: PhotoObservation[]; confidence: "low" | "medium" | "high";
+  data_support: "strong" | "some" | "weak" | "unknown"; id?: string; merged?: boolean;
+}

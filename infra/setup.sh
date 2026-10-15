@@ -18,7 +18,7 @@ gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregi
   aiplatform.googleapis.com earthengine.googleapis.com firestore.googleapis.com storage.googleapis.com \
   secretmanager.googleapis.com geocoding-backend.googleapis.com maps-backend.googleapis.com \
   cloudtrace.googleapis.com bigquery.googleapis.com \
-  firebase.googleapis.com identitytoolkit.googleapis.com securetoken.googleapis.com cloudscheduler.googleapis.com pubsub.googleapis.com
+  firebase.googleapis.com identitytoolkit.googleapis.com securetoken.googleapis.com cloudscheduler.googleapis.com pubsub.googleapis.com routes.googleapis.com
 
 gcloud artifacts repositories create dnext --repository-format=docker --location "$REGION" || true
 gcloud firestore databases create --location "$REGION" || true
@@ -55,6 +55,7 @@ fi
 gcloud firestore fields ttls update expires_at --collection-group=usage --enable-ttl --async || true
 gcloud firestore fields ttls update expires_at --collection-group=scenarios --enable-ttl --async || true
 gcloud firestore fields ttls update expires_at --collection-group=threads --enable-ttl --async || true     # saved chats: removed 90 days after the last save
+gcloud firestore fields ttls update expires_at --collection-group=reports --enable-ttl --async || true     # community reports: removed after 48 hours (7 days for slope damage)
 gcloud firestore fields ttls update expires_at --collection-group=items --enable-ttl --async || true       # alert notifications: removed after 30 days
 echo "Next: store the Maps keys with infra/bootstrap.sh (it also grants the runtime account access to those secrets)."
 echo "Earth Engine: ensure $PROJECT_ID is registered at https://code.earthengine.google.com/register"

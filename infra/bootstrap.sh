@@ -85,7 +85,8 @@ PIPE=(
   "$RUN/precompute_facilities.py                             # one-off: named hospitals and schools at risk"
   "$RUN/build_tambon_shapes.py                               # one-off: tambon outlines for the report map"
   "$RUN/precompute_infrastructure.py                         # one-off: buildings and main roads that can reach Moderate risk"
-  "gcloud storage cp .local_storage/risk/static_features.json .local_storage/risk/facilities.json .local_storage/risk/tambon_shapes.json .local_storage/risk/infrastructure.json gs://$BUCKET/risk/   # upload the features files"
+  "$RUN/precompute_shelters.py                               # one-off: candidate safe places on very-low-risk ground"
+  "gcloud storage cp .local_storage/risk/static_features.json .local_storage/risk/facilities.json .local_storage/risk/tambon_shapes.json .local_storage/risk/infrastructure.json .local_storage/risk/shelters.json gs://$BUCKET/risk/   # upload the features files"
   "$RUN/precompute_rain.py --bucket $BUCKET                  # daily: rainfall per tambon"
 )
 echo

@@ -4,7 +4,7 @@ export type LegalKind = "privacy" | "cookies" | "terms" | "disclaimer";
 export interface Section { h: string; p?: string[]; ul?: string[] }
 export interface LegalDoc { title: string; sections: Section[] }
 
-export const LEGAL_UPDATED = "13 October 2026";
+export const LEGAL_UPDATED = "15 October 2026";
 
 /**
  * Plain-language drafts that describe what this app actually does today. Have counsel review before public launch,
@@ -25,7 +25,9 @@ export const legal: Record<Lang, { updated: string; docs: Record<LegalKind, Lega
               "Scenario inputs and results (area, rainfall, duration). They are cached in Google Cloud Firestore, for up to 24 hours for forecasts and up to 30 days for what-if scenarios, to speed up repeat requests. They are not linked to you.",
               "Technical logs recorded by Google Cloud (time, request ID, IP address, browser details) for security and reliability.",
               "Place searches, which are sent to the Google Maps Platform Geocoding service.",
-              "Your location, only if you click \"My location\". Your browser reads it to centre the map; it is not sent to our servers.",
+              "Your location, only if you click \"My location\" or use it in Safe places or a report. Your browser reads it to centre the map. For Safe places, the point is sent to our server to find nearby places and is not stored. For a route preview, the start and end points are sent to the Google Routes API through our server and are not stored.",
+              "A photo you send in Photo check or in a community report. It is resized on your device and sent to our server, where Gemini looks at it once. The photo is not stored and its location data is removed.",
+              "A community report (the kind of problem, a short description written by the AI, the place rounded to about 100 m, the time and the tambon) is saved in Cloud Firestore for 48 hours (7 days for slope damage) so that it can be shown on the map to everyone. It is linked to a one-way hash of your account only to limit repeated reports and flags.",
               "Feedback you submit through the embedded Google Form, which is received by us and handled under Google's privacy policy.",
               "If you sign in with Google: sign-in is run by Firebase Authentication (a Google Cloud service). Firebase keeps an account record for you in our project (a user ID, your email, name and picture from your Google account, and sign-in times). Our API only checks the sign-in token and stores a one-way hashed account ID with your daily usage counts (chats and scenario runs), for about 3 days, to apply the limits. We do not receive or store your Google password. You can ask us to delete your account record.",
             ],
@@ -101,7 +103,9 @@ export const legal: Record<Lang, { updated: string; docs: Record<LegalKind, Lega
               "ข้อมูลนำเข้าและผลของสถานการณ์ (พื้นที่ ปริมาณฝน ระยะเวลา) เก็บแคชใน Google Cloud Firestore นานสูงสุด 24 ชั่วโมงสำหรับการพยากรณ์ และสูงสุด 30 วันสำหรับสถานการณ์สมมติ เพื่อให้ตอบคำขอซ้ำได้เร็วขึ้น โดยไม่เชื่อมโยงกับตัวคุณ",
               "บันทึกทางเทคนิคที่ Google Cloud เก็บ (เวลา รหัสคำขอ ที่อยู่ IP รายละเอียดเบราว์เซอร์) เพื่อความปลอดภัยและเสถียรภาพ",
               "การค้นหาสถานที่ ซึ่งส่งไปยังบริการ Geocoding ของ Google Maps Platform",
-              "ตำแหน่งของคุณ เฉพาะเมื่อคุณกด \"ตำแหน่งของฉัน\" เบราว์เซอร์ของคุณอ่านค่าเพื่อจัดกึ่งกลางแผนที่ และไม่ส่งไปยังเซิร์ฟเวอร์ของเรา",
+              "ตำแหน่งของคุณ เฉพาะเมื่อคุณกด \"ตำแหน่งของฉัน\" หรือใช้ในสถานที่ปลอดภัยหรือรายงาน เบราว์เซอร์อ่านค่าเพื่อจัดกึ่งกลางแผนที่ สำหรับสถานที่ปลอดภัย จุดนี้ถูกส่งไปยังเซิร์ฟเวอร์เพื่อค้นหาสถานที่ใกล้เคียงและไม่ถูกเก็บ สำหรับตัวอย่างเส้นทาง จุดเริ่มต้นและปลายทางถูกส่งไปยัง Google Routes API ผ่านเซิร์ฟเวอร์ของเราและไม่ถูกเก็บ",
+              "ภาพที่คุณส่งในการตรวจภาพถ่ายหรือรายงานจากชุมชน ภาพถูกย่อขนาดบนอุปกรณ์ของคุณและส่งไปยังเซิร์ฟเวอร์ ซึ่ง Gemini ดูเพียงครั้งเดียว ภาพไม่ถูกเก็บและข้อมูลตำแหน่งในภาพถูกลบออก",
+              "รายงานจากชุมชน (ประเภทของปัญหา คำอธิบายสั้นที่ AI เขียน ตำแหน่งที่ปัดเป็นประมาณ 100 ม. เวลา และตำบล) ถูกบันทึกใน Cloud Firestore นาน 48 ชั่วโมง (7 วันสำหรับความเสียหายของเนิน) เพื่อแสดงบนแผนที่ให้ทุกคนเห็น และเชื่อมกับแฮชทางเดียวของบัญชีคุณเพียงเพื่อจำกัดการรายงานและการแจ้งซ้ำ",
               "ความคิดเห็นที่คุณส่งผ่าน Google Form ที่ฝังไว้ ซึ่งเราได้รับ และอยู่ภายใต้นโยบายความเป็นส่วนตัวของ Google",
               "หากคุณลงชื่อเข้าใช้ด้วย Google: การลงชื่อเข้าใช้ดำเนินการโดย Firebase Authentication (บริการของ Google Cloud) ซึ่ง Firebase เก็บบันทึกบัญชีของคุณไว้ในโปรเจกต์ของเรา (รหัสผู้ใช้ อีเมล ชื่อ และรูปภาพจากบัญชี Google และเวลาที่ลงชื่อเข้าใช้) ส่วน API ของเราตรวจสอบเฉพาะโทเค็นการลงชื่อเข้าใช้ และเก็บรหัสบัญชีที่ผ่านการแฮชแบบทางเดียวพร้อมจำนวนการใช้งานรายวัน (แชทและการคำนวณสถานการณ์) ประมาณ 3 วัน เพื่อบังคับใช้ขีดจำกัด เราไม่ได้รับหรือเก็บรหัสผ่าน Google ของคุณ คุณสามารถขอให้เราลบบันทึกบัญชีของคุณได้",
             ],

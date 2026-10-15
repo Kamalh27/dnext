@@ -34,7 +34,7 @@ class Result:
 
 def limits() -> dict[str, int]:
     s = settings()
-    return {"chat": s.limit_chat_per_day, "run": s.limit_run_per_day, "burst_per_min": s.limit_burst_per_min}
+    return {"chat": s.limit_chat_per_day, "run": s.limit_run_per_day, "route": s.limit_route_per_day, "report": s.limit_report_per_day, "burst_per_min": s.limit_burst_per_min}
 
 
 def _today() -> tuple[str, int]:
@@ -93,7 +93,7 @@ def consume(uid: str, kind: str) -> Result:
         if len(q) >= s.limit_burst_per_min:
             return Result(False, "burst_limit", len(q), s.limit_burst_per_min, int(60 - (now - q[0])) + 1)
         q.append(now)
-    if kind not in ("chat", "run"):
+    if kind not in ("chat", "run", "route", "report"):
         return Result(True)
     limit = limits()[kind]
     day, reset_s = _today()
@@ -119,7 +119,7 @@ def snapshot(uid: str) -> dict:
     """Used/limit per kind for today (read-only)."""
     day, reset_s = _today()
     lim = limits()
-    used = {"chat": 0, "run": 0}
+    used = {"chat": 0, "run": 0, "route": 0, "report": 0}
     db = _client()
     if db is not None:
         try:
