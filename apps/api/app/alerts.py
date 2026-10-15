@@ -1,6 +1,6 @@
-"""Alerts when a watched province gets riskier: Pub/Sub message from the daily job -> this module -> in-app notifications (and optional email).
+"""Alerts when a watched province gets riskier: Pub/Sub message from the daily job -> this module -> in-app notifications.
 
-Firestore:  watchlists/{account}                     {provinces, min_class, email, address, lang}
+Firestore:  watchlists/{account}                     {provinces, min_class, lang}
             alerts/{account}/items/{id}              one notification (deleted after 30 days)
             alert_state/provinces                    the highest risk class per province at the last run, to see what changed
 Pub/Sub:    topic `dnext-new-data` (published by the job), push subscription -> POST /internal/new-data (OIDC token checked here)."""
@@ -8,10 +8,8 @@ import base64
 import hashlib
 import json
 import logging
-import smtplib
 import threading
 from datetime import datetime, timedelta, timezone
-from email.message import EmailMessage
 
 from app.settings import settings
 
@@ -68,8 +66,8 @@ def get_watch(account: str) -> dict:
         return dict(_mem["watch"].get(account, {}))
 
 
-def set_watch(account: str, provinces: list[str], min_class: int, email: bool, address: str, lang: str) -> dict:
-    doc = {"provinces": provinces[:MAX_WATCHED], "min_class": min_class, "email": bool(email and address), "address": address if email else "", "lang": lang}
+def set_watch(account: str, provinces: list[str], min_class: int, lang: str) -> dict:
+    doc = {"provinces": provinces[:MAX_WATCHED], "min_class": min_class, "lang": lang}
     with _lock:
         _mem["watch"][account] = doc
     c = _client()
@@ -211,7 +209,7 @@ def process_new_data(series: dict) -> dict:
     state = _get_state()
     if state and state.get("date_of_data") == key["date_of_data"] and state.get("model_run") == key["model_run"]:
         return {"skipped": True, "reason": "already processed"}
-    sent = notified = 0
+    notified = 0
     for ev in detect(series, state, min_class=2):
         for account, w in watchers_of(ev["province_code"]):
             if ev["class"] < int(w.get("min_class", settings().alert_min_class)):
@@ -219,29 +217,8 @@ def process_new_data(series: dict) -> dict:
             title, body = message(ev, w.get("lang", "en"))
             if add_alert(account, {**ev, "title": title, "body": body}):
                 notified += 1
-                if w.get("email") and w.get("address") and send_email(w["address"], title, body):
-                    sent += 1
     _set_state({**key, "classes": {pc: v["class"] for pc, v in peak_classes(series).items()}, "updated": datetime.now(timezone.utc).isoformat(timespec="seconds")})
-    return {"skipped": False, "notified": notified, "emails": sent}
-
-
-def send_email(to: str, subject: str, body: str) -> bool:
-    s = settings()
-    if not (s.smtp_host and s.smtp_from):
-        return False
-    msg = EmailMessage()
-    msg["From"], msg["To"], msg["Subject"] = s.smtp_from, to, subject
-    msg.set_content(f"{body}\n\n-- DNext (landslide risk screening). You get this because you chose to be notified for this province. Turn it off in the app.")
-    try:
-        with smtplib.SMTP(s.smtp_host, s.smtp_port, timeout=20) as smtp:
-            smtp.starttls()
-            if s.smtp_user:
-                smtp.login(s.smtp_user, s.smtp_password)
-            smtp.send_message(msg)
-        return True
-    except Exception as e:  # noqa: BLE001
-        log.warning("alert email failed: %s", str(e)[:120])
-        return False
+    return {"skipped": False, "notified": notified}
 
 
 # ---------------- Pub/Sub

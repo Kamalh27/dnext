@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Header } from "./header";
 import { Tour } from "./tour";
+import { MapBoundary } from "./map-boundary";
 import { ViewTabs } from "./view-tabs";
 import { ResizeHandle } from "./resize-handle";
 import { ChatPanel, type Message } from "./chat-panel";
@@ -470,12 +471,12 @@ export function AppShell() {
           </div>
         </div>
         <div id="panel-map" className={cn("min-h-0", tab === "map" ? "block" : "hidden lg:block")}>
-          <MapPanel lang={lang} layer={layer} layers={layers} staticLayers={staticLayers} markers={allMarkers} provinces={provinces} selected={selected} onSelect={selectProvince}
+          <MapBoundary lang={lang}><MapPanel lang={lang} layer={layer} layers={layers} staticLayers={staticLayers} markers={allMarkers} provinces={provinces} selected={selected} onSelect={selectProvince}
             overview={overviewOn && series ? { series, day: overviewDay, metric: overviewMetric, playing } : null}
             onOverviewDay={pickOverviewDay}
             onOverviewMetric={setOverviewMetric}
             onOverviewPlay={() => setPlaying((v) => !v)}
-          />
+          /></MapBoundary>
         </div>
         <ResizeHandle row={row} label={tr.resizeChat} />
       </main>

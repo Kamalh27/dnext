@@ -230,7 +230,7 @@ export interface TambonShapes { pcode: string; tambons: Record<string, import(".
 
 export interface TrendDay { date: string; risk_class: number; risk_max: number; triggered: number; tambons: number; people_elevated: number; rain_mm: number | null }
 export interface Trend { pcode: string; available: boolean; days: TrendDay[] }
-export interface Watchlist { provinces: string[]; min_class: number; email: boolean; email_available: boolean; max: number }
+export interface Watchlist { provinces: string[]; min_class: number; max: number }
 export interface AlertItem { id: string; province_code: string; province: string; province_th?: string; class: number; horizon: number; date: string; title: string; body: string; read: boolean; created: string }
 export interface PhotoObservation { sign: string; evidence: string; severity: "low" | "moderate" | "high" }
 export interface PhotoAnalysis {

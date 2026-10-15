@@ -68,7 +68,7 @@ def test_watchers_of_a_province_that_gets_riskier_are_notified_once(fresh):
         c.put("/watchlist", json={"provinces": ["TH55"], "min_class": 3}, headers=H("bob"))
         assert alerts.process_new_data(_series(classes=((1, 1, 1), (1, 1, 1))))["notified"] == 0           # first run: state only
         r = alerts.process_new_data(_series(date="2026-10-16", run="2026-10-16T00:00Z", classes=((1, 4, 4), (1, 1, 1))))
-        assert r == {"skipped": False, "notified": 1, "emails": 0}
+        assert r == {"skipped": False, "notified": 1}
         a = c.get("/alerts", headers=H("alice")).json()
         assert a["unread"] == 1 and a["items"][0]["province_code"] == "TH50" and a["items"][0]["title"].startswith("Chiang Mai")
         assert c.get("/alerts", headers=H("bob")).json()["items"] == []
