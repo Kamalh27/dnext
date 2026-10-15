@@ -99,8 +99,9 @@ def test_the_push_endpoint_accepts_only_a_verified_google_token(fresh, monkeypat
         assert c.post("/internal/new-data", json={}, headers={"Authorization": "Bearer nope"}).status_code == 403
         monkeypatch.setattr(alerts, "verify_push", lambda h: h == "Bearer good")
         from app.geo import overview
-        monkeypatch.setattr(overview, "series", lambda d, fresh=False: _series(classes=((0, 0, 0), (0, 0, 0))))
-        assert c.post("/internal/new-data", json={}, headers={"Authorization": "Bearer good"}).status_code == 200
+        monkeypatch.setattr(overview, "latest_series", lambda d=5: _series(classes=((0, 0, 0), (0, 0, 0))))
+        r = c.post("/internal/new-data", json={}, headers={"Authorization": "Bearer good"})
+        assert r.status_code == 200 and r.json()["skipped"] is False       # it processed the series, not just acknowledged the message
 
 
 def test_push_messages_decode():

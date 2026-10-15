@@ -454,7 +454,7 @@ async def internal_new_data(request: Request):
         raise HTTPException(403, "forbidden")
     obs_cache.reset()
     try:
-        series = await asyncio.to_thread(ov.series, 5, True)
+        series = await asyncio.to_thread(ov.latest_series, 5)
     except ov.OverviewUnavailable as e:
         return {"skipped": True, "reason": str(e)}          # acknowledge: a retry would not help
     return await asyncio.to_thread(alerts.process_new_data, series)
