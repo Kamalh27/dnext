@@ -17,7 +17,6 @@ from google.genai import types
 from pydantic import BaseModel, Field
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
 
 from app.agent.agent import build_agent
 from app import briefing as briefing_mod
@@ -27,9 +26,20 @@ from app.agent.events import events_for_tool_result, forecast_events, scenario_e
 from app.geo import service, storage
 from app.geo.areas import AreaError, resolve
 from app.auth import gate
+from app.netutil import client_ip
 from app.settings import settings
 
 request_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("request_id", default="-")
+
+
+# Sent with every API response. The API returns JSON, event streams and a few print pages, none of which should be framed, sniffed or leak the address.
+SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+    "Cross-Origin-Resource-Policy": "cross-origin",   # the web app on another origin reads these responses
+}
 
 
 class JsonFormatter(logging.Formatter):
@@ -46,7 +56,7 @@ _h.setFormatter(JsonFormatter())
 logging.basicConfig(level=logging.INFO, handlers=[_h], force=True)
 log = logging.getLogger("api")
 APP_NAME = "landslidewatch"
-limiter = Limiter(key_func=get_remote_address, default_limits=[settings().rate_limit])
+limiter = Limiter(key_func=client_ip, default_limits=[settings().rate_limit])
 
 
 @asynccontextmanager
@@ -69,7 +79,7 @@ app.add_middleware(CORSMiddleware, allow_origins=settings().allowed_origins.spli
 @app.middleware("http")
 async def guard(request: Request, call_next):
     """Request id, size cap, 60 s timeout (SSE /chat exempt), access log."""
-    rid = request.headers.get("x-request-id") or uuid.uuid4().hex[:16]
+    rid = (request.headers.get("x-request-id") or "")[:64] or uuid.uuid4().hex[:16]
     request_id_var.set(rid)
     t0 = time.monotonic()
     try:
@@ -89,6 +99,8 @@ async def guard(request: Request, call_next):
         log.exception("unhandled error")
         resp = JSONResponse({"detail": "internal error"}, status_code=500)
     resp.headers["X-Request-ID"] = rid
+    for k, v in SECURITY_HEADERS.items():
+        resp.headers.setdefault(k, v)
     log.info("%s %s -> %s %.0fms", request.method, request.url.path, resp.status_code,
              (time.monotonic() - t0) * 1000)
     return resp
@@ -492,7 +504,7 @@ async def reports_submit(body: ReportIn, request: Request, account=Depends(gate(
     from app import photo, reports, routing
     if not routing.in_thailand(body.lat, body.lng):
         raise HTTPException(422, "The place must be in Thailand.")
-    acct = account.uid if not account.anonymous else request.client.host if request.client else "anon"
+    acct = account.uid if not account.anonymous else client_ip(request)
     try:
         return await asyncio.to_thread(reports.submit, acct, body.image_b64, body.lat, body.lng, body.language, body.note)
     except ValueError as e:

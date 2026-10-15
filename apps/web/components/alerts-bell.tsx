@@ -25,7 +25,7 @@ export function AlertsBell({ lang }: { lang: Lang }) {
   const when = (iso: string) => new Intl.DateTimeFormat(lang === "th" ? "th-TH" : "en-GB", { dateStyle: "medium", timeStyle: "short" }).format(new Date(iso));
   return (
     <div ref={box} className="relative">
-      <Button variant="ghost" size="icon" data-testid="alerts-bell" aria-label={a.unread ? `${tr.alertsTitle} (${a.unread})` : tr.alertsTitle} title={tr.alertsTitle} aria-expanded={open}
+      <Button variant="ghost" size="icon" data-testid="alerts-bell" data-tour="alerts" aria-label={a.unread ? `${tr.alertsTitle} (${a.unread})` : tr.alertsTitle} title={tr.alertsTitle} aria-expanded={open}
         className="relative text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground dark:text-foreground dark:hover:bg-accent dark:hover:text-accent-foreground"
         onClick={() => setOpen((o) => !o)}>
         <Bell />

@@ -58,6 +58,7 @@ export function ScenarioBar({ lang, provinces, selected, kpis, hasResults, onSel
         <label className="relative flex min-w-0 flex-1 items-center">
           <MapPin className="pointer-events-none absolute left-2 size-4 text-primary coarse:left-2.5" aria-hidden />
           <select
+            data-tour="province"
             aria-label={tr.provinceLabel}
             value={selected?.pcode ?? ""}
             onChange={(e) => onSelect(e.target.value || null)}
@@ -70,6 +71,7 @@ export function ScenarioBar({ lang, provinces, selected, kpis, hasResults, onSel
         <button
           type="button"
           onClick={report.onClick}
+          data-tour="report"
           disabled={!report.target || report.busy}
           data-testid="report-button"
           aria-label={tr.export}

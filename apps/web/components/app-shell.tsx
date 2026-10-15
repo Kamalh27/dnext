@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Header } from "./header";
+import { Tour } from "./tour";
 import { ViewTabs } from "./view-tabs";
 import { ResizeHandle } from "./resize-handle";
 import { ChatPanel, type Message } from "./chat-panel";
@@ -52,6 +53,7 @@ function activityText(ref: RunRef, p: Province, lang: Lang): string {
 export function AppShell() {
   const [lang, setLang] = useState<Lang>("en");
   const [tab, setTab] = useState<"chat" | "map">("chat");
+  const [tourOpen, setTourOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string[]>([]);
@@ -419,7 +421,8 @@ export function AppShell() {
         onAddToChat={(md) => setMessages((ms) => [...ms, { role: "assistant", text: md }])} />
       {reportOpen && reportTarget === "scenario" && kpis && <ReportModal lang={lang} source={{ mode: "scenario", kpis }} provinces={provinces} onClose={closeReport} />}
       {reportOpen && reportTarget === "overview" && series && <ReportModal lang={lang} source={{ mode: "overview", series, day: overviewDay }} provinces={provinces} onClose={closeReport} />}
-      <Header lang={lang} setLang={setLang} tab={tab} onTab={setTab} />
+      <Header lang={lang} setLang={setLang} tab={tab} onTab={setTab} onTour={() => setTourOpen(true)} />
+      <Tour lang={lang} open={tourOpen} onClose={() => setTourOpen(false)} tab={tab} onTab={setTab} />
       {/* Below 1024px the chat and the map are tabs (full-width panels); on short screens the tabs live inside the header instead. */}
       <div className="lg:hidden short:hidden">
         <ViewTabs lang={lang} tab={tab} onTab={setTab} bar />

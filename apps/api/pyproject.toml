@@ -3,7 +3,7 @@ name = "landslidewatch-api"
 version = "0.1.0"
 requires-python = ">=3.12,<3.14"
 dependencies = [
-  "google-adk==2.11.*",
+  "google-adk==2.12.*",
   "fastapi>=0.135",
   "uvicorn[standard]>=0.30",
   "pydantic>=2.12,<3",

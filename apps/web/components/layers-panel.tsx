@@ -77,11 +77,24 @@ function BoundariesRow({ lang, visible, onChange }: { lang: Lang; visible: boole
   );
 }
 
+/** The national overview's province colours: one switch, with a swatch of the risk ramp. */
+function OverviewRow({ lang, name, visible, onChange }: { lang: Lang; name: string; visible: boolean; onChange: (v: boolean) => void }) {
+  const tr = t(lang);
+  return (
+    <li className="flex items-center gap-2 px-2 py-1" data-testid="overview-layer-row">
+      <Switch checked={visible} label={`${tr.layerShow}: ${name}`} onClick={() => onChange(!visible)} />
+      <span className={cn("min-w-0 flex-1 truncate font-medium", !visible && "text-muted-foreground")} title={name}>{name}</span>
+    </li>
+  );
+}
+
 /** Scenario and reference layers: visibility switch, opacity slider and legend swatch. Layout only: the parent owns open/close. */
-export function LayersPanel({ id, lang, scenario, reference, onChange, boundaries, infra, onClose }: {
+export function LayersPanel({ id, lang, scenario, reference, onChange, boundaries, overviewLayer, infra, onClose }: {
   onClose: () => void;
   id: string; lang: Lang; scenario: MapLayerItem[]; reference: MapLayerItem[]; onChange: (id: string, p: LayerPatch) => void;
   boundaries?: { visible: boolean; onChange: (v: boolean) => void };
+  /** National overview only: the province colours, which have no tiles of their own. */
+  overviewLayer?: { name: string; visible: boolean; onChange: (v: boolean) => void };
   /** Affected infrastructure of the result on screen (Moderate risk or higher): toggles and what is available. */
   infra?: { counts: { buildings: number; roadKm: number; facilities: number }; state: InfraToggles; zoom: number; loading: boolean; truncated: boolean; onChange: (p: Partial<InfraToggles>) => void };
 }) {
@@ -91,7 +104,7 @@ export function LayersPanel({ id, lang, scenario, reference, onChange, boundarie
   const sections = [
     { key: "scenario", title: tr.layersScenario, items: scenario },
     { key: "reference", title: tr.layersReference, items: reference },
-  ].filter((x) => x.items.length > 0 || (x.key === "reference" && boundaries));
+  ].filter((x) => x.items.length > 0 || (x.key === "reference" && boundaries) || (x.key === "scenario" && overviewLayer));
   return (
     <div
       id={id}
@@ -125,6 +138,7 @@ export function LayersPanel({ id, lang, scenario, reference, onChange, boundarie
               {sec.title}
             </h3>
             <ul className="divide-y">
+              {sec.key === "scenario" && overviewLayer && <OverviewRow lang={lang} {...overviewLayer} />}
               {sec.key === "reference" && boundaries && <BoundariesRow lang={lang} visible={boundaries.visible} onChange={boundaries.onChange} />}
               {sec.items.map((l) => <LayerRow key={l.id} l={l} lang={lang} onChange={onChange} />)}
             </ul>

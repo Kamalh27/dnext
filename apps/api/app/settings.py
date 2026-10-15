@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     max_request_bytes: int = 16_384
     max_chat_save_bytes: int = 1_000_000      # saving a chat (PUT /chats/{id}) carries a whole conversation
     rate_limit: str = "30/minute"
+    trusted_proxy_hops: int = 0               # 1 on Cloud Run: believe the last X-Forwarded-For entry (see app/netutil.py). 0 = no proxy, ignore the header
     # --- sign-in + per-account limits (see app/auth.py, app/usage.py) ---
     auth_required: bool = False                 # True in production: chat/scenario/forecast need a Google sign-in
     # Firebase Authentication (Google provider). The web config values are PUBLIC identifiers, not secrets; /auth/config hands them to the UI.

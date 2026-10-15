@@ -68,4 +68,7 @@ When `AUTH_REQUIRED=true`, chat, scenarios and forecasts need a Google sign-in. 
 - On Cloud Run the API uses an attached service account, so no key file is baked into the image.
 - The Maps browser key is limited by HTTP referrer. The server-side geocoding key lives in Secret Manager.
 - CORS is limited to `ALLOWED_ORIGINS`, request bodies are capped, and requests time out after 60 seconds (chat streams excepted).
+- Every API response carries `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` and `Strict-Transport-Security`. The web app sends the same set plus a Content-Security-Policy that blocks plugins and framing and limits forms, a Permissions-Policy that allows only location and camera on our own pages, and no `X-Powered-By`. A full `script-src` policy is not used because Next.js and the map loader need inline scripts.
+- Rate limits are per caller address. Behind Cloud Run every request comes from Google's front end, so the API reads the address that the front end appends to `X-Forwarded-For` (the last entry, `TRUSTED_PROXY_HOPS=1`) and ignores anything the client put before it. Without that setting the header is not trusted.
+- CI audits the locked Python packages (`pip-audit`) and the web packages that ship to users (`pnpm audit --prod`), and Dependabot opens weekly update pull requests. Development-only tools are not part of the web audit.
 - Project-specific Earth Engine layer paths and credentials stay out of git. See [config-reference.md](config-reference.md).
