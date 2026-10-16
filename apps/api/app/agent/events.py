@@ -11,6 +11,7 @@ STATUS_LABELS = {
     "generate_briefing": ("briefing", "Writing briefing…"),
     "get_top_provinces": ("ranking", "Ranking provinces by risk…"),
     "get_top_tambons": ("ranking", "Ranking tambons by risk…"),
+    "get_current_exposure": ("exposure", "Counting what is at risk…"),
 }
 
 
@@ -166,9 +167,35 @@ def top_tambons_events(r: dict) -> list[tuple[str, dict]]:
     return ev
 
 
+def current_exposure_events(r: dict) -> list[tuple[str, dict]]:
+    a = r["area"]
+    where = a["name"] if a["level"] in ("national", "province") else f"{a['name']} ({a.get('amphoe') or a.get('province', '')})".replace(" ()", "")
+    where_th = (a.get("name_th") or a["name"]) if a["level"] in ("national", "province") else f"{a.get('name_th') or a['name']} ({a.get('amphoe_th') or a.get('province_th') or ''})".replace(" ()", "")
+    cell = lambda v: "n/a" if v is None else v
+    sid = f"exposure-{a['level']}-{a['name']}-{r['horizon_days']}-{r['min_class']}"
+    ev = [("table", {
+        "id": sid, "title": f"At risk in {where} ({_when(r)}; {r['min_class']} or higher)", "title_th": f"ที่มีความเสี่ยงใน{where_th} ({_when(r, True)})",
+        "columns": ["Area", "People (est.)", "Buildings (est.)", "Hospitals", "Schools", "Main roads (km)"], "columns_th": th.EXPOSURE_COLUMNS,
+        "rows": [[where, r["people_est"], cell(r["buildings_est"]), cell(r["hospitals"]), cell(r["schools"]), cell(r["main_road_km"])]],
+        "rows_th": [[where_th, r["people_est"], cell(r["buildings_est"]), cell(r["hospitals"]), cell(r["schools"]), cell(r["main_road_km"])]],
+    })]
+    named = r["named_facilities"]
+    if named:
+        ev.append(("table", {
+            "id": f"{sid}-facilities", "title": f"Hospitals and schools at risk: {where}", "title_th": f"โรงพยาบาลและโรงเรียนที่มีความเสี่ยง: {where_th}",
+            "columns": ["Name", "Type", "Tambon", "Risk 0-5", "Class"], "columns_th": th.FACILITY_COLUMNS,
+            "rows": [[f["name"], f["kind"], f["tambon"], f["risk"], f.get("risk_class_name", "")] for f in named],
+            "rows_th": [[f.get("name_th") or f["name"], th.KIND_TH.get(f["kind"], f["kind"]), f.get("tambon_th") or f["tambon"], f["risk"],
+                         f.get("risk_class_name_th", "")] for f in named],
+        }))
+    return ev
+
+
 def events_for_tool_result(tool: str, result: dict) -> list[tuple[str, dict]]:
     if result.get("status") != "ok":
         return []
+    if tool == "get_current_exposure":
+        return current_exposure_events(result)
     if tool == "get_top_provinces":
         return top_provinces_events(result)
     if tool == "get_top_tambons":

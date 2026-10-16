@@ -384,3 +384,60 @@ def top_tambons(scope: dict, horizon_days: int = 0, limit: int = 5) -> dict:
             "top_if_rain_reaches_the_top_trigger": rank(top_rows),
             "note": "top_now lists tambons whose rainfall is above their trigger on landslide-prone ground; it is empty when none is. "
                     "top_if_rain_reaches_the_top_trigger ranks the ground itself and is not a forecast."}
+
+
+_MIN_CLASS_CUTOFF = {"Moderate": 1, "High": 2, "Very high": 3}     # index into the risk cutoffs: risk >= 2, >= 3, >= 4
+
+
+def exposure(scope: dict, horizon_days: int = 0, min_class: str = "Moderate", limit: int = 10) -> dict:
+    """People, buildings, hospitals, schools and main roads inside the zone at or above min_class, for the whole country, a province, a district
+    or one tambon, with the named hospitals and schools at risk. Same numbers as the national overview (it sums the same tambon rows).
+
+    scope: {"level": "national"|"province"|"amphoe"|"tambon", "code": "TH50"|"TH5001"|"TH500101"}."""
+    data, ss = obs_cache.load(), static_stats.load()
+    if not data or not ss:
+        raise OverviewUnavailable("Daily rainfall precompute is missing")
+    src = tambon_risk.cfg()["trigger"]["observed_source"]
+    if not obs_cache.usable(data, src, tambon_risk.cfg()["trigger"]["window_days"]):
+        raise OverviewUnavailable("Daily rainfall precompute is missing or stale")
+    f = data.get("forecast") or {}
+    if horizon_days and (str(horizon_days) not in {str(k) for k in f.get("horizons", {})} or time.time() * 1000 - f.get("run_ms", 0) > obs_cache.MAX_FORECAST_AGE_MS):
+        raise OverviewUnavailable("No fresh GFS forecast in the precompute for this horizon")
+    if min_class not in _MIN_CLASS_CUTOFF:
+        raise OverviewUnavailable("min_class must be Moderate, High or Very high")
+    level = scope.get("level")
+    key = {"province": "pc", "amphoe": "ac", "tambon": None, "national": None}.get(level, "bad")
+    if key == "bad":
+        raise OverviewUnavailable("Unknown level")
+    meta = data["tambon"]
+    rows = [r for r in _rows(data, horizon_days)
+            if level == "national" or (level == "tambon" and r["adm3_pcode"] == scope["code"]) or (key and meta[r["adm3_pcode"]].get(key) == scope["code"])]
+    if not rows:
+        raise OverviewUnavailable("No tambons found for this area")
+    prone = static_stats.prone_codes(ss)
+    for r in rows:
+        if r["adm3_pcode"] not in prone:
+            r["trigger_class"] = 0
+    rk = tambon_risk.cfg()["risk"]
+    feats = static_stats.load_features()
+    hv = rk["cutoffs"][_MIN_CLASS_CUTOFF[min_class]]
+    foot = load_yaml("thresholds.yaml")["exposure"].get("avg_footprint_m2", 60.0)
+    st = static_stats.tambon_stats(ss, [r for r in rows if r["adm3_pcode"] in ss["tambon"]], high_value=hv, features=feats, footprint_m2=foot)["rows"]
+    people = sum(x.get("people_high") or 0.0 for x in st.values())
+    have = feats is not None
+    tot = {k: sum(x.get(k) or 0.0 for x in st.values()) for k in ("buildings", "hospitals", "schools", "road_km")}
+    fac = static_stats.facilities_at_risk(static_stats.load_facilities(), rows, rk["cutoffs"], rk["divisor"], rk["class_names"], rk["class_names_th"], prone)
+    cls_ok = {c for c, n in enumerate(rk["class_names"], 1) if c >= _MIN_CLASS_CUTOFF[min_class] + 2}
+    named = [x for x in fac["items"] if x.get("risk_class") in cls_ok][: max(1, min(limit, 20))]
+    named_all = [x for x in fac["items"] if x.get("risk_class") in cls_ok]
+    return {"horizon_days": horizon_days, "kind": "forecast" if horizon_days else "observed", "date_of_data": data["date_of_data"],
+            "model_run_time": f.get("model_run_time") if horizon_days else None, "min_class": min_class, "tambons_total": len(rows),
+            "tambons_above_trigger": sum(1 for r in rows if r["trigger_class"] > 0),
+            "people_est": int(round(people, -2)) if people >= 100 else int(round(people, -1)),
+            "buildings_est": int(round(tot["buildings"], -1)) if have else None,
+            "hospitals": int(round(tot["hospitals"])) if have else None, "schools": int(round(tot["schools"])) if have else None,
+            "main_road_km": round(tot["road_km"], 1) if have else None,
+            "named_hospitals_at_risk": sum(1 for x in named_all if x["kind"] == "hospital"), "named_schools_at_risk": sum(1 for x in named_all if x["kind"] == "school"),
+            "named_facilities": [{"name": x["name"], "name_th": x["name_th"], "kind": x["kind"], "tambon": x["tambon"], "tambon_th": x["tambon_th"],
+                                  "amphoe": x["amphoe"], "amphoe_th": x["amphoe_th"], "risk": x["risk"], "risk_class_name": x.get("risk_class_name"),
+                                  "risk_class_name_th": x.get("risk_class_name_th")} for x in named]}

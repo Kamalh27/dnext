@@ -2,7 +2,7 @@
 import logging
 
 from app import briefing
-from app.geo import overview, service
+from app.geo import overview, places, service
 from app.geo.areas import AreaError, resolve
 
 log = logging.getLogger("tools")
@@ -102,6 +102,67 @@ def get_forecast_hazard(area: str, horizon_days: int = 5) -> dict:
         return _err(e)
 
 
+_NATIONAL = {"thailand", "allthailand", "nationwide", "national", "country", "wholecountry", "thewholecountry", "ประเทศไทย", "ทั้งประเทศ", "ทั่วประเทศ", "ไทย"}
+
+
+def _scope(area: str, national_ok: bool) -> tuple[dict, dict]:
+    """(scope for the overview functions, display info). Whole country, then an exact province, then a district or tambon, then a fuzzy province."""
+    q = (area or "").strip()
+    if national_ok and places.norm(q) in _NATIONAL:
+        return {"level": "national"}, {"name": "Thailand", "name_th": "ประเทศไทย", "level": "national"}
+    try:
+        prov = places.province_of(q)
+        if prov:
+            return {"level": "province", "code": prov["code"]}, {"name": prov["name"], "name_th": prov["name_th"], "level": "province"}
+        pl = places.find(q)
+        shown = {"name": pl["name"], "name_th": pl["name_th"], "level": pl["level"], "province": pl["province"], "province_th": pl["province_th"]}
+        if pl["level"] == "tambon":
+            shown.update(amphoe=pl["amphoe"], amphoe_th=pl["amphoe_th"])
+        return {"level": pl["level"], "code": pl["code"]}, shown
+    except places.PlaceError as e:
+        if not e.candidates:                       # nothing similar among tambons or districts: maybe a misspelt or alternative province name
+            try:
+                a = resolve(q)
+                if a.level == "province":
+                    return {"level": "province", "code": a.pcode}, {"name": a.name, "name_th": a.name_th, "level": "province"}
+            except AreaError:
+                pass
+        raise PlaceNotFound(str(e), e.candidates)       # several places share the name, or a close spelling exists: the user chooses, we never guess
+
+
+class PlaceNotFound(ValueError):
+    def __init__(self, message: str, candidates: list[str]):
+        super().__init__(message)
+        self.candidates = candidates
+
+
+def get_current_exposure(area: str, horizon_days: int = 0, min_class: str = "Moderate") -> dict:
+    """How many people, buildings, hospitals, schools and kilometres of main road are inside the landslide-risk zone right now, for the WHOLE COUNTRY
+    ("Thailand"), a province, a district (amphoe) or one tambon, plus the named hospitals and schools at risk. Use this for "how many buildings /
+    schools / hospitals / roads / people are at risk in X". It uses today's observed rain (horizon_days 0) or observed + forecast (1-5), NOT a what-if
+    scenario; only use get_exposure when the user gives a rainfall amount. If place_candidates comes back, ask the user which one they mean.
+
+    Args:
+        area: "Thailand" for the whole country, or a province, district or tambon name (English or Thai, "Suthep, Chiang Mai" for a repeated name).
+        horizon_days: 0 (latest observed) to 5 (cumulative forecast).
+        min_class: The lowest risk class counted: "Moderate" (default, risk 2 or more), "High" or "Very high".
+    """
+    try:
+        h = int(horizon_days)
+        if not 0 <= h <= 5:
+            return {"status": "error", "message": "horizon_days must be between 0 and 5."}
+        mc = (min_class or "Moderate").strip().capitalize().replace("Very High", "Very high")
+        scope, shown = _scope(area, national_ok=True)
+        return {"status": "ok", "area": shown, **overview.exposure(scope, h, mc)}
+    except PlaceNotFound as e:
+        return {"status": "error", "message": str(e), "place_candidates": e.candidates}
+    except overview.OverviewUnavailable as e:
+        return _err(e)
+    except Exception as e:
+        log.exception("current exposure failed")
+        return _err(e)
+
+
 def get_top_provinces(horizon_days: int = 0, limit: int = 5) -> dict:
     """Rank Thailand's provinces by landslide risk. Use this for "which provinces are at highest risk now / today / this week", never get_forecast_hazard
     on a guessed province. horizon_days 0 = latest observed conditions; 1-5 = observed + forecast rain up to that many days ahead (use 5 for "this week").
@@ -137,12 +198,13 @@ def get_top_tambons(area: str, horizon_days: int = 0, limit: int = 5) -> dict:
         h, n = int(horizon_days), int(limit)
         if not 0 <= h <= 5:
             return {"status": "error", "message": "horizon_days must be between 0 and 5."}
-        a = resolve(area)
-        code = getattr(a, "pcode", None) or getattr(a, "admin_code", None)
-        if a.level not in ("province", "amphoe") or not code:
-            return {"status": "error", "message": "Give a province or a district, not a single tambon or a coordinate."}
-        out = overview.top_tambons({"level": a.level, "pcode": code}, h, n)
-        return {"status": "ok", "area": {"name": a.name, "name_th": a.name_th, "level": a.level}, **out}
+        scope, shown = _scope(area, national_ok=False)
+        if scope["level"] not in ("province", "amphoe"):
+            return {"status": "error", "message": "Give a province or a district, not a single tambon."}
+        out = overview.top_tambons({"level": scope["level"], "pcode": scope["code"]}, h, n)
+        return {"status": "ok", "area": shown, **out}
+    except PlaceNotFound as e:
+        return {"status": "error", "message": str(e), "place_candidates": e.candidates}
     except (AreaError, overview.OverviewUnavailable) as e:
         return _err(e)
     except Exception as e:
@@ -201,5 +263,5 @@ def generate_briefing(scenario_id: str, language: str = "en") -> dict:
         return _err(e)
 
 
-TOOLS = [resolve_area, get_hazard_scenario, get_forecast_hazard, get_top_provinces, get_top_tambons, get_exposure, compare_scenarios,
+TOOLS = [resolve_area, get_hazard_scenario, get_forecast_hazard, get_top_provinces, get_top_tambons, get_current_exposure, get_exposure, compare_scenarios,
          explain_cell_or_village, generate_briefing]
