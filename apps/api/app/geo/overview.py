@@ -304,3 +304,83 @@ def tambon_snapshot(horizon_days: int = 0) -> list[dict]:
     return [{"tambon_code": r["adm3_pcode"], "province_code": r["pc"], "rain30_mm": None if r["rain30_mm"] is None else round(r["rain30_mm"], 1),
              "trigger_class": r["trigger_class"], "risk_max": round(st.get(r["adm3_pcode"], {}).get("risk_max") or 0.0, 2),
              "people_elevated": int(round(st.get(r["adm3_pcode"], {}).get("people_high") or 0.0))} for r in rows]
+
+
+def _class_name(risk_class: int, th: bool = False) -> str:
+    rk = tambon_risk.cfg()["risk"]
+    names = rk["class_names_th"] if th else rk["class_names"]
+    return names[max(1, min(int(risk_class), len(names))) - 1]
+
+
+def top_provinces(horizon_days: int = 0, limit: int = 5) -> dict:
+    """The provinces with the highest peak risk for one slider day (0 = latest observed, 1..5 = cumulative forecast), from the cached 5-day overview."""
+    s = series(5)
+    day = next((d for d in s["days"] if d["h"] == horizon_days), None)
+    if day is None:
+        raise OverviewUnavailable(s.get("forecast_note") or "No fresh GFS forecast in the precompute for this horizon")
+    top = []
+    for p in day["provinces"][: max(1, min(limit, 10))]:
+        top.append({"pcode": p["pcode"], "name": p["name"], "name_th": p["name_th"], "risk_class": p["risk_class"],
+                    "risk_class_name": _class_name(p["risk_class"]) if p["risk_class"] else "No tambon above its trigger on susceptible ground",
+                    "risk_class_name_th": _class_name(p["risk_class"], True) if p["risk_class"] else "ไม่มีตำบลที่เกินตัวกระตุ้นบนพื้นที่อ่อนไหว",
+                    "peak_risk": p["risk_max"], "tambons_above_trigger": p["triggered"], "tambons": p["tambons"], "people_in_elevated_risk_est": p["people_elevated"],
+                    **{k: p[k] for k in ("buildings", "hospitals", "schools", "road_km") if k in p}})
+    t = day["totals"]
+    return {"horizon_days": horizon_days, "kind": "forecast" if horizon_days else "observed", "date": day["date"], "date_of_data": s["date_of_data"],
+            "model_run_time": s.get("model_run_time") if horizon_days else None, "provinces_total": t["provinces_total"],
+            "provinces_with_a_tambon_above_trigger": t["provinces_triggered"], "tambons_above_trigger": t["triggered"], "tambons_total": t["tambons_total"],
+            "provinces_at_moderate_or_higher": sum(1 for p in day["provinces"] if p["risk_class"] >= 3), "top": top,
+            "ranking": "Peak tambon risk in the province, then people in the Moderate-or-higher zone."}
+
+
+def top_tambons(scope: dict, horizon_days: int = 0, limit: int = 5) -> dict:
+    """The tambons of a province or district with the highest risk now (or on a forecast day), and, separately, the ones that would be highest if
+    rain reached the top trigger class: the ground itself (susceptibility x vulnerability x exposure) decides where heavy rain hurts most.
+
+    scope: {"level": "province"|"amphoe", "pcode": "TH50"} (the codes of app.geo.areas)."""
+    data, ss = obs_cache.load(), static_stats.load()
+    if not data or not ss:
+        raise OverviewUnavailable("Daily rainfall precompute is missing")
+    src = tambon_risk.cfg()["trigger"]["observed_source"]
+    if not obs_cache.usable(data, src, tambon_risk.cfg()["trigger"]["window_days"]):
+        raise OverviewUnavailable("Daily rainfall precompute is missing or stale")
+    f = data.get("forecast") or {}
+    if horizon_days and (str(horizon_days) not in {str(k) for k in f.get("horizons", {})} or time.time() * 1000 - f.get("run_ms", 0) > obs_cache.MAX_FORECAST_AGE_MS):
+        raise OverviewUnavailable("No fresh GFS forecast in the precompute for this horizon")
+    key = {"province": "pc", "amphoe": "ac"}.get(scope.get("level", ""))
+    if not key:
+        raise OverviewUnavailable("Give a province or a district (amphoe)")
+    meta = data["tambon"]
+    rows = [r for r in _rows(data, horizon_days) if meta[r["adm3_pcode"]].get(key) == scope["pcode"]]
+    if not rows:
+        raise OverviewUnavailable("No tambons found for this area")
+    prone = static_stats.prone_codes(ss)
+    now_rows = [dict(r, trigger_class=r["trigger_class"] if r["adm3_pcode"] in prone else 0) for r in rows if r["adm3_pcode"] in ss["tambon"]]
+    top_rows = [dict(r, trigger_class=5 if r["adm3_pcode"] in prone else 0) for r in now_rows]
+    cut = tambon_risk.cfg()["risk"]["cutoffs"]
+    by_code = {r["adm3_pcode"]: r for r in rows}
+
+    def rank(rr: list[dict]) -> list[dict]:
+        st = static_stats.tambon_stats(ss, rr)["rows"]
+        out = []
+        for r in rr:
+            x = st.get(r["adm3_pcode"], {})
+            rm = x.get("risk_max") or 0.0
+            if rm <= 0:
+                continue
+            m = by_code[r["adm3_pcode"]]
+            rc = tambon_risk.risk_class(rm, cut)
+            out.append({"tambon": m["adm3_name"], "tambon_th": m["adm3_name1"], "amphoe": m["adm2_name"], "amphoe_th": m["adm2_name1"],
+                        "trigger_class": r["trigger_class"], "rain_30d_mm": None if m["rain30_mm"] is None else round(m["rain30_mm"], 1),
+                        "peak_risk": round(rm, 2), "risk_class": rc, "risk_class_name": _class_name(rc), "risk_class_name_th": _class_name(rc, True),
+                        "people_in_elevated_risk_est": int(round(x.get("people_high") or 0.0, -1))})
+        out.sort(key=lambda t: (-t["peak_risk"], -t["people_in_elevated_risk_est"], t["tambon"]))
+        return out[: max(1, min(limit, 10))]
+
+    now = rank(now_rows)
+    return {"horizon_days": horizon_days, "kind": "forecast" if horizon_days else "observed", "date_of_data": data["date_of_data"],
+            "model_run_time": f.get("model_run_time") if horizon_days else None, "tambons_total": len(rows),
+            "tambons_above_trigger": sum(1 for r in now_rows if r["trigger_class"] > 0), "top_now": now,
+            "top_if_rain_reaches_the_top_trigger": rank(top_rows),
+            "note": "top_now lists tambons whose rainfall is above their trigger on landslide-prone ground; it is empty when none is. "
+                    "top_if_rain_reaches_the_top_trigger ranks the ground itself and is not a forecast."}

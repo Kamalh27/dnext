@@ -52,7 +52,7 @@ The API reads the files from `apps/api/.local_storage/risk/` when they exist the
 ## What happens on a chat question
 
 1. The browser posts the message to `POST /chat`.
-2. The ADK agent (Gemini) decides which tools to call: `resolve_area`, `get_hazard_scenario`, `get_forecast_hazard`, `get_exposure`, `compare_scenarios`, `explain_cell_or_village` or `generate_briefing`.
+2. The ADK agent (Gemini) decides which tools to call: `resolve_area`, `get_hazard_scenario`, `get_forecast_hazard`, `get_top_provinces`, `get_top_tambons`, `get_exposure`, `compare_scenarios`, `explain_cell_or_village` or `generate_briefing`. The two ranking tools answer "which provinces are at highest risk now or this week" and "which tambons in a province are at highest risk" from the daily files, without running a scenario: they say plainly when nothing is above its rainfall trigger and then rank the ground (where heavy rain would hurt most), labelled as not a forecast.
 3. The geo service runs the tool. A scenario result is cached in Firestore under a hash of the area, rainfall, duration and date. Forecasts are kept for 24 hours and what-if scenarios for 30 days.
 4. The API turns each tool result into typed SSE events (status, map layers, table, chart, KPIs). The UI draws these directly and never parses the model's text. See [event_contract.md](event_contract.md).
 5. The model writes a short summary from the tool results. The prompt forbids numbers that did not come from a tool.

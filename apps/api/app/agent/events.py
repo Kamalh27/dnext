@@ -9,6 +9,8 @@ STATUS_LABELS = {
     "get_forecast_hazard": ("forecasting", "Fetching rainfall forecast and computing hazard…"),
     "get_exposure": ("exposure", "Computing exposure…"),
     "generate_briefing": ("briefing", "Writing briefing…"),
+    "get_top_provinces": ("ranking", "Ranking provinces by risk…"),
+    "get_top_tambons": ("ranking", "Ranking tambons by risk…"),
 }
 
 
@@ -122,9 +124,55 @@ def forecast_events(r: dict) -> list[tuple[str, dict]]:
     return ev
 
 
+def _when(r: dict, th_: bool = False) -> str:
+    if r["horizon_days"] == 0:
+        return f"ข้อมูลตรวจวัดล่าสุด {r['date_of_data']}" if th_ else f"latest observed, {r['date_of_data']}"
+    return f"ตรวจวัด + พยากรณ์ {r['horizon_days']} วัน" if th_ else f"observed + {r['horizon_days']}-day forecast"
+
+
+def top_provinces_events(r: dict) -> list[tuple[str, dict]]:
+    rows = [[p["name"], p["risk_class_name"] if p["risk_class"] else "-", p["peak_risk"], f"{p['tambons_above_trigger']} / {p['tambons']}", p["people_in_elevated_risk_est"]]
+            for p in r["top"]]
+    rows_th = [[p["name_th"], p["risk_class_name_th"] if p["risk_class"] else "-", p["peak_risk"], f"{p['tambons_above_trigger']} / {p['tambons']}", p["people_in_elevated_risk_est"]]
+               for p in r["top"]]
+    return [("table", {
+        "id": f"top-provinces-{r['horizon_days']}", "title": f"Provinces with the highest risk ({_when(r)})", "title_th": f"จังหวัดที่มีความเสี่ยงสูงสุด ({_when(r, True)})",
+        "columns": ["Province", "Risk class", "Peak risk 0-5", "Tambons above trigger", "People in elevated risk (est.)"], "columns_th": th.TOP_PROVINCE_COLUMNS,
+        "rows": rows, "rows_th": rows_th,
+    })]
+
+
+def top_tambons_events(r: dict) -> list[tuple[str, dict]]:
+    a, ev = r["area"], []
+
+    def table(key: str, tid: str, en: str, th_title: str) -> None:
+        items = r[key]
+        if not items:
+            return
+        ev.append(("table", {
+            "id": f"{tid}-{r['horizon_days']}-{a['name']}", "title": f"{en}: {a['name']}", "title_th": f"{th_title}: {a.get('name_th') or a['name']}",
+            "columns": ["Tambon (amphoe)", "Risk class", "Peak risk 0-5", "Trigger 0-5", "People in elevated risk (est.)"], "columns_th": th.TOP_TAMBON_COLUMNS,
+            "rows": [[f"{t['tambon']} ({t['amphoe']})", t["risk_class_name"], t["peak_risk"], t["trigger_class"], t["people_in_elevated_risk_est"]] for t in items],
+            "rows_th": [[f"{t['tambon_th'] or t['tambon']} ({t['amphoe_th'] or t['amphoe']})", t["risk_class_name_th"], t["peak_risk"], t["trigger_class"],
+                         t["people_in_elevated_risk_est"]] for t in items],
+        }))
+
+    table("top_now", "top-tambons-now", f"Tambons with the highest risk ({_when(r)})", f"ตำบลที่มีความเสี่ยงสูงสุด ({_when(r, True)})")
+    now_names = [t["tambon"] for t in r["top_now"]]
+    if now_names == [t["tambon"] for t in r["top_if_rain_reaches_the_top_trigger"]]:
+        return ev                       # the same list again (every top tambon is already at the top trigger): one table is enough
+    table("top_if_rain_reaches_the_top_trigger", "top-tambons-ground", "Where heavy rain would hurt most (ground, not a forecast)",
+          "จุดที่ฝนตกหนักจะกระทบมากที่สุด (ดูจากพื้นที่ ไม่ใช่ผลพยากรณ์)")
+    return ev
+
+
 def events_for_tool_result(tool: str, result: dict) -> list[tuple[str, dict]]:
     if result.get("status") != "ok":
         return []
+    if tool == "get_top_provinces":
+        return top_provinces_events(result)
+    if tool == "get_top_tambons":
+        return top_tambons_events(result)
     if tool == "get_hazard_scenario":
         return scenario_events(result)
     if tool == "get_forecast_hazard":

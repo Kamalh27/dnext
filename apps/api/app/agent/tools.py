@@ -2,7 +2,7 @@
 import logging
 
 from app import briefing
-from app.geo import service
+from app.geo import overview, service
 from app.geo.areas import AreaError, resolve
 
 log = logging.getLogger("tools")
@@ -102,6 +102,54 @@ def get_forecast_hazard(area: str, horizon_days: int = 5) -> dict:
         return _err(e)
 
 
+def get_top_provinces(horizon_days: int = 0, limit: int = 5) -> dict:
+    """Rank Thailand's provinces by landslide risk. Use this for "which provinces are at highest risk now / today / this week", never get_forecast_hazard
+    on a guessed province. horizon_days 0 = latest observed conditions; 1-5 = observed + forecast rain up to that many days ahead (use 5 for "this week").
+    Returns the top provinces with their risk class, peak tambon risk, tambons above their rainfall trigger and people (est.) in the Moderate-or-higher zone.
+
+    Args:
+        horizon_days: 0 (latest observed) to 5 (cumulative forecast).
+        limit: How many provinces to return, 1-10 (default 5).
+    """
+    try:
+        h, n = int(horizon_days), int(limit)
+        if not 0 <= h <= 5:
+            return {"status": "error", "message": "horizon_days must be between 0 and 5."}
+        return {"status": "ok", **overview.top_provinces(h, n)}
+    except overview.OverviewUnavailable as e:
+        return _err(e)
+    except Exception as e:
+        log.exception("top provinces failed")
+        return _err(e)
+
+
+def get_top_tambons(area: str, horizon_days: int = 0, limit: int = 5) -> dict:
+    """The highest-risk tambons inside one province or district. Use this for "which tambons in X are at highest risk" (without a rainfall amount).
+    top_now = tambons above their rainfall trigger today (or on the forecast day) on landslide-prone ground; it is empty when none is.
+    top_if_rain_reaches_the_top_trigger = where heavy rain would hurt most (the ground: susceptibility x vulnerability x exposure). It is not a forecast.
+
+    Args:
+        area: A province (or district) name.
+        horizon_days: 0 (latest observed) to 5 (cumulative forecast).
+        limit: How many tambons to return, 1-10 (default 5).
+    """
+    try:
+        h, n = int(horizon_days), int(limit)
+        if not 0 <= h <= 5:
+            return {"status": "error", "message": "horizon_days must be between 0 and 5."}
+        a = resolve(area)
+        code = getattr(a, "pcode", None) or getattr(a, "admin_code", None)
+        if a.level not in ("province", "amphoe") or not code:
+            return {"status": "error", "message": "Give a province or a district, not a single tambon or a coordinate."}
+        out = overview.top_tambons({"level": a.level, "pcode": code}, h, n)
+        return {"status": "ok", "area": {"name": a.name, "name_th": a.name_th, "level": a.level}, **out}
+    except (AreaError, overview.OverviewUnavailable) as e:
+        return _err(e)
+    except Exception as e:
+        log.exception("top tambons failed")
+        return _err(e)
+
+
 def get_exposure(area: str, scenario_id: str = "", min_class: str = "High") -> dict:
     """Get exposed people, households (est.), buildings, roads and facilities for a scenario.
     Uses the cached scenario if scenario_id is given; otherwise runs a default 250 mm / 72 h scenario
@@ -153,5 +201,5 @@ def generate_briefing(scenario_id: str, language: str = "en") -> dict:
         return _err(e)
 
 
-TOOLS = [resolve_area, get_hazard_scenario, get_forecast_hazard, get_exposure, compare_scenarios,
+TOOLS = [resolve_area, get_hazard_scenario, get_forecast_hazard, get_top_provinces, get_top_tambons, get_exposure, compare_scenarios,
          explain_cell_or_village, generate_briefing]

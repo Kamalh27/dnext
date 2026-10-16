@@ -53,7 +53,7 @@ def test_markers_in_scenario_events():
 
 def test_agent_builds_with_all_tools():
     from app.agent.agent import root_agent
-    assert len(root_agent.tools) == 7
+    assert len(root_agent.tools) == 9
 
 
 def test_prompt_forbids_warning_wording_and_long_answers():
