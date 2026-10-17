@@ -184,7 +184,7 @@ git config core.hooksPath .githooks
 
 ## Documentation
 
-[Risk method](docs/risk_method.md) · [Data sources](docs/data_sources.md) · [Configuration reference](docs/config-reference.md) · [Limitations](docs/limitations.md) · [Architecture](docs/architecture.md) · [Event contract](docs/event_contract.md) · [Alternative screening method](docs/method.md)
+[Risk method](docs/risk_method.md) · [Data sources](docs/data_sources.md) · [Configuration reference](docs/config-reference.md) · [Limitations](docs/limitations.md) · [Architecture](docs/architecture.md) · [Event contract](docs/event_contract.md) · [Alternative screening method](docs/method.md) · [Team](docs/team.md)
 
 ## Notes on the results
 

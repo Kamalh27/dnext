@@ -4,6 +4,8 @@ Copy-ready answers for the submission form. The deck is `DNext_proposal.pdf` (14
 
 ## Project
 
+**Team:** DNext (Disaster Next) Team: Kamal Hosen (Geospatial Application Developer, kamal.hosen@adpc.net) and Hafsah Ilmy (Geospatial Data Scientist, Landslide Model Developer, hafsah.ilmy@adpc.net). See [../team.md](../team.md).
+
 **Name:** DNext · LandslideWatch TH
 
 **One line:** Landslide risk screening for Thailand in plain language: where heavy rain is most likely to trigger landslides, and who and what sits in the way.
