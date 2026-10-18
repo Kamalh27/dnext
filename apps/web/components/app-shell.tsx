@@ -176,6 +176,8 @@ export function AppShell() {
 
   // Overview mode: nothing selected and no results. A province or a result leaves it; clearing both brings it back.
   const overviewOn = !!series && !selected && !hasResults;
+  // The map keeps the national risk layer for answers that are only a table or a chart (a ranking, say); a scenario layer, KPIs or markers replace it.
+  const mapOverviewOn = !!series && !selected && !(layer || layers || kpis || markers.length);
   const [wasOverview, setWasOverview] = useState(overviewOn);
   if (wasOverview !== overviewOn) {
     setWasOverview(overviewOn);
@@ -473,7 +475,7 @@ export function AppShell() {
         </div>
         <div id="panel-map" className={cn("min-h-0", tab === "map" ? "block" : "hidden lg:block")}>
           <MapBoundary lang={lang}><MapPanel lang={lang} layer={layer} layers={layers} staticLayers={staticLayers} markers={allMarkers} provinces={provinces} selected={selected} onSelect={selectProvince}
-            overview={overviewOn && series ? { series, day: overviewDay, metric: overviewMetric, playing } : null}
+            overview={mapOverviewOn && series ? { series, day: overviewDay, metric: overviewMetric, playing } : null}
             onOverviewDay={pickOverviewDay}
             onOverviewMetric={setOverviewMetric}
             onOverviewPlay={() => setPlaying((v) => !v)}
