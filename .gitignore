@@ -4,6 +4,7 @@
 __pycache__/
 .venv/
 node_modules/
+docs/submission/
 .next/
 *.pyc
 .DS_Store
