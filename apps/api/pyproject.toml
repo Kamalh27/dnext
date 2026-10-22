@@ -22,7 +22,7 @@ dependencies = [
 dev = ["pytest>=8", "pytest-asyncio>=1.4.0"]
 scripts = [
     "geopandas>=1.2.0",
-    "osmium>=4.3.1",
+    "osmium>=4.3.2",
     "pyogrio>=0.13.0",
     "rasterio>=1.5.2",
     "shapely>=2.2.0",
